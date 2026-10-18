@@ -37,7 +37,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array) -> void:
 	_river(c, time, cam)
 	for pad in pads:
 		var screen := Vector2(float(pad["x"]), ANCHOR - (float(pad["m"]) - cam) * SCALE)
@@ -48,6 +48,11 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 			_coin(c, screen + Vector2(11, -25 + sin(time * 3.0 + float(pad["id"])) * 3), time)
 		if bool(pad["pet"]):
 			_friend(c, screen + Vector2(0, -18), int(pad["id"]) % 4, 0.82, time)
+	for ripple in ripples:
+		var age: float = float(ripple["age"])
+		var pos: Vector2 = ripple["pos"]
+		var radius: float = (15.0 + age * 88.0) * float(ripple["size"])
+		c.draw_arc(pos, radius, 0.0, TAU, 56, Color(0.99, 1.0, 0.91, (1.0 - age / 0.78) * 0.65), 2.9 * (1.0 - age / 0.9), true)
 	_wave(c, ANCHOR - (wave_m - cam) * SCALE, time)
 	if aiming:
 		_aim_guide(c, player_at, aim_at, time, aim_valid)
@@ -56,6 +61,12 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		var p: Vector2 = particle["pos"]
 		var life: float = particle["life"]
 		c.draw_circle(p, 2.0 + 5.0 * life, Color(1, 0.94, 0.65, life))
+	for floating in float_texts:
+		var life: float = float(floating["life"])
+		var p: Vector2 = floating["pos"]
+		var ink: Color = floating["color"]
+		ink.a = clampf(life * 1.45, 0.0, 1.0)
+		text(c, String(floating["text"]), p, 22, ink, true)
 	_hud(c, score, best, pets, distance, wave_m, cam, combo, mode)
 	if mode == 0:
 		_start_overlay(c, time)
