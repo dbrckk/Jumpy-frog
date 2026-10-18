@@ -37,7 +37,9 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float) -> void:
+	# Shake is applied only to the illustrated world; HUD remains legible.
+	c.draw_set_transform(shake)
 	_river(c, time, cam)
 	for pad in pads:
 		var screen := Vector2(float(pad["x"]), ANCHOR - (float(pad["m"]) - cam) * SCALE)
@@ -75,6 +77,9 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		var ink: Color = floating["color"]
 		ink.a = clampf(life * 1.45, 0.0, 1.0)
 		text(c, String(floating["text"]), p, 22, ink, true)
+	c.draw_set_transform(Vector2.ZERO)
+	if flash > 0.0:
+		c.draw_rect(Rect2(0, 0, W, H), Color(1.0, 0.97, 0.85, flash * 0.34))
 	_hud(c, score, best, pets, distance, wave_m, cam, combo, mode)
 	if mode == 0:
 		_start_overlay(c, time)
@@ -117,6 +122,19 @@ static func _river(c: CanvasItem, t: float, cam: float) -> void:
 	for i in range(left.size() - 1):
 		line(c, left[i], left[i + 1], Color("#779d95"), 3.5)
 		line(c, right[i], right[i + 1], Color("#799e97"), 3.5)
+	# Low-contrast depth bands mimic watercolor washes without texture assets.
+	for lane in range(9):
+		var x := 91.0 + float(lane) * 41.0
+		var width := 16.0 + 4.0 * sin(lane * 1.7)
+		var tint := Color(0.17, 0.32, 0.48, 0.022 + 0.018 * (1.0 - absf(float(lane - 4)) / 4.0))
+		rr(c, Rect2(x, -8, width, H + 16), 9, tint)
+	# Soft animated caustic arcs and drifting surface glints.
+	for i in range(19):
+		var x := 94.0 + float((i * 67 + 41) % 350)
+		var y := fposmod(float(i) * 103.0 + cam * SCALE * 0.53 + t * 14.0, 1240.0) - 150.0
+		var swish := sin(t * 1.4 + i * 1.6)
+		c.draw_arc(Vector2(x, y), 12.0 + float(i % 4) * 3.0, 0.3 + swish * 0.1, 2.4 + swish * 0.1, 16, Color(0.94, 0.98, 0.98, 0.11), 2.3, true)
+		c.draw_circle(Vector2(x + 19, y + 8), 2.1 + 0.6 * swish, Color(1, 1, 0.94, 0.25))
 	# Water speed lines tilt back with a hand-animated flow.
 	for i in range(69):
 		var x := 65.0 + float((i * 113 + 29) % 410)
