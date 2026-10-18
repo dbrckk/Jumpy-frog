@@ -1,0 +1,157 @@
+extends Node
+## Original, offline, license-free procedural soundtrack. Audio is synthesized once,
+## cached as mono PCM, and played from a small voice pool (never in the render loop).
+const SAMPLE_RATE := 22050
+const VOICE_COUNT := 6
+
+var voices: Array[AudioStreamPlayer] = []
+var ambience: AudioStreamPlayer
+var samples: Dictionary = {}
+var muted := false
+var paused := false
+var next_voice := 0
+var rng := RandomNumberGenerator.new()
+
+func _ready() -> void:
+	rng.seed = 0xC0FFEE
+	for event_name in ["jump", "land", "splash", "coin", "friend", "combo", "warning", "lose", "ui"]:
+		samples[event_name] = _synthesize(event_name)
+	for i in range(VOICE_COUNT):
+		var player := AudioStreamPlayer.new()
+		player.bus = "Master"
+		player.volume_db = -13.0
+		add_child(player)
+		voices.append(player)
+	ambience = AudioStreamPlayer.new()
+	ambience.bus = "Master"
+	ambience.volume_db = -29.0
+	ambience.stream = _ambient_loop()
+	add_child(ambience)
+	ambience.play()
+
+func set_muted(value: bool) -> void:
+	muted = value
+	for voice in voices:
+		voice.volume_db = -80.0 if muted else -13.0
+	ambience.volume_db = -80.0 if muted else -29.0
+
+func set_paused(value: bool) -> void:
+	paused = value
+	if ambience != null:
+		ambience.stream_paused = value
+
+func play_event(event_name: String, intensity: float = 0.0) -> void:
+	if muted or paused or not samples.has(event_name):
+		return
+	var voice: AudioStreamPlayer = voices[next_voice]
+	next_voice = (next_voice + 1) % voices.size()
+	voice.stop()
+	voice.stream = samples[event_name]
+	voice.pitch_scale = clampf(1.0 + rng.randf_range(-0.042, 0.042) + intensity * 0.035, 0.85, 1.22)
+	voice.play()
+
+func _synthesize(event_name: String) -> AudioStreamWAV:
+	var durations := {
+		"jump": 0.24, "land": 0.22, "splash": 0.49, "coin": 0.32,
+		"friend": 0.58, "combo": 0.52, "warning": 0.47,
+		"lose": 0.65, "ui": 0.12
+	}
+	var duration: float = durations[event_name]
+	var n := int(duration * SAMPLE_RATE)
+	var bytes := PackedByteArray()
+	bytes.resize(n * 2)
+	var filtered := 0.0
+	var phase := 0.0
+	for i in range(n):
+		var t := float(i) / SAMPLE_RATE
+		var p := float(i) / maxf(float(n - 1), 1.0)
+		var ramp := minf(1.0, t * 110.0)
+		var e := ramp * pow(maxf(0.0, 1.0 - p), 1.75)
+		var noise: float = rng.randf_range(-1.0, 1.0)
+		filtered = lerpf(filtered, noise, 0.18)
+		var filtered_noise := noise * 0.25 + filtered * 0.75
+		var signal := 0.0
+		var freq := 300.0
+		match event_name:
+			"jump":
+				freq = 275.0 + 570.0 * p * p
+				e *= 0.80
+				signal = sin(phase) * 0.76 + sin(phase * 2.0) * 0.15
+			"land":
+				freq = 260.0 * pow(0.46, p)
+				e *= 0.94
+				signal = sin(phase) * 0.82 + filtered_noise * 0.23
+			"splash":
+				freq = 195.0 - 70.0 * p
+				e = ramp * pow(1.0 - p, 1.65)
+				signal = filtered_noise * 0.83 + sin(phase) * 0.21
+			"coin":
+				freq = 760.0 if p < 0.44 else 1120.0
+				e *= 0.78
+				signal = sin(phase) * 0.78 + sin(phase * 2.02) * 0.10
+			"friend":
+				freq = 490.0 if p < 0.31 else (620.0 if p < 0.61 else 830.0)
+				e *= 0.82
+				signal = sin(phase) * 0.65 + sin(phase * 2.0) * 0.13 + sin(phase * 3.0) * 0.06
+			"combo":
+				freq = 520.0 if p < 0.25 else (655.0 if p < 0.5 else (785.0 if p < 0.75 else 1045.0))
+				e *= 0.75
+				signal = sin(phase) * 0.66 + sin(phase * 2.0) * 0.18
+			"warning":
+				freq = 355.0 + 48.0 * sin(TAU * 4.2 * t)
+				e = minf(1.0, t * 14.0) * pow(1.0 - p, 1.2)
+				signal = sin(phase) * 0.62 + sin(phase * 0.52) * 0.20
+			"lose":
+				freq = 420.0 * pow(0.27, p)
+				e = ramp * pow(1.0 - p, 1.1)
+				signal = sin(phase) * 0.55 + filtered_noise * (0.28 + p * 0.22)
+			"ui":
+				freq = 600.0 * pow(1.20, p)
+				e *= 0.37
+				signal = sin(phase)
+		phase += TAU * freq / SAMPLE_RATE
+		var value := int(clampf(signal * e * 10500.0, -32767.0, 32767.0))
+		if value < 0:
+			value += 65536
+		bytes[i * 2] = value & 255
+		bytes[i * 2 + 1] = (value >> 8) & 255
+	var result := AudioStreamWAV.new()
+	result.format = AudioStreamWAV.FORMAT_16_BITS
+	result.mix_rate = SAMPLE_RATE
+	result.stereo = false
+	result.data = bytes
+	return result
+
+func _ambient_loop() -> AudioStreamWAV:
+	# Frequencies are integer multiples of 1/4 Hz, so the four-second loop
+	# repeats with no discontinuous edge, including its slow shoreline swell.
+	var seconds := 4
+	var n: int = SAMPLE_RATE * seconds
+	var raw := PackedByteArray()
+	raw.resize(n * 2)
+	for i in range(n):
+		var t := float(i) / SAMPLE_RATE
+		var swell := 0.50 + 0.35 * sin(TAU * 0.25 * t - 0.8)
+		var babble := (sin(TAU * 5.0 * t + 0.8) +
+				0.42 * sin(TAU * 10.25 * t) +
+				0.22 * sin(TAU * 17.0 * t + 0.7))
+		var breeze := (sin(TAU * 0.75 * t) * sin(TAU * 42.0 * t) +
+				0.3 * sin(TAU * 61.25 * t)) * 0.32
+		var chirp := sin(TAU * 880.0 * t + 0.16 * sin(TAU * 1.0 * t))
+		var bird_gate := pow(maxf(0.0, sin(TAU * 0.5 * t)), 16.0)
+		var sample := (babble * 0.16 * swell + breeze * 0.10 +
+				chirp * bird_gate * 0.025)
+		var value := int(clampf(sample * 14000.0, -32767.0, 32767.0))
+		if value < 0:
+			value += 65536
+		raw[i * 2] = value & 255
+		raw[i * 2 + 1] = (value >> 8) & 255
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = SAMPLE_RATE
+	stream.stereo = false
+	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	stream.loop_begin = 0
+	stream.loop_end = n
+	stream.data = raw
+	return stream
