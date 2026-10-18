@@ -60,7 +60,15 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	for particle in particles:
 		var p: Vector2 = particle["pos"]
 		var life: float = particle["life"]
-		c.draw_circle(p, 2.0 + 5.0 * life, Color(1, 0.94, 0.65, life))
+		if particle.get("kind", "spark") == "water":
+			var velocity: Vector2 = particle["velocity"]
+			var direction := velocity.normalized() if velocity.length_squared() > 0.1 else Vector2.UP
+			var tail := p - direction * (5.0 + life * 9.0)
+			line(c, p, tail, Color(0.83, 0.97, 1.0, life * 0.55), 2.4 + life * 1.5)
+			c.draw_circle(p, 2.0 + life * 2.1, Color(0.98, 1.0, 0.99, life))
+		else:
+			c.draw_circle(p, 2.3 + 4.0 * life, Color(0.99, 0.85, 0.46, life * 0.65))
+			c.draw_circle(p, 1.1 + 1.6 * life, Color(1, 1, 0.91, life))
 	for floating in float_texts:
 		var life: float = float(floating["life"])
 		var p: Vector2 = floating["pos"]
