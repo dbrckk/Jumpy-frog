@@ -47,7 +47,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		if bool(pad["coin"]):
 			_coin(c, screen + Vector2(11, -25 + sin(time * 3.0 + float(pad["id"])) * 3), time)
 		if bool(pad["pet"]):
-			_friend(c, screen + Vector2(0, -18), 0, 0.82)
+			_friend(c, screen + Vector2(0, -18), int(pad["id"]) % 4, 0.82, time)
 	_wave(c, ANCHOR - (wave_m - cam) * SCALE, time)
 	if aiming:
 		_aim_guide(c, player_at, aim_at, time, aim_valid)
@@ -186,31 +186,63 @@ static func _coin(c: CanvasItem, pos: Vector2, time: float) -> void:
 	c.draw_arc(pos, 7.0, 0, TAU, 30, Color("#fff1a5"), 2.3, true)
 	text(c, "+", pos + Vector2(0, -3), 16, Color("#936636"))
 
-static func _friend(c: CanvasItem, at: Vector2, kind: int, scale: float = 1.0) -> void:
-	var main: Color
-	var secondary: Color
-	match kind % 4:
-		0:
-			main = Color("#6caed0")
-			secondary = Color("#c8e8ed")
-		1:
-			main = Color("#e6a66f")
-			secondary = Color("#fce3c0")
-		2:
-			main = Color("#a78cc0")
-			secondary = Color("#efcfeb")
-		_:
-			main = Color("#96bd6c")
-			secondary = Color("#daedaa")
-	var r := 10.5 * scale
-	ellipse(c, at + Vector2(0, 1.5), Vector2(r, r * 1.25), Color("#554954"))
-	ellipse(c, at, Vector2(r - 1.5, r * 1.2 - 1.0), main)
-	ellipse(c, at + Vector2(0, 4.5 * scale), Vector2(6, 5) * scale, secondary)
+static func _friend(c: CanvasItem, at: Vector2, kind: int, scale: float = 1.0, time: float = 0.0) -> void:
+	# Four readable species; silhouettes remain distinct even when stacked.
+	var species := posmod(kind, 4)
+	var colors := [Color("#73acd0"), Color("#e6aa70"), Color("#aa90c8"), Color("#97be76")]
+	var bellies := [Color("#d5ecf0"), Color("#ffe2c0"), Color("#f0d9eb"), Color("#e7ecb5")]
+	var main: Color = colors[species]
+	var belly: Color = bellies[species]
+	var ink := Color("#504b58")
+	var blink := fposmod(time * (0.83 + species * 0.07) + kind * 1.93, 4.7) < 0.12
+	var bob := sin(time * (3.0 + species * 0.23) + kind * 1.4) * 0.9
+	c.draw_set_transform(at + Vector2(0, bob), sin(time * 2.4 + kind) * 0.045, Vector2(scale, scale))
+	# Species 0: blue bird with feather crest and side wings.
+	if species == 0:
+		ellipse(c, Vector2(-11, 4), Vector2(7, 9), ink)
+		ellipse(c, Vector2(-11, 3), Vector2(6, 8), main.darkened(0.16))
+		ellipse(c, Vector2(10, 4), Vector2(7, 9), ink)
+		ellipse(c, Vector2(10, 3), Vector2(6, 8), main.darkened(0.16))
+		for i in range(3):
+			ellipse(c, Vector2(-3 + i * 4, -15 - (1 if i == 1 else 0)), Vector2(2.8, 6), main.lightened(0.12))
+	# Species 1: fox ears and a golden tail.
+	elif species == 1:
+		ellipse(c, Vector2(10, 8), Vector2(7, 11), ink)
+		ellipse(c, Vector2(11, 7), Vector2(5, 9), main)
+		for side in [-1, 1]:
+			var ear := PackedVector2Array([Vector2(side * 4, -6), Vector2(side * 12, -21), Vector2(side * 12, -3)])
+			c.draw_colored_polygon(ear, ink)
+			var inside := PackedVector2Array([Vector2(side * 5, -7), Vector2(side * 11, -18), Vector2(side * 10, -5)])
+			c.draw_colored_polygon(inside, Color("#edc3a0"))
+	# Species 2: floppy bunny ears.
+	elif species == 2:
+		for side in [-1, 1]:
+			ellipse(c, Vector2(side * 7, -18), Vector2(4.4, 13), ink)
+			ellipse(c, Vector2(side * 7, -18), Vector2(3, 11), main)
+			ellipse(c, Vector2(side * 7, -18), Vector2(1.5, 8), Color("#ebbbd3"))
+	# Species 3: frog eye bumps, without mistaken fox/bunny ears.
+	else:
+		for side in [-1, 1]:
+			c.draw_circle(Vector2(side * 7, -10), 6.5, ink)
+			c.draw_circle(Vector2(side * 7, -10), 5, main)
+	ellipse(c, Vector2(0, 1), Vector2(11.2, 13), ink)
+	ellipse(c, Vector2(0, 0), Vector2(9.8, 11.6), main)
+	ellipse(c, Vector2(0, 5), Vector2(6.5, 6.4), belly)
 	for side in [-1, 1]:
-		c.draw_circle(at + Vector2(6.0 * side, -9.0) * scale, 5.1 * scale, Color("#5a4f56"))
-		c.draw_circle(at + Vector2(6.0 * side, -9.0) * scale, 3.7 * scale, main)
-		c.draw_circle(at + Vector2(4.0 * side, -2.6) * scale, 1.9 * scale, INK)
-	c.draw_circle(at + Vector2(0, 1.5) * scale, 2 * scale, Color("#744b53"))
+		var eye := Vector2(side * 4.3, -3.6)
+		if blink:
+			line(c, eye + Vector2(-1.8, 0), eye + Vector2(1.8, 0), ink, 1.3)
+		else:
+			c.draw_circle(eye, 1.85, ink)
+			c.draw_circle(eye + Vector2(-0.4, -0.4), 0.58, Color.WHITE)
+	ellipse(c, Vector2(0, 0.8), Vector2(2.5, 1.7), Color("#805861"))
+	if species == 0:
+		var beak := PackedVector2Array([Vector2(-3, 1), Vector2(3, 1), Vector2(0, 6)])
+		c.draw_colored_polygon(beak, Color("#f5c56c"))
+	elif species == 3:
+		line(c, Vector2(-2, 4), Vector2(2, 4), ink, 0.9)
+	c.draw_set_transform(Vector2.ZERO)
+
 
 static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: float, airborne: bool, tilt: float, squash: float, sway: float, blink: float, impact: float, celebration: float) -> void:
 	# Animated vector puppet: springy takeoff, landing compression and follow-through.
@@ -271,7 +303,7 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 		var lag := sway * (8.0 + level * 5.0)
 		var follow := sin(t * 3.6 - level * 0.65) * (1.1 + level * 0.3)
 		var passenger := stack_top + Vector2(lag + follow, -level * 18.0 + sin(t * 4.5 - level * 0.6) * 1.6 - celebration * (4.0 + level * 1.2))
-		_friend(c, passenger, i, 0.84 + celebration * 0.07)
+		_friend(c, passenger, i, 0.84 + celebration * 0.07, t)
 	if pets > 0:
 		c.draw_circle(stack_top + Vector2(-14, -pets * 17), 2.5, Color("#fff4ad"))
 
