@@ -63,6 +63,8 @@ jobs:
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$RUNNER_TEMP/jumpy-debug.jks" >> "$GITHUB_ENV"
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+      - name: Generate original Android launcher icons
+        run: godot --headless --path . --script res://tools/generate_icons.gd
       - name: Export Android debug APK
         run: |
           mkdir -p build
