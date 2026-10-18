@@ -132,7 +132,7 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	var at := _player_screen()
 	var preview := Vector2(aim_x, PLAYER_ANCHOR - (aim_m - cam_m) * PX_PER_M)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, mode, score, best_score, combo, particles, int(highest_m))
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, mode, score, best_score, combo, particles, int(highest_m), muted)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
