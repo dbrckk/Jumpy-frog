@@ -181,6 +181,10 @@ func _process(delta: float) -> void:
 		var particle: Dictionary = particles[i]
 		particle["life"] = float(particle["life"]) - delta * 1.85
 		particle["pos"] = Vector2(particle["pos"]) + Vector2(particle["velocity"]) * delta
+		if particle.get("kind", "spark") == "water":
+			particle["velocity"] = Vector2(particle["velocity"]) + Vector2(0, 175.0) * delta
+		else:
+			particle["velocity"] = Vector2(particle["velocity"]) * exp(-delta * 1.5)
 		particles[i] = particle
 		if float(particle["life"]) <= 0.0:
 			particles.remove_at(i)
@@ -303,7 +307,7 @@ func _finish_jump() -> void:
 	jump_z = 0.0
 	if jump_pad_id == -1:
 		_add_ripple(_player_screen(), 1.5)
-		_burst(_player_screen(), 11)
+		_burst(_player_screen(), 22, "water")
 		_die()
 		return
 	for pad in pads:
@@ -329,7 +333,8 @@ func _finish_jump() -> void:
 			pad_impacts[jump_pad_id] = 1.0
 			landing_impact = 1.0
 			body_squash = 0.28
-			_burst(_player_screen() + Vector2(0, 14), 15)
+			_burst(_player_screen() + Vector2(0, 14), 11, "water")
+			_burst(_player_screen() + Vector2(0, -5), 7, "spark")
 			mode = MODE_PLAY
 			if wave_m >= player_m - 0.25:
 				_die()
@@ -353,17 +358,25 @@ func _save_progress() -> void:
 	save.save("user://jumpy_frog.cfg")
 
 func _add_float_text(value: String, pos: Vector2, color: Color) -> void:
+	if float_texts.size() >= 8:
+		float_texts.pop_front()
 	float_texts.append({"text": value, "pos": pos, "life": 1.0, "color": color})
 
 func _add_ripple(pos: Vector2, size: float) -> void:
+	if ripples.size() >= 12:
+		ripples.pop_front()
 	ripples.append({"pos": pos, "age": 0.0, "size": size})
 
-func _burst(pos: Vector2, amount: int) -> void:
-	for i in range(amount):
+func _burst(pos: Vector2, amount: int, kind: String = "spark") -> void:
+	# Bounded pool prevents spikes when several awards occur during one landing.
+	for i in range(mini(amount, maxi(0, 110 - particles.size()))):
+		var angle := -PI + PI * float(i) / maxf(float(amount - 1), 1.0)
+		var speed := rng.randf_range(45.0, 145.0)
 		particles.append({
-			"pos": pos + Vector2(rng.randf_range(-8, 8), rng.randf_range(-8, 8)),
-			"velocity": Vector2(rng.randf_range(-84, 84), rng.randf_range(-126, -30)),
-			"life": rng.randf_range(0.55, 1.0)
+			"pos": pos + Vector2(rng.randf_range(-8, 8), rng.randf_range(-6, 6)),
+			"velocity": Vector2(cos(angle) * speed, sin(angle) * speed),
+			"life": rng.randf_range(0.58, 0.96),
+			"kind": kind
 		})
 
 func _tone(freq: float, duration: float, kind: int) -> void:
