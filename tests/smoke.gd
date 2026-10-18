@@ -33,10 +33,23 @@ func _run_tests() -> void:
 	_assert(scene.mode == 4, "missing pad ends the run")
 
 	scene._reset_game()
+	scene.mode = 1
+	scene._down(Vector2(494, 99))
+	_assert(scene.mode == 5, "tap pause stops the game")
+	var pause_wave: float = scene.wave_m
+	scene._process(1.0)
+	_assert(scene.wave_m == pause_wave, "paused game freezes the wave")
+	var previous_mute: bool = scene.muted
+	scene._down(Vector2(260, 575))
+	_assert(scene.muted != previous_mute, "audio toggle persists in memory")
+	scene._down(Vector2(260, 490))
+	_assert(scene.mode == 1, "resume restores the game")
+	scene._reset_game()
 	_assert(scene.mode == 0 and scene.score == 0, "retry resets the run")
 	_assert(scene.pads.size() >= 4, "retry regenerates platforms")
-	print("PASS: spawn, hop, collision, scoring, water loss, retry")
+	print("PASS: spawn, hop, collision, scoring, water loss, pause, muted audio, retry")
 	scene.queue_free()
+	await process_frame
 	quit(0)
 
 func _assert(condition: bool, message: String) -> void:
