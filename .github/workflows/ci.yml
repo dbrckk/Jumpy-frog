@@ -55,6 +55,14 @@ jobs:
         run: godot --headless --editor --path . --quit
       - name: Gameplay regression tests
         run: godot --headless --path . --script res://tests/smoke.gd
+      - name: Create ephemeral debug signing key
+        run: |
+          keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/jumpy-debug.jks" \
+            -alias androiddebugkey -storepass android -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US" -validity 10000 -keyalg RSA -keysize 2048
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$RUNNER_TEMP/jumpy-debug.jks" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
       - name: Export Android debug APK
         run: |
           mkdir -p build
