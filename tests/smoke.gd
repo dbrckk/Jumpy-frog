@@ -116,6 +116,19 @@ func _run_tests() -> void:
 	for step in range(65):
 		scene._process(0.02)
 	_check(scene.float_texts.is_empty(), "floating reward expires")
+	# Impact VFX must remain bounded even under deliberately excessive spawning.
+	for index in range(20):
+		scene._add_ripple(Vector2(250, 500), 1.0)
+		scene._add_float_text("BONUS", Vector2(250, 420), Color.WHITE)
+		scene._burst(Vector2(250, 500), 20, "water")
+	_check(scene.ripples.size() <= 12, "ripple allocation is bounded")
+	_check(scene.float_texts.size() <= 8, "reward allocation is bounded")
+	_check(scene.particles.size() <= 110, "particle allocation is bounded")
+	for index in range(70):
+		scene._process(0.02)
+	_check(scene.ripples.is_empty(), "ripples expire after spawning stress")
+	_check(scene.float_texts.is_empty(), "reward labels expire after spawning stress")
+	_check(scene.particles.is_empty(), "particles expire after spawning stress")
 	_check(scene.ripples.size() <= existing_ripples, "water ripples expire")
 	_check(lily_relaxed, "lily spring relaxes")
 	scene._reset_game()
