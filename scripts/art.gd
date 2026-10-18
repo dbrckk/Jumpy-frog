@@ -37,13 +37,13 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, tilt: float, squash: float, sway: float, blink: float, impact: float) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float) -> void:
 	_river(c, time, cam)
 	for pad in pads:
 		var screen := Vector2(float(pad["x"]), ANCHOR - (float(pad["m"]) - cam) * SCALE)
 		if screen.y < -125.0 or screen.y > H + 125.0:
 			continue
-		_lily(c, screen, float(pad["r"]), int(pad["kind"]), time, int(pad["id"]))
+		_lily(c, screen, float(pad["r"]), int(pad["kind"]), time, int(pad["id"]), float(pad_impacts.get(int(pad["id"]), 0.0)))
 		if bool(pad["coin"]):
 			_coin(c, screen + Vector2(11, -25 + sin(time * 3.0 + float(pad["id"])) * 3), time)
 		if bool(pad["pet"]):
@@ -51,7 +51,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	_wave(c, ANCHOR - (wave_m - cam) * SCALE, time)
 	if aiming:
 		_aim_guide(c, player_at, aim_at, time, aim_valid)
-	_character(c, player_at, jump_z, pets, time, mode == 3, tilt, squash, sway, blink, impact)
+	_character(c, player_at, jump_z, pets, time, mode == 3, tilt, squash, sway, blink, impact, celebration)
 	for particle in particles:
 		var p: Vector2 = particle["pos"]
 		var life: float = particle["life"]
@@ -135,35 +135,39 @@ static func _river(c: CanvasItem, t: float, cam: float) -> void:
 			c.draw_circle(Vector2(x - 20, y - 25), 4.5, Color(1, 0.96, 0.73, 0.09))
 
 
-static func _lily(c: CanvasItem, pos: Vector2, radius: float, kind: int, t: float, ident: int) -> void:
+static func _lily(c: CanvasItem, pos: Vector2, radius: float, kind: int, t: float, ident: int, impact: float = 0.0) -> void:
 	var r := radius * (1.0 + sin(t * 1.5 + float(ident)) * 0.012)
-	ellipse(c, pos + Vector2(3, 10), Vector2(r + 4, r * 0.69), Color(0.24, 0.48, 0.49, 0.33))
-	c.draw_arc(pos + Vector2(0, 3), r + 12.0, 0.1, PI - 0.1, 32, Color(1, 1, 1, 0.24), 1.8, true)
-	var pts := PackedVector2Array([pos + Vector2(2, -2)])
+	var wiggle := sin(t * 2.1 + float(ident) * 1.7) * 0.035 + sin((1.0 - impact) * 17.0) * impact * 0.075
+	c.draw_set_transform(center + Vector2(0, impact * 7.0), wiggle, Vector2(1.0 + impact * 0.10, 1.0 - impact * 0.13))
+	var center := Vector2.ZERO
+	ellipse(c, center + Vector2(3, 10), Vector2(r + 4, r * 0.69), Color(0.24, 0.48, 0.49, 0.33))
+	c.draw_arc(center + Vector2(0, 3), r + 12.0, 0.1, PI - 0.1, 32, Color(1, 1, 1, 0.24), 1.8, true)
+	var pts := PackedVector2Array([center + Vector2(2, -2)])
 	var start := 0.38 + float(ident % 5) * 0.2
 	for i in range(52):
 		var a := start + 0.55 + (TAU - 1.1) * float(i) / 51.0
-		pts.append(pos + Vector2(cos(a) * r, sin(a) * r * 0.78))
+		pts.append(center + Vector2(cos(a) * r, sin(a) * r * 0.78))
 	var dark := Color("#547c57") if kind != 2 else Color("#9d8550")
 	c.draw_colored_polygon(pts, dark)
-	var inner := PackedVector2Array([pos])
+	var inner := PackedVector2Array([center])
 	for i in range(52):
 		var a := start + 0.55 + (TAU - 1.1) * float(i) / 51.0
-		inner.append(pos + Vector2(cos(a) * (r - 4), sin(a) * (r - 4) * 0.78))
+		inner.append(center + Vector2(cos(a) * (r - 4), sin(a) * (r - 4) * 0.78))
 	var fill: Color = PALETTE[kind % PALETTE.size()]
 	c.draw_colored_polygon(inner, fill)
 	# Leaf veins and subtle watercolor highlights.
 	for i in range(5):
 		var a := start + 1.35 + (TAU - 2.7) * float(i) / 4.0
-		line(c, pos, pos + Vector2(cos(a) * r * 0.7, sin(a) * r * 0.55), fill.darkened(0.16), 1.5)
-	ellipse(c, pos + Vector2(-13, -12), Vector2(9, 4), Color(1, 1, 0.85, 0.13))
+		line(c, pos, center + Vector2(cos(a) * r * 0.7, sin(a) * r * 0.55), fill.darkened(0.16), 1.5)
+	ellipse(c, center + Vector2(-13, -12), Vector2(9, 4), Color(1, 1, 0.85, 0.13))
 	if kind == 1:
-		_flower(c, pos + Vector2(15, 7), 0.9, t)
+		_flower(c, center + Vector2(15, 7), 0.9, t)
 	elif kind == 2:
 		for i in range(5):
-			c.draw_circle(pos + Vector2(float((i * 23) % 41) - 20, float((i * 17) % 29) - 14), 3.3, Color("#a98f58"))
+			c.draw_circle(center + Vector2(float((i * 23) % 41) - 20, float((i * 17) % 29) - 14), 3.3, Color("#a98f58"))
 	elif kind == 3:
-		_flower(c, pos + Vector2(-9, 8), 0.7, t)
+		_flower(c, center + Vector2(-9, 8), 0.7, t)
+	c.draw_set_transform(Vector2.ZERO)
 
 static func _flower(c: CanvasItem, at: Vector2, scale: float, t: float) -> void:
 	var p := at + Vector2(0, sin(t * 2.3 + at.x) * 1.5)
@@ -208,7 +212,7 @@ static func _friend(c: CanvasItem, at: Vector2, kind: int, scale: float = 1.0) -
 		c.draw_circle(at + Vector2(4.0 * side, -2.6) * scale, 1.9 * scale, INK)
 	c.draw_circle(at + Vector2(0, 1.5) * scale, 2 * scale, Color("#744b53"))
 
-static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: float, airborne: bool, tilt: float, squash: float, sway: float, blink: float, impact: float) -> void:
+static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: float, airborne: bool, tilt: float, squash: float, sway: float, blink: float, impact: float, celebration: float) -> void:
 	# Animated vector puppet: springy takeoff, landing compression and follow-through.
 	var flight := clampf(height / 53.0, 0.0, 1.0)
 	var jump_stretch := flight * 0.19
@@ -266,8 +270,8 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 		var level := float(i)
 		var lag := sway * (8.0 + level * 5.0)
 		var follow := sin(t * 3.6 - level * 0.65) * (1.1 + level * 0.3)
-		var passenger := stack_top + Vector2(lag + follow, -level * 18.0 + sin(t * 4.5 - level * 0.6) * 1.6)
-		_friend(c, passenger, i, 0.84)
+		var passenger := stack_top + Vector2(lag + follow, -level * 18.0 + sin(t * 4.5 - level * 0.6) * 1.6 - celebration * (4.0 + level * 1.2))
+		_friend(c, passenger, i, 0.84 + celebration * 0.07)
 	if pets > 0:
 		c.draw_circle(stack_top + Vector2(-14, -pets * 17), 2.5, Color("#fff4ad"))
 
