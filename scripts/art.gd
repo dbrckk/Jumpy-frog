@@ -138,7 +138,7 @@ static func _river(c: CanvasItem, t: float, cam: float) -> void:
 static func _lily(c: CanvasItem, pos: Vector2, radius: float, kind: int, t: float, ident: int, impact: float = 0.0) -> void:
 	var r := radius * (1.0 + sin(t * 1.5 + float(ident)) * 0.012)
 	var wiggle := sin(t * 2.1 + float(ident) * 1.7) * 0.035 + sin((1.0 - impact) * 17.0) * impact * 0.075
-	c.draw_set_transform(center + Vector2(0, impact * 7.0), wiggle, Vector2(1.0 + impact * 0.10, 1.0 - impact * 0.13))
+	c.draw_set_transform(pos + Vector2(0, impact * 7.0), wiggle, Vector2(1.0 + impact * 0.10, 1.0 - impact * 0.13))
 	var center := Vector2.ZERO
 	ellipse(c, center + Vector2(3, 10), Vector2(r + 4, r * 0.69), Color(0.24, 0.48, 0.49, 0.33))
 	c.draw_arc(center + Vector2(0, 3), r + 12.0, 0.1, PI - 0.1, 32, Color(1, 1, 1, 0.24), 1.8, true)
@@ -158,7 +158,7 @@ static func _lily(c: CanvasItem, pos: Vector2, radius: float, kind: int, t: floa
 	# Leaf veins and subtle watercolor highlights.
 	for i in range(5):
 		var a := start + 1.35 + (TAU - 2.7) * float(i) / 4.0
-		line(c, pos, center + Vector2(cos(a) * r * 0.7, sin(a) * r * 0.55), fill.darkened(0.16), 1.5)
+		line(c, center, center + Vector2(cos(a) * r * 0.7, sin(a) * r * 0.55), fill.darkened(0.16), 1.5)
 	ellipse(c, center + Vector2(-13, -12), Vector2(9, 4), Color(1, 1, 0.85, 0.13))
 	if kind == 1:
 		_flower(c, center + Vector2(15, 7), 0.9, t)
