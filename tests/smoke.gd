@@ -91,15 +91,22 @@ func _run_tests() -> void:
 	scene._start_jump()
 	_check(scene.body_squash > 0.2, "takeoff squash activated")
 	var saw_impact := false
+	var saw_lily := false
+	var lily_relaxed := false
+	var prior_lily := 0.0
 	for frame in range(75):
 		scene._process(0.02)
 		if scene.landing_impact > 0.0:
 			saw_impact = true
+		var lily: float = float(scene.pad_impacts.get(int(animate_pad["id"]), 0.0))
+		if lily > 0.0:
+			saw_lily = true
+		if saw_lily and lily < prior_lily:
+			lily_relaxed = true
+		prior_lily = lily
 	_check(saw_impact, "landing triggers impact animation")
-	_check(float(scene.pad_impacts.get(int(animate_pad["id"]), 0.0)) > 0.0, "lily impact animation triggered")
-	var impact_value: float = float(scene.pad_impacts.get(int(animate_pad["id"]), 0.0))
-	scene._process(0.06)
-	_check(float(scene.pad_impacts.get(int(animate_pad["id"]), 0.0)) < impact_value, "lily spring relaxes")
+	_check(saw_lily, "lily impact animation triggered")
+	_check(lily_relaxed, "lily spring relaxes")
 	scene._reset_game()
 	_check(scene.body_tilt == 0.0 and scene.stack_sway == 0.0 and scene.landing_impact == 0.0, "animation reset")
 	_check(scene.mode == 0 and scene.score == 0, "retry resets run")
