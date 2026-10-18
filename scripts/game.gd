@@ -132,7 +132,13 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	var at := _player_screen()
 	var preview := Vector2(aim_x, PLAYER_ANCHOR - (aim_m - cam_m) * PX_PER_M)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, mode, score, best_score, combo, particles, int(highest_m), muted)
+	var aim_valid := false
+	if mode == MODE_AIM:
+		var pad := _landing_target(aim_x, aim_m)
+		if not pad.is_empty():
+			preview = Vector2(float(pad["x"]), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
+			aim_valid = true
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -204,27 +210,32 @@ func _update_aim() -> void:
 	aim_x = clampf(player_x - drag.x * 1.2, 83.0, 457.0)
 	aim_m = player_m + maxf(drag.y, 0.0) * 1.35 / PX_PER_M
 
-func _start_jump() -> void:
-	var desired := Vector2(aim_x, aim_m)
-	jump_pad_id = -1
-	var closest := 9999.0
+## Preview and flight share this exact landing rule, so a green guide cannot miss.
+func _landing_target(desired_x: float, desired_m: float) -> Dictionary:
+	var winner: Dictionary = {}
+	if desired_m <= player_m + 3.0:
+		return winner
+	var closest := INF
 	for pad in pads:
 		if float(pad["m"]) <= player_m + 3.0:
 			continue
-		var dx: float = float(pad["x"]) - desired.x
-		var dy: float = (float(pad["m"]) - desired.y) * PX_PER_M
-		var d := Vector2(dx, dy).length()
-		if d < float(pad["r"]) + 13.0 and d < closest:
+		var radius: float = float(pad["r"])
+		var delta := Vector2(float(pad["x"]) - desired_x, (float(pad["m"]) - desired_m) * PX_PER_M)
+		var normalized := Vector2(delta.x / (radius + 14.0), delta.y / (radius * 0.78 + 14.0))
+		var d := normalized.length()
+		if d <= 1.0 and d < closest:
+			winner = pad
 			closest = d
-			jump_pad_id = int(pad["id"])
+	return winner
+
+func _start_jump() -> void:
+	var target := _landing_target(aim_x, aim_m)
+	jump_pad_id = -1 if target.is_empty() else int(target["id"])
 	jump_start = Vector2(player_x, player_m)
-	jump_end = desired
-	if jump_pad_id >= 0:
-		for pad in pads:
-			if int(pad["id"]) == jump_pad_id:
-				# Soft magnetism rewards a sensible touch target.
-				jump_end = Vector2(float(pad["x"]), float(pad["m"]))
-				break
+	jump_end = Vector2(aim_x, aim_m)
+	if not target.is_empty():
+		# Subtle magnetism produces consistent, legible landings on touchscreens.
+		jump_end = Vector2(float(target["x"]), float(target["m"]))
 	jump_elapsed = 0.0
 	jump_duration = clampf(0.40 + (jump_end.y - jump_start.y) * 0.012, 0.48, 0.87)
 	mode = MODE_FLY
