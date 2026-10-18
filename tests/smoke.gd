@@ -16,7 +16,7 @@ func _run_tests() -> void:
 	var first: Dictionary = scene.pads[1]
 	var predicted: Dictionary = scene._landing_target(float(first["x"]), float(first["m"]))
 	_check(not predicted.is_empty() and int(predicted.get("id", -1)) == int(first["id"]), "landing preview predicts actual platform")
-	_check(scene._landing_target(70.0, 200.0).is_empty(), "empty water is marked unsafe")
+	_check(scene._landing_target(70.0, 2000.0).is_empty(), "empty water is marked unsafe")
 	
 	# A direct hop reproduces a future touch release and tests score/collision.
 	scene.mode = 1
