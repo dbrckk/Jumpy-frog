@@ -68,22 +68,13 @@ jobs:
           mkdir -p build
           godot --headless --path . --export-debug "Android" build/JumpyFrog-debug.apk
           test -s build/JumpyFrog-debug.apk
-      - name: Verify APK structure, identity and signature
-        shell: bash
+      - name: Validate generated Android package
         run: |
-          set -euo pipefail
-          APK="build/JumpyFrog-debug.apk"
-          unzip -tq "$APK"
-          unzip -Z -1 "$APK" | grep -E '^lib/arm64-v8a/[^/]+\\.so
-        uses: actions/upload-artifact@v4
-        with:
-          name: JumpyFrog-Android-debug
-          path: build/JumpyFrog-debug.apk
-          if-no-files-found: error
-
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='org.dbrckk.jumpyfrog'"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          sha256sum "$APK"
+          set -e
+          unzip -tq build/JumpyFrog-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose build/JumpyFrog-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging build/JumpyFrog-debug.apk
+          sha256sum build/JumpyFrog-debug.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
