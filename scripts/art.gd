@@ -37,7 +37,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, mode: int, score: int, best: int, combo: int, particles: Array, distance: int) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool) -> void:
 	_river(c, time, cam)
 	for pad in pads:
 		var screen := Vector2(float(pad["x"]), ANCHOR - (float(pad["m"]) - cam) * SCALE)
@@ -61,6 +61,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		_start_overlay(c, time)
 	if mode == 4:
 		_lost_overlay(c, score, best)
+	if mode == 5:
+		_pause_overlay(c, muted)
 
 static func _river(c: CanvasItem, t: float, cam: float) -> void:
 	# Slate-blue flowing water, pale shoreline and watercolor vegetation.
@@ -286,6 +288,10 @@ static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int,
 	text(c, "%s" % _commas(score), Vector2(267, 35), 25, INK)
 	rr(c, Rect2(415, 17, 111, 35), 17, CREAM, Color("#8c806e"), 1.5)
 	text(c, "%d m" % distance, Vector2(470, 34), 17, INK)
+	if mode in [1, 2, 3]:
+		rr(c, Rect2(476, 81, 48, 45), 14, CREAM, Color("#8c806e"), 1.5)
+		line(c, Vector2(493, 92), Vector2(493, 113), Color("#6c6470"), 4.0)
+		line(c, Vector2(507, 92), Vector2(507, 113), Color("#6c6470"), 4.0)
 	if mode in [1, 2, 3] and wave_m > cam - 32:
 		rr(c, Rect2(180, 67, 180, 31), 14, Color("#fff0d9"), Color("#c57e6e"), 1.5)
 		text(c, "WAVE APPROACHING!", Vector2(270, 83), 13, Color("#a15c53"))
@@ -310,6 +316,16 @@ static func _lost_overlay(c: CanvasItem, score: int, best: int) -> void:
 	text(c, "Best: %s" % _commas(best), Vector2(270, 538), 20, Color("#8c756c"))
 	rr(c, Rect2(111, 565, 318, 59), 27, Color("#a5ce7c"), Color("#5b7a59"), 2)
 	text(c, "TAP TO RETRY", Vector2(270, 593), 24, Color("#435443"))
+
+static func _pause_overlay(c: CanvasItem, muted: bool) -> void:
+	c.draw_rect(Rect2(0, 0, W, H), Color(0.15, 0.22, 0.29, 0.60))
+	rr(c, Rect2(55, 295, 430, 360), 32, Color("#fff0d9"), Color("#887b72"), 3)
+	text(c, "PAUSED", Vector2(270, 360), 48, Color("#5a6474"), true)
+	text(c, "The river can wait.", Vector2(270, 418), 21, Color("#897871"))
+	rr(c, Rect2(108, 460, 324, 66), 27, Color("#b3d185"), Color("#5e7e60"), 2)
+	text(c, "RESUME", Vector2(270, 494), 26, Color("#49564b"))
+	rr(c, Rect2(108, 544, 324, 66), 27, Color("#eee0c2"), Color("#92836d"), 2)
+	text(c, "SOUND: OFF" if muted else "SOUND: ON", Vector2(270, 577), 23, INK)
 
 static func _commas(value: int) -> String:
 	var s := str(value)
