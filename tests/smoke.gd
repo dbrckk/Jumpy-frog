@@ -82,7 +82,19 @@ func _run_tests() -> void:
 			var dy: float = (float(curr["m"]) - float(prev["m"])) * 8.0 / 1.35
 			_check(Vector2(dx, dy).length() <= 215.0, "random platform gap reachable")
 	
+	# Animation state must respond to jumping/landing and reset predictably.
 	scene._reset_game()
+	scene.mode = 1
+	var animate_pad: Dictionary = scene.pads[1]
+	scene.aim_x = animate_pad["x"]
+	scene.aim_m = animate_pad["m"]
+	scene._start_jump()
+	_check(scene.body_squash > 0.2, "takeoff squash activated")
+	for frame in range(75):
+		scene._process(0.02)
+	_check(scene.landing_impact > 0.0, "landing triggers impact animation")
+	scene._reset_game()
+	_check(scene.body_tilt == 0.0 and scene.stack_sway == 0.0 and scene.landing_impact == 0.0, "animation reset")
 	_check(scene.mode == 0 and scene.score == 0, "retry resets run")
 	_check(scene.pads.size() >= 4, "retry generates platforms")
 	if failures == 0:
