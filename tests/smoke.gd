@@ -106,6 +106,14 @@ func _run_tests() -> void:
 		prior_lily = lily
 	_check(saw_impact, "landing triggers impact animation")
 	_check(saw_lily, "lily impact animation triggered")
+	_check(scene.ripples.size() > 0, "water ripple spawned at landing")
+	var existing_ripples: int = scene.ripples.size()
+	scene._add_float_text("TEST", Vector2(270, 320), Color.WHITE)
+	_check(scene.float_texts.size() == 1, "floating reward created")
+	for step in range(65):
+		scene._process(0.02)
+	_check(scene.float_texts.is_empty(), "floating reward expires")
+	_check(scene.ripples.size() <= existing_ripples, "water ripples expire")
 	_check(lily_relaxed, "lily spring relaxes")
 	scene._reset_game()
 	_check(scene.body_tilt == 0.0 and scene.stack_sway == 0.0 and scene.landing_impact == 0.0, "animation reset")
