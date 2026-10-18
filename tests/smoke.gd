@@ -12,6 +12,31 @@ func _run_tests() -> void:
 	_check(scene.mode == 0, "opens on the title screen")
 	_check(scene.pads.size() >= 4, "generates platforms")
 	_check(scene.pads[0]["m"] == 0.0, "starts on a lily")
+	# Every original sound is generated offline once and cached for reuse.
+	_check(scene.sound.samples.size() == 9, "nine independent original sound effects are cached")
+	_check(scene.sound.voices.size() == 6, "six simultaneous audio voices are available")
+	_check(scene.sound.ambience.stream is AudioStreamWAV, "ambient river sound has a real audio stream")
+	var distinct_lengths: Dictionary = {}
+	for event_name in scene.sound.samples.keys():
+		var stream: AudioStreamWAV = scene.sound.samples[event_name]
+		_check(stream.data.size() > 2000, "cached effect contains nonempty PCM: " + str(event_name))
+		_check(stream.mix_rate == 22050, "effect sample rate is consistent")
+		distinct_lengths[stream.data.size()] = true
+	_check(distinct_lengths.size() >= 6, "events have varied durations and audible identities")
+	scene.sound.set_muted(false)
+	var voice_cursor: int = scene.sound.next_voice
+	scene.sound.play_event("coin")
+	_check(scene.sound.next_voice != voice_cursor, "audio playback uses pooled voice")
+	scene.sound.set_paused(true)
+	voice_cursor = scene.sound.next_voice
+	scene.sound.play_event("land")
+	_check(scene.sound.next_voice == voice_cursor, "pausing prevents new sound effects")
+	scene.sound.set_paused(false)
+	scene.sound.set_muted(true)
+	scene.sound.play_event("friend")
+	_check(scene.sound.next_voice == voice_cursor, "muting prevents new sound effects")
+	scene.sound.set_muted(false)
+
 	
 	var first: Dictionary = scene.pads[1]
 	var predicted: Dictionary = scene._landing_target(float(first["x"]), float(first["m"]))
@@ -43,6 +68,7 @@ func _run_tests() -> void:
 	scene.mode = 1
 	scene._down(Vector2(494, 99))
 	_check(scene.mode == 5, "pause button suspends")
+	_check(scene.sound.paused, "pause also suspends ambience")
 	var pause_wave: float = scene.wave_m
 	scene._process(1.0)
 	_check(scene.wave_m == pause_wave, "pause freezes wave")
@@ -51,6 +77,7 @@ func _run_tests() -> void:
 	_check(scene.muted != previous_mute, "sound setting works")
 	scene._down(Vector2(260, 490))
 	_check(scene.mode == 1, "resume returns to play")
+	_check(not scene.sound.paused, "resuming restores ambience")
 	
 	# Real swipe: pull down and sideways to land on the first lily.
 	scene._reset_game()
@@ -136,7 +163,7 @@ func _run_tests() -> void:
 	_check(scene.mode == 0 and scene.score == 0, "retry resets run")
 	_check(scene.pads.size() >= 4, "retry generates platforms")
 	if failures == 0:
-		print("PASS: spawning, prediction, gestures, collision, score, splash, pause, audio, 64 generated runs, retry")
+		print("PASS: 9 cached SFX, looped ambience, voice pool, mute/pause, spawning, prediction, gestures, collision, scoring, VFX stress, 64 layouts, retry")
 	else:
 		printerr("FAILED: %d gameplay assertions" % failures)
 	scene.queue_free()
