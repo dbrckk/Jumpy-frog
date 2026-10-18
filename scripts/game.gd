@@ -1,6 +1,7 @@
 extends Node2D
 ## A complete endless-runner prototype driven by touch (and mouse emulation).
 const ART = preload("res://scripts/art.gd")
+const AUDIO = preload("res://scripts/audio.gd")
 const W := 540.0
 const H := 960.0
 const PX_PER_M := 8.0
@@ -39,7 +40,7 @@ var jump_elapsed: float = 0.0
 var jump_duration: float = 0.6
 var jump_z: float = 0.0
 var jump_pad_id: int = -1
-var sound: AudioStreamPlayer
+var sound: Node
 var muted: bool = false
 var body_tilt := 0.0
 var body_squash := 0.0
@@ -53,26 +54,32 @@ var pad_impacts: Dictionary = {}
 var celebration := 0.0
 var float_texts: Array[Dictionary] = []
 var ripples: Array[Dictionary] = []
+var shake_strength := 0.0
+var impact_flash := 0.0
+var wave_warned := false
 
 func _ready() -> void:
 	rng.randomize()
-	sound = AudioStreamPlayer.new()
-	sound.bus = "Master"
-	sound.volume_db = -11.0
+	sound = AUDIO.new()
 	add_child(sound)
 	var save := ConfigFile.new()
 	if save.load("user://jumpy_frog.cfg") == OK:
 		best_score = int(save.get_value("progress", "best_score", 0))
 		muted = bool(save.get_value("progress", "muted", false))
-	sound.volume_db = -80.0 if muted else -11.0
+	sound.set_muted(muted)
 	_reset_game()
 
 func _reset_game() -> void:
 	mode = MODE_TITLE
+	if sound != null:
+		sound.set_paused(false)
 	pads.clear()
 	particles.clear()
 	float_texts.clear()
 	ripples.clear()
+	shake_strength = 0.0
+	impact_flash = 0.0
+	wave_warned = false
 	pad_impacts.clear()
 	celebration = 0.0
 	player_x = 270.0
@@ -125,9 +132,16 @@ func _process(delta: float) -> void:
 		queue_redraw()
 		return
 	clock += delta
+	shake_strength = maxf(0.0, shake_strength - delta * 21.0)
+	impact_flash = maxf(0.0, impact_flash - delta * 1.6)
 	if mode in [MODE_PLAY, MODE_AIM, MODE_FLY]:
 		var pressure := 2.4 + minf(highest_m * 0.013, 4.5)
 		wave_m += delta * pressure
+		if wave_m > player_m - 14.0 and not wave_warned:
+			wave_warned = true
+			sound.play_event("warning")
+		elif wave_m < player_m - 22.0:
+			wave_warned = false
 		if wave_m >= player_m - 0.25 and mode != MODE_FLY:
 			_die()
 	if mode == MODE_FLY:
@@ -199,7 +213,8 @@ func _draw() -> void:
 		if not pad.is_empty():
 			preview = Vector2(float(pad["x"]), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples)
+	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -220,20 +235,24 @@ func _input(event: InputEvent) -> void:
 		elif event.keycode == KEY_ESCAPE:
 			if mode == MODE_PAUSED:
 				mode = MODE_PLAY
+				sound.set_paused(false)
 			elif mode in [MODE_AIM, MODE_PLAY]:
 				mode = MODE_PAUSED
+				sound.set_paused(true)
 
 func _down(pos: Vector2) -> void:
 	if mode == MODE_PAUSED:
 		if Rect2(108, 460, 324, 66).has_point(pos):
 			mode = MODE_PLAY
+			sound.set_paused(false)
 		elif Rect2(108, 544, 324, 66).has_point(pos):
 			muted = not muted
-			sound.volume_db = -80.0 if muted else -11.0
+			sound.set_muted(muted)
 			_save_progress()
 		return
 	if mode in [MODE_PLAY, MODE_AIM] and Rect2(473, 78, 63, 59).has_point(pos):
 		mode = MODE_PAUSED
+		sound.set_paused(true)
 		return
 	if mode == MODE_LOST:
 		_reset_game()
@@ -301,11 +320,14 @@ func _start_jump() -> void:
 	jump_duration = clampf(0.40 + (jump_end.y - jump_start.y) * 0.012, 0.48, 0.87)
 	body_squash = 0.23
 	mode = MODE_FLY
-	_tone(520.0, 0.095, 0)
+	sound.play_event("jump")
 
 func _finish_jump() -> void:
 	jump_z = 0.0
 	if jump_pad_id == -1:
+		shake_strength = 11.0
+		impact_flash = 0.20
+		sound.play_event("splash")
 		_add_ripple(_player_screen(), 1.5)
 		_burst(_player_screen(), 22, "water")
 		_die()
@@ -314,6 +336,7 @@ func _finish_jump() -> void:
 		if int(pad["id"]) == jump_pad_id:
 			var gain := maxi(12, int((float(pad["m"]) - highest_m) * 13.0))
 			if bool(pad["coin"]):
+				sound.play_event("coin")
 				_add_float_text("+75", _player_screen() + Vector2(28, -55), Color("#fff3ad"))
 				gain += 75
 				pad["coin"] = false
@@ -323,15 +346,19 @@ func _finish_jump() -> void:
 				_add_float_text("FRIEND +1", _player_screen() + Vector2(0, -99), Color("#fff1cc"))
 				gain += 55
 				pad["pet"] = false
-				_tone(830.0, 0.16, 1)
+				sound.play_event("friend")
 			else:
-				_tone(650.0, 0.075, 1)
+				sound.play_event("land")
 			combo += 1
+			if combo >= 3 and combo % 3 == 0:
+				sound.play_event("combo")
 			score += maxi(gain, 0) + maxi(combo - 2, 0) * 10
 			highest_m = maxf(highest_m, player_m)
 			_add_ripple(_player_screen() + Vector2(0, 10), 1.0)
 			pad_impacts[jump_pad_id] = 1.0
 			landing_impact = 1.0
+			shake_strength = 4.2 if pets < 1 else 5.1
+			impact_flash = 0.10 if pets < 1 else 0.15
 			body_squash = 0.28
 			_burst(_player_screen() + Vector2(0, 14), 11, "water")
 			_burst(_player_screen() + Vector2(0, -5), 7, "spark")
@@ -345,8 +372,9 @@ func _die() -> void:
 	if mode == MODE_LOST:
 		return
 	mode = MODE_LOST
+	shake_strength = maxf(shake_strength, 7.0)
 	jump_z = 0.0
-	_tone(180, 0.28, 2)
+	sound.play_event("lose")
 	if score > best_score:
 		best_score = score
 	_save_progress()
@@ -379,30 +407,3 @@ func _burst(pos: Vector2, amount: int, kind: String = "spark") -> void:
 			"kind": kind
 		})
 
-func _tone(freq: float, duration: float, kind: int) -> void:
-	# Embedded synthesis avoids any licensed or externally hosted audio files.
-	if muted:
-		return
-	var wav := AudioStreamWAV.new()
-	wav.mix_rate = 22050
-	wav.format = AudioStreamWAV.FORMAT_16_BITS
-	wav.stereo = false
-	var samples := int(duration * 22050.0)
-	var bytes := PackedByteArray()
-	bytes.resize(samples * 2)
-	for i in range(samples):
-		var t := float(i) / 22050.0
-		var attack := minf(1.0, t * 100.0)
-		var env := attack * pow(1.0 - float(i) / float(samples), 2.0)
-		var f := freq * (1.0 + 0.15 * t / maxf(duration, 0.01)) if kind == 0 else freq
-		if kind == 2:
-			f = freq * (1.0 - t / duration * 0.45)
-		var tone_value := sin(TAU * f * t) * 0.75 + sin(TAU * f * 2.0 * t) * 0.17
-		var n := int(clampf(tone_value * env * 10000.0, -32767.0, 32767.0))
-		if n < 0:
-			n += 65536
-		bytes[i * 2] = n & 255
-		bytes[i * 2 + 1] = (n >> 8) & 255
-	wav.data = bytes
-	sound.stream = wav
-	sound.play()
