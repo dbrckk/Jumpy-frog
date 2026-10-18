@@ -51,6 +51,8 @@ var horizontal_velocity := 0.0
 var previous_x := 270.0
 var pad_impacts: Dictionary = {}
 var celebration := 0.0
+var float_texts: Array[Dictionary] = []
+var ripples: Array[Dictionary] = []
 
 func _ready() -> void:
 	rng.randomize()
@@ -69,6 +71,8 @@ func _reset_game() -> void:
 	mode = MODE_TITLE
 	pads.clear()
 	particles.clear()
+	float_texts.clear()
+	ripples.clear()
 	pad_impacts.clear()
 	celebration = 0.0
 	player_x = 270.0
@@ -160,6 +164,19 @@ func _process(delta: float) -> void:
 		pads.pop_front()
 	if mode in [MODE_PLAY, MODE_AIM, MODE_FLY]:
 		_generate_pads()
+	for i in range(float_texts.size() - 1, -1, -1):
+		var item: Dictionary = float_texts[i]
+		item["life"] = float(item["life"]) - delta
+		item["pos"] = Vector2(item["pos"]) + Vector2(0, -44) * delta
+		float_texts[i] = item
+		if float(item["life"]) <= 0.0:
+			float_texts.remove_at(i)
+	for i in range(ripples.size() - 1, -1, -1):
+		var ripple: Dictionary = ripples[i]
+		ripple["age"] = float(ripple["age"]) + delta
+		ripples[i] = ripple
+		if float(ripple["age"]) >= 0.78:
+			ripples.remove_at(i)
 	for i in range(particles.size() - 1, -1, -1):
 		var particle: Dictionary = particles[i]
 		particle["life"] = float(particle["life"]) - delta * 1.85
@@ -178,7 +195,7 @@ func _draw() -> void:
 		if not pad.is_empty():
 			preview = Vector2(float(pad["x"]), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -285,6 +302,7 @@ func _start_jump() -> void:
 func _finish_jump() -> void:
 	jump_z = 0.0
 	if jump_pad_id == -1:
+		_add_ripple(_player_screen(), 1.5)
 		_burst(_player_screen(), 11)
 		_die()
 		return
@@ -292,11 +310,13 @@ func _finish_jump() -> void:
 		if int(pad["id"]) == jump_pad_id:
 			var gain := maxi(12, int((float(pad["m"]) - highest_m) * 13.0))
 			if bool(pad["coin"]):
+				_add_float_text("+75", _player_screen() + Vector2(28, -55), Color("#fff3ad"))
 				gain += 75
 				pad["coin"] = false
 			if bool(pad["pet"]):
 				pets = mini(pets + 1, 8)
 				celebration = 1.0
+				_add_float_text("FRIEND +1", _player_screen() + Vector2(0, -99), Color("#fff1cc"))
 				gain += 55
 				pad["pet"] = false
 				_tone(830.0, 0.16, 1)
@@ -305,6 +325,7 @@ func _finish_jump() -> void:
 			combo += 1
 			score += maxi(gain, 0) + maxi(combo - 2, 0) * 10
 			highest_m = maxf(highest_m, player_m)
+			_add_ripple(_player_screen() + Vector2(0, 10), 1.0)
 			pad_impacts[jump_pad_id] = 1.0
 			landing_impact = 1.0
 			body_squash = 0.28
@@ -330,6 +351,12 @@ func _save_progress() -> void:
 	save.set_value("progress", "best_score", best_score)
 	save.set_value("progress", "muted", muted)
 	save.save("user://jumpy_frog.cfg")
+
+func _add_float_text(value: String, pos: Vector2, color: Color) -> void:
+	float_texts.append({"text": value, "pos": pos, "life": 1.0, "color": color})
+
+func _add_ripple(pos: Vector2, size: float) -> void:
+	ripples.append({"pos": pos, "age": 0.0, "size": size})
 
 func _burst(pos: Vector2, amount: int) -> void:
 	for i in range(amount):
