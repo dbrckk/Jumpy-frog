@@ -10,6 +10,7 @@ const MODE_PLAY := 1
 const MODE_AIM := 2
 const MODE_FLY := 3
 const MODE_LOST := 4
+const MODE_PAUSED := 5
 
 var mode: int = MODE_TITLE
 var rng := RandomNumberGenerator.new()
@@ -19,7 +20,7 @@ var clock: float = 0.0
 var player_x: float = 270.0
 var player_m: float = 0.0
 var cam_m: float = 0.0
-var wave_m: float = -64.0
+var wave_m: float = -32.0
 var highest_m: float = 0.0
 var last_generated_m: float = 0.0
 var last_pad_x: float = 270.0
@@ -39,6 +40,7 @@ var jump_duration: float = 0.6
 var jump_z: float = 0.0
 var jump_pad_id: int = -1
 var sound: AudioStreamPlayer
+var muted: bool = false
 
 func _ready() -> void:
 	rng.randomize()
@@ -49,6 +51,8 @@ func _ready() -> void:
 	var save := ConfigFile.new()
 	if save.load("user://jumpy_frog.cfg") == OK:
 		best_score = int(save.get_value("progress", "best_score", 0))
+		muted = bool(save.get_value("progress", "muted", false))
+	sound.volume_db = -80.0 if muted else -11.0
 	_reset_game()
 
 func _reset_game() -> void:
@@ -58,7 +62,7 @@ func _reset_game() -> void:
 	player_x = 270.0
 	player_m = 0.0
 	cam_m = 0.0
-	wave_m = -64.0
+	wave_m = -32.0
 	highest_m = 0.0
 	last_generated_m = 0.0
 	last_pad_x = 270.0
@@ -93,9 +97,12 @@ func _generate_pads() -> void:
 
 func _process(delta: float) -> void:
 	delta = minf(delta, 0.08)
+	if mode == MODE_PAUSED:
+		queue_redraw()
+		return
 	clock += delta
 	if mode in [MODE_PLAY, MODE_AIM, MODE_FLY]:
-		var pressure := 3.2 + minf(highest_m * 0.009, 4.0)
+		var pressure := 2.4 + minf(highest_m * 0.013, 4.5)
 		wave_m += delta * pressure
 		if wave_m >= player_m - 0.25 and mode != MODE_FLY:
 			_die()
@@ -143,10 +150,24 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode in [KEY_R, KEY_SPACE, KEY_ENTER] and mode == MODE_LOST:
 			_reset_game()
-		elif event.keycode == KEY_ESCAPE and mode in [MODE_AIM, MODE_PLAY]:
-			mode = MODE_TITLE
+		elif event.keycode == KEY_ESCAPE:
+			if mode == MODE_PAUSED:
+				mode = MODE_PLAY
+			elif mode in [MODE_AIM, MODE_PLAY]:
+				mode = MODE_PAUSED
 
 func _down(pos: Vector2) -> void:
+	if mode == MODE_PAUSED:
+		if Rect2(108, 460, 324, 66).has_point(pos):
+			mode = MODE_PLAY
+		elif Rect2(108, 544, 324, 66).has_point(pos):
+			muted = not muted
+			sound.volume_db = -80.0 if muted else -11.0
+			_save_progress()
+		return
+	if mode in [MODE_PLAY, MODE_AIM] and Rect2(473, 78, 63, 59).has_point(pos):
+		mode = MODE_PAUSED
+		return
 	if mode == MODE_LOST:
 		_reset_game()
 		mode = MODE_PLAY
@@ -246,9 +267,13 @@ func _die() -> void:
 	_tone(180, 0.28, 2)
 	if score > best_score:
 		best_score = score
-		var save := ConfigFile.new()
-		save.set_value("progress", "best_score", best_score)
-		save.save("user://jumpy_frog.cfg")
+	_save_progress()
+
+func _save_progress() -> void:
+	var save := ConfigFile.new()
+	save.set_value("progress", "best_score", best_score)
+	save.set_value("progress", "muted", muted)
+	save.save("user://jumpy_frog.cfg")
 
 func _burst(pos: Vector2, amount: int) -> void:
 	for i in range(amount):
@@ -260,6 +285,8 @@ func _burst(pos: Vector2, amount: int) -> void:
 
 func _tone(freq: float, duration: float, kind: int) -> void:
 	# Embedded synthesis avoids any licensed or externally hosted audio files.
+	if muted:
+		return
 	var wav := AudioStreamWAV.new()
 	wav.mix_rate = 22050
 	wav.format = AudioStreamWAV.FORMAT_16_BITS
