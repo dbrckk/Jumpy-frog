@@ -186,7 +186,7 @@ static func _coin(c: CanvasItem, pos: Vector2, time: float) -> void:
 	c.draw_arc(pos, 7.0, 0, TAU, 30, Color("#fff1a5"), 2.3, true)
 	text(c, "+", pos + Vector2(0, -3), 16, Color("#936636"))
 
-static func _friend(c: CanvasItem, at: Vector2, kind: int, scale: float = 1.0, time: float = 0.0) -> void:
+static func _friend(c: CanvasItem, at: Vector2, kind: int, scale: float = 1.0, time: float = 0.0, energy: float = 0.0) -> void:
 	# Four readable species; silhouettes remain distinct even when stacked.
 	var species := posmod(kind, 4)
 	var colors := [Color("#73acd0"), Color("#e6aa70"), Color("#aa90c8"), Color("#97be76")]
@@ -195,20 +195,20 @@ static func _friend(c: CanvasItem, at: Vector2, kind: int, scale: float = 1.0, t
 	var belly: Color = bellies[species]
 	var ink := Color("#504b58")
 	var blink := fposmod(time * (0.83 + species * 0.07) + kind * 1.93, 4.7) < 0.12
-	var bob := sin(time * (3.0 + species * 0.23) + kind * 1.4) * 0.9
-	c.draw_set_transform(at + Vector2(0, bob), sin(time * 2.4 + kind) * 0.045, Vector2(scale, scale))
+	var bob := sin(time * (3.0 + species * 0.23) + kind * 1.4) * (0.9 + energy * 2.0)
+	c.draw_set_transform(at + Vector2(0, bob), sin(time * 2.4 + kind) * (0.045 + energy * 0.09), Vector2(scale * (1.0 + energy * 0.07), scale * (1.0 - energy * 0.05)))
 	# Species 0: blue bird with feather crest and side wings.
 	if species == 0:
-		ellipse(c, Vector2(-11, 4), Vector2(7, 9), ink)
-		ellipse(c, Vector2(-11, 3), Vector2(6, 8), main.darkened(0.16))
-		ellipse(c, Vector2(10, 4), Vector2(7, 9), ink)
-		ellipse(c, Vector2(10, 3), Vector2(6, 8), main.darkened(0.16))
+		ellipse(c, Vector2(-11 - energy * 3.0, 4 - energy * 2.0), Vector2(7, 9 + energy * 3.0), ink)
+		ellipse(c, Vector2(-11 - energy * 3.0, 3 - energy * 2.0), Vector2(6, 8 + energy * 3.0), main.darkened(0.16))
+		ellipse(c, Vector2(10 + energy * 3.0, 4 - energy * 2.0), Vector2(7, 9 + energy * 3.0), ink)
+		ellipse(c, Vector2(10 + energy * 3.0, 3 - energy * 2.0), Vector2(6, 8 + energy * 3.0), main.darkened(0.16))
 		for i in range(3):
 			ellipse(c, Vector2(-3 + i * 4, -15 - (1 if i == 1 else 0)), Vector2(2.8, 6), main.lightened(0.12))
 	# Species 1: fox ears and a golden tail.
 	elif species == 1:
-		ellipse(c, Vector2(10, 8), Vector2(7, 11), ink)
-		ellipse(c, Vector2(11, 7), Vector2(5, 9), main)
+		ellipse(c, Vector2(10 + sin(time * 6.0) * energy * 4.0, 8), Vector2(7, 11), ink)
+		ellipse(c, Vector2(11 + sin(time * 6.0) * energy * 4.0, 7), Vector2(5, 9), main)
 		for side in [-1, 1]:
 			var ear := PackedVector2Array([Vector2(side * 4, -6), Vector2(side * 12, -21), Vector2(side * 12, -3)])
 			c.draw_colored_polygon(ear, ink)
@@ -217,9 +217,9 @@ static func _friend(c: CanvasItem, at: Vector2, kind: int, scale: float = 1.0, t
 	# Species 2: floppy bunny ears.
 	elif species == 2:
 		for side in [-1, 1]:
-			ellipse(c, Vector2(side * 7, -18), Vector2(4.4, 13), ink)
-			ellipse(c, Vector2(side * 7, -18), Vector2(3, 11), main)
-			ellipse(c, Vector2(side * 7, -18), Vector2(1.5, 8), Color("#ebbbd3"))
+			ellipse(c, Vector2(side * (7 + energy * 2.0), -18 + energy * 3.0), Vector2(4.4, 13), ink)
+			ellipse(c, Vector2(side * (7 + energy * 2.0), -18 + energy * 3.0), Vector2(3, 11), main)
+			ellipse(c, Vector2(side * (7 + energy * 2.0), -18 + energy * 3.0), Vector2(1.5, 8), Color("#ebbbd3"))
 	# Species 3: frog eye bumps, without mistaken fox/bunny ears.
 	else:
 		for side in [-1, 1]:
@@ -303,7 +303,7 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 		var lag := sway * (8.0 + level * 5.0)
 		var follow := sin(t * 3.6 - level * 0.65) * (1.1 + level * 0.3)
 		var passenger := stack_top + Vector2(lag + follow, -level * 18.0 + sin(t * 4.5 - level * 0.6) * 1.6 - celebration * (4.0 + level * 1.2))
-		_friend(c, passenger, i, 0.84 + celebration * 0.07, t)
+		_friend(c, passenger, i, 0.84 + celebration * 0.07, t, clampf(flight * 0.6 + celebration * 0.85, 0.0, 1.0))
 	if pets > 0:
 		c.draw_circle(stack_top + Vector2(-14, -pets * 17), 2.5, Color("#fff4ad"))
 
