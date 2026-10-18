@@ -92,10 +92,13 @@ func _run_tests() -> void:
 	_check(scene.body_squash > 0.2, "takeoff squash activated")
 	var saw_impact := false
 	var saw_lily := false
+	var saw_ripple := false
 	var lily_relaxed := false
 	var prior_lily := 0.0
 	for frame in range(75):
 		scene._process(0.02)
+		if scene.ripples.size() > 0:
+			saw_ripple = true
 		if scene.landing_impact > 0.0:
 			saw_impact = true
 		var lily: float = float(scene.pad_impacts.get(int(animate_pad["id"]), 0.0))
@@ -106,7 +109,7 @@ func _run_tests() -> void:
 		prior_lily = lily
 	_check(saw_impact, "landing triggers impact animation")
 	_check(saw_lily, "lily impact animation triggered")
-	_check(scene.ripples.size() > 0, "water ripple spawned at landing")
+	_check(saw_ripple, "water ripple spawned at landing")
 	var existing_ripples: int = scene.ripples.size()
 	scene._add_float_text("TEST", Vector2(270, 320), Color.WHITE)
 	_check(scene.float_texts.size() == 1, "floating reward created")
