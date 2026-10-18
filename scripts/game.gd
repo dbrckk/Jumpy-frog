@@ -41,6 +41,14 @@ var jump_z: float = 0.0
 var jump_pad_id: int = -1
 var sound: AudioStreamPlayer
 var muted: bool = false
+var body_tilt := 0.0
+var body_squash := 0.0
+var stack_sway := 0.0
+var blink_clock := 2.2
+var blink_amount := 0.0
+var landing_impact := 0.0
+var horizontal_velocity := 0.0
+var previous_x := 270.0
 
 func _ready() -> void:
 	rng.randomize()
@@ -74,6 +82,14 @@ func _reset_game() -> void:
 	aim_m = 0.0
 	jump_z = 0.0
 	jump_pad_id = -1
+	body_tilt = 0.0
+	body_squash = 0.0
+	stack_sway = 0.0
+	blink_clock = rng.randf_range(1.4, 3.3)
+	blink_amount = 0.0
+	landing_impact = 0.0
+	horizontal_velocity = 0.0
+	previous_x = player_x
 	pads.append({"id":0, "x":270.0, "m":0.0, "r":55.0, "kind":0, "coin":false, "pet":false})
 	_generate_pads()
 
@@ -115,6 +131,21 @@ func _process(delta: float) -> void:
 		jump_z = sin(t * PI) * 53.0
 		if t >= 1.0:
 			_finish_jump()
+	# Exponential damping is stable across varying Android frame rates.
+	var damping := 1.0 - exp(-delta * 9.0)
+	horizontal_velocity = (player_x - previous_x) / maxf(delta, 0.001)
+	previous_x = player_x
+	var target_tilt := clampf(horizontal_velocity * 0.0024, -0.28, 0.28) if mode == MODE_FLY else 0.0
+	body_tilt = lerpf(body_tilt, target_tilt, damping)
+	stack_sway = lerpf(stack_sway, -body_tilt * 1.8, 1.0 - exp(-delta * 4.1))
+	landing_impact = maxf(0.0, landing_impact - delta * 3.4)
+	var squash_target := 0.13 if mode == MODE_AIM else 0.0
+	body_squash = lerpf(body_squash, squash_target, 1.0 - exp(-delta * 12.0))
+	blink_clock -= delta
+	if blink_clock <= 0.0:
+		blink_clock = rng.randf_range(2.1, 4.2)
+		blink_amount = 1.0
+	blink_amount = maxf(0.0, blink_amount - delta * 7.5)
 	cam_m = lerpf(cam_m, player_m, minf(1.0, delta * 4.7))
 	if not pads.is_empty() and float(pads[0]["m"]) < cam_m - 75.0:
 		pads.pop_front()
@@ -138,7 +169,7 @@ func _draw() -> void:
 		if not pad.is_empty():
 			preview = Vector2(float(pad["x"]), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, body_tilt, body_squash, stack_sway, blink_amount, landing_impact)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -238,6 +269,7 @@ func _start_jump() -> void:
 		jump_end = Vector2(float(target["x"]), float(target["m"]))
 	jump_elapsed = 0.0
 	jump_duration = clampf(0.40 + (jump_end.y - jump_start.y) * 0.012, 0.48, 0.87)
+	body_squash = 0.23
 	mode = MODE_FLY
 	_tone(520.0, 0.095, 0)
 
@@ -263,7 +295,9 @@ func _finish_jump() -> void:
 			combo += 1
 			score += maxi(gain, 0) + maxi(combo - 2, 0) * 10
 			highest_m = maxf(highest_m, player_m)
-			_burst(_player_screen() + Vector2(0, 14), 7)
+			landing_impact = 1.0
+			body_squash = 0.28
+			_burst(_player_screen() + Vector2(0, 14), 15)
 			mode = MODE_PLAY
 			if wave_m >= player_m - 0.25:
 				_die()
