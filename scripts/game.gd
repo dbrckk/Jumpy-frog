@@ -49,6 +49,8 @@ var blink_amount := 0.0
 var landing_impact := 0.0
 var horizontal_velocity := 0.0
 var previous_x := 270.0
+var pad_impacts: Dictionary = {}
+var celebration := 0.0
 
 func _ready() -> void:
 	rng.randomize()
@@ -67,6 +69,8 @@ func _reset_game() -> void:
 	mode = MODE_TITLE
 	pads.clear()
 	particles.clear()
+	pad_impacts.clear()
+	celebration = 0.0
 	player_x = 270.0
 	player_m = 0.0
 	cam_m = 0.0
@@ -139,6 +143,11 @@ func _process(delta: float) -> void:
 	body_tilt = lerpf(body_tilt, target_tilt, damping)
 	stack_sway = lerpf(stack_sway, -body_tilt * 1.8, 1.0 - exp(-delta * 4.1))
 	landing_impact = maxf(0.0, landing_impact - delta * 3.4)
+	celebration = maxf(0.0, celebration - delta * 1.8)
+	for pad_id in pad_impacts.keys():
+		pad_impacts[pad_id] = maxf(0.0, float(pad_impacts[pad_id]) - delta * 2.8)
+		if float(pad_impacts[pad_id]) <= 0.0:
+			pad_impacts.erase(pad_id)
 	var squash_target := 0.13 if mode == MODE_AIM else 0.0
 	body_squash = lerpf(body_squash, squash_target, 1.0 - exp(-delta * 12.0))
 	blink_clock -= delta
@@ -169,7 +178,7 @@ func _draw() -> void:
 		if not pad.is_empty():
 			preview = Vector2(float(pad["x"]), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, body_tilt, body_squash, stack_sway, blink_amount, landing_impact)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -287,6 +296,7 @@ func _finish_jump() -> void:
 				pad["coin"] = false
 			if bool(pad["pet"]):
 				pets = mini(pets + 1, 8)
+				celebration = 1.0
 				gain += 55
 				pad["pet"] = false
 				_tone(830.0, 0.16, 1)
@@ -295,6 +305,7 @@ func _finish_jump() -> void:
 			combo += 1
 			score += maxi(gain, 0) + maxi(combo - 2, 0) * 10
 			highest_m = maxf(highest_m, player_m)
+			pad_impacts[jump_pad_id] = 1.0
 			landing_impact = 1.0
 			body_squash = 0.28
 			_burst(_player_screen() + Vector2(0, 14), 15)
