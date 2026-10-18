@@ -32,7 +32,7 @@ func _run_tests() -> void:
 	_check(scene.score > 0, "landing earns score")
 	
 	scene.aim_x = 270.0
-	scene.aim_m = scene.player_m + 99.0
+	scene.aim_m = scene.player_m + 3000.0
 	scene._start_jump()
 	_check(scene.jump_pad_id == -1, "missing platform predicts splash")
 	for i in range(75):
