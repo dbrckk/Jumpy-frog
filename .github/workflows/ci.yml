@@ -1,0 +1,29 @@
+name: Godot QA and Android APK
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.5.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Import and validate Godot project
+        run: godot --headless --editor --path . --quit
+      - name: Gameplay smoke tests
+        run: godot --headless --path . --script res://tests/smoke.gd
+      - name: Export Android debug APK
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/JumpyFrog-debug.apk
+          test -s build/JumpyFrog-debug.apk
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: JumpyFrog-Android-debug
+          path: build/JumpyFrog-debug.apk
+          if-no-files-found: error
