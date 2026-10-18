@@ -70,47 +70,47 @@ func _synthesize(event_name: String) -> AudioStreamWAV:
 		var noise: float = rng.randf_range(-1.0, 1.0)
 		filtered = lerpf(filtered, noise, 0.18)
 		var filtered_noise := noise * 0.25 + filtered * 0.75
-		var signal := 0.0
+		var sample_value := 0.0
 		var freq := 300.0
 		match event_name:
 			"jump":
 				freq = 275.0 + 570.0 * p * p
 				e *= 0.80
-				signal = sin(phase) * 0.76 + sin(phase * 2.0) * 0.15
+				sample_value = sin(phase) * 0.76 + sin(phase * 2.0) * 0.15
 			"land":
 				freq = 260.0 * pow(0.46, p)
 				e *= 0.94
-				signal = sin(phase) * 0.82 + filtered_noise * 0.23
+				sample_value = sin(phase) * 0.82 + filtered_noise * 0.23
 			"splash":
 				freq = 195.0 - 70.0 * p
 				e = ramp * pow(1.0 - p, 1.65)
-				signal = filtered_noise * 0.83 + sin(phase) * 0.21
+				sample_value = filtered_noise * 0.83 + sin(phase) * 0.21
 			"coin":
 				freq = 760.0 if p < 0.44 else 1120.0
 				e *= 0.78
-				signal = sin(phase) * 0.78 + sin(phase * 2.02) * 0.10
+				sample_value = sin(phase) * 0.78 + sin(phase * 2.02) * 0.10
 			"friend":
 				freq = 490.0 if p < 0.31 else (620.0 if p < 0.61 else 830.0)
 				e *= 0.82
-				signal = sin(phase) * 0.65 + sin(phase * 2.0) * 0.13 + sin(phase * 3.0) * 0.06
+				sample_value = sin(phase) * 0.65 + sin(phase * 2.0) * 0.13 + sin(phase * 3.0) * 0.06
 			"combo":
 				freq = 520.0 if p < 0.25 else (655.0 if p < 0.5 else (785.0 if p < 0.75 else 1045.0))
 				e *= 0.75
-				signal = sin(phase) * 0.66 + sin(phase * 2.0) * 0.18
+				sample_value = sin(phase) * 0.66 + sin(phase * 2.0) * 0.18
 			"warning":
 				freq = 355.0 + 48.0 * sin(TAU * 4.2 * t)
 				e = minf(1.0, t * 14.0) * pow(1.0 - p, 1.2)
-				signal = sin(phase) * 0.62 + sin(phase * 0.52) * 0.20
+				sample_value = sin(phase) * 0.62 + sin(phase * 0.52) * 0.20
 			"lose":
 				freq = 420.0 * pow(0.27, p)
 				e = ramp * pow(1.0 - p, 1.1)
-				signal = sin(phase) * 0.55 + filtered_noise * (0.28 + p * 0.22)
+				sample_value = sin(phase) * 0.55 + filtered_noise * (0.28 + p * 0.22)
 			"ui":
 				freq = 600.0 * pow(1.20, p)
 				e *= 0.37
-				signal = sin(phase)
+				sample_value = sin(phase)
 		phase += TAU * freq / SAMPLE_RATE
-		var value := int(clampf(signal * e * 10500.0, -32767.0, 32767.0))
+		var value := int(clampf(sample_value * e * 10500.0, -32767.0, 32767.0))
 		if value < 0:
 			value += 65536
 		bytes[i * 2] = value & 255
