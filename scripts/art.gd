@@ -41,8 +41,9 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
 	_river(c, time, cam)
+	c.draw_set_transform(Vector2.ZERO)
 	for pad in pads:
-		var screen := Vector2(float(pad["x"]), ANCHOR - (float(pad["m"]) - cam) * SCALE)
+		var screen := Vector2(float(pad["x"]), ANCHOR - (float(pad["m"]) - cam) * SCALE) + shake
 		if screen.y < -125.0 or screen.y > H + 125.0:
 			continue
 		_lily(c, screen, float(pad["r"]), int(pad["kind"]), time, int(pad["id"]), float(pad_impacts.get(int(pad["id"]), 0.0)))
@@ -52,15 +53,15 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 			_friend(c, screen + Vector2(0, -18), int(pad["id"]) % 4, 0.82, time)
 	for ripple in ripples:
 		var age: float = float(ripple["age"])
-		var pos: Vector2 = ripple["pos"]
+		var pos: Vector2 = Vector2(ripple["pos"]) + shake
 		var radius: float = (15.0 + age * 88.0) * float(ripple["size"])
 		c.draw_arc(pos, radius, 0.0, TAU, 56, Color(0.99, 1.0, 0.91, (1.0 - age / 0.78) * 0.65), 2.9 * (1.0 - age / 0.9), true)
-	_wave(c, ANCHOR - (wave_m - cam) * SCALE, time)
+	_wave(c, ANCHOR - (wave_m - cam) * SCALE + shake.y, time)
 	if aiming:
-		_aim_guide(c, player_at, aim_at, time, aim_valid)
-	_character(c, player_at, jump_z, pets, time, mode == 3, tilt, squash, sway, blink, impact, celebration)
+		_aim_guide(c, player_at + shake, aim_at + shake, time, aim_valid)
+	_character(c, player_at + shake, jump_z, pets, time, mode == 3, tilt, squash, sway, blink, impact, celebration)
 	for particle in particles:
-		var p: Vector2 = particle["pos"]
+		var p: Vector2 = Vector2(particle["pos"]) + shake
 		var life: float = particle["life"]
 		if particle.get("kind", "spark") == "water":
 			var velocity: Vector2 = particle["velocity"]
@@ -73,7 +74,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 			c.draw_circle(p, 1.1 + 1.6 * life, Color(1, 1, 0.91, life))
 	for floating in float_texts:
 		var life: float = float(floating["life"])
-		var p: Vector2 = floating["pos"]
+		var p: Vector2 = Vector2(floating["pos"]) + shake
 		var ink: Color = floating["color"]
 		ink.a = clampf(life * 1.45, 0.0, 1.0)
 		text(c, String(floating["text"]), p, 22, ink, true)
