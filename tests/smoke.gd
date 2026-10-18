@@ -90,9 +90,12 @@ func _run_tests() -> void:
 	scene.aim_m = animate_pad["m"]
 	scene._start_jump()
 	_check(scene.body_squash > 0.2, "takeoff squash activated")
+	var saw_impact := false
 	for frame in range(75):
 		scene._process(0.02)
-	_check(scene.landing_impact > 0.0, "landing triggers impact animation")
+		if scene.landing_impact > 0.0:
+			saw_impact = true
+	_check(saw_impact, "landing triggers impact animation")
 	scene._reset_game()
 	_check(scene.body_tilt == 0.0 and scene.stack_sway == 0.0 and scene.landing_impact == 0.0, "animation reset")
 	_check(scene.mode == 0 and scene.score == 0, "retry resets run")
