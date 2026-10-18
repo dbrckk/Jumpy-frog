@@ -37,7 +37,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool) -> void:
 	_river(c, time, cam)
 	for pad in pads:
 		var screen := Vector2(float(pad["x"]), ANCHOR - (float(pad["m"]) - cam) * SCALE)
@@ -50,7 +50,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 			_friend(c, screen + Vector2(0, -18), 0, 0.82)
 	_wave(c, ANCHOR - (wave_m - cam) * SCALE, time)
 	if aiming:
-		_aim_guide(c, player_at, aim_at, time)
+		_aim_guide(c, player_at, aim_at, time, aim_valid)
 	_character(c, player_at, jump_z, pets, time, mode == 3)
 	for particle in particles:
 		var p: Vector2 = particle["pos"]
@@ -268,18 +268,25 @@ static func _wave(c: CanvasItem, wave_y: float, t: float) -> void:
 	bubbles.append(Vector2(0, H + 1000))
 	c.draw_colored_polygon(bubbles, Color(0.32, 0.45, 0.65, 0.27))
 
-static func _aim_guide(c: CanvasItem, from: Vector2, target: Vector2, t: float) -> void:
-	var dist := from.distance_to(target)
-	var viable := dist > 28.0 and target.y < from.y - 25.0
-	var ink := Color("#fff1b6") if viable else Color("#ffaaaa")
-	ellipse(c, target + Vector2(0, 4), Vector2(21, 9), Color(1, 1, 1, 0.36))
-	c.draw_arc(target, 25, 0.0, TAU, 48, ink, 3, true)
-	for i in range(1, 13):
-		var portion := float(i) / 13.0
-		var point := from.lerp(target, portion) + Vector2(0, -sin(portion * PI) * 65)
-		c.draw_circle(point, 4.0 * (1.0 - portion * 0.45), ink)
-	if viable:
-		text(c, "RELEASE", target + Vector2(0, -44), 15, CREAM, true)
+static func _aim_guide(c: CanvasItem, from: Vector2, target: Vector2, t: float, valid: bool) -> void:
+	var ink := Color("#dcfbc3") if valid else Color("#ffb5a3")
+	var accent := Color("#5f895f") if valid else Color("#ac5c63")
+	var pulse := sin(t * 7.5) * 3.0
+	ellipse(c, target + Vector2(0, 6), Vector2(27, 13), Color(0.20, 0.30, 0.37, 0.25))
+	c.draw_arc(target, 25.0 + pulse, 0.05, TAU + 0.05, 52, Color("#4e5954"), 6.5, true)
+	c.draw_arc(target, 25.0 + pulse, 0.05, TAU + 0.05, 52, ink, 4.0, true)
+	# The dotted parabola terminates on the actual resolved lily when valid.
+	for i in range(1, 14):
+		var portion := float(i) / 14.0
+		var point := from.lerp(target, portion) + Vector2(0, -sin(portion * PI) * 64)
+		c.draw_circle(point + Vector2(1.5, 2.0), 4.5 * (1.0 - portion * 0.35), Color(0.20, 0.30, 0.34, 0.35))
+		c.draw_circle(point, 3.6 * (1.0 - portion * 0.35), ink)
+	if valid:
+		rr(c, Rect2(target.x - 67, target.y - 70, 134, 28), 11, CREAM, accent, 1.5)
+		text(c, "SAFE LANDING", target + Vector2(0, -56), 14, accent)
+	else:
+		rr(c, Rect2(target.x - 50, target.y - 70, 100, 28), 11, CREAM, accent, 1.5)
+		text(c, "SPLASH!", target + Vector2(0, -56), 14, accent)
 
 static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int, wave_m: float, cam: float, combo: int, mode: int) -> void:
 	rr(c, Rect2(14, 17, 101, 35), 17, CREAM, Color("#8c806e"), 1.6)
