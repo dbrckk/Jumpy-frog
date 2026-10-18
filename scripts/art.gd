@@ -63,52 +63,75 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		_lost_overlay(c, score, best)
 
 static func _river(c: CanvasItem, t: float, cam: float) -> void:
-	c.draw_rect(Rect2(0, 0, W, H), Color("#e8d9b4"))
-	# River, hand-drawn irregular banks.
+	# Slate-blue flowing water, pale shoreline and watercolor vegetation.
+	c.draw_rect(Rect2(0, 0, W, H), Color("#a0b796"))
 	var water := PackedVector2Array()
 	var left := PackedVector2Array()
 	var right := PackedVector2Array()
-	for i in range(42):
-		var y := -30.0 + float(i) * 25.0
+	for i in range(58):
+		var y := -34.0 + float(i) * 18.6
 		var offset := y + cam * SCALE
-		var wiggle := sin(offset * 0.007) * 8.0 + sin(offset * 0.024 + 1.2) * 3.5
-		left.append(Vector2(49.0 + wiggle, y))
-		right.append(Vector2(493.0 + wiggle * 0.8, y))
-	for p in left:
-		water.append(p)
+		var wiggle := sin(offset * 0.007) * 9.0 + sin(offset * 0.021 + 1.3) * 4.0
+		left.append(Vector2(45.0 + wiggle, y))
+		right.append(Vector2(494.0 + wiggle * 0.83, y))
+	# Sandy outline adds separation against the banks.
+	for i in range(left.size() - 1):
+		line(c, left[i] + Vector2(-9, 0), left[i + 1] + Vector2(-9, 0), Color("#e9dfbd"), 18)
+		line(c, right[i] + Vector2(9, 0), right[i + 1] + Vector2(9, 0), Color("#e9dfbd"), 18)
+	water.append_array(left)
 	for i in range(right.size() - 1, -1, -1):
 		water.append(right[i])
-	c.draw_colored_polygon(water, Color("#96d4ce"))
-	# Transparent moving watercolor bands.
-	for i in range(13):
-		var y := fposmod(float(i) * 116.0 + cam * SCALE * 0.63, 1180.0) - 130.0
-		rr(c, Rect2(49, y, 443, 53), 22, Color(0.34, 0.56, 0.66, 0.085))
+	c.draw_colored_polygon(water, Color("#7d9bb7"))
+	# Broad drifting translucent current. Polygon edges never self-intersect.
+	for band in range(7):
+		var y := fposmod(float(band) * 193.0 + cam * SCALE * 0.62 + t * 13.0, 1350.0) - 190.0
+		var band_poly := PackedVector2Array()
+		for i in range(21):
+			var x := float(i) * 27.0
+			band_poly.append(Vector2(x, y + sin(x * 0.014 + band) * 12.0))
+		for i in range(20, -1, -1):
+			var x := float(i) * 27.0
+			band_poly.append(Vector2(x, y + 40 + sin(x * 0.014 + band) * 12.0))
+		c.draw_colored_polygon(band_poly, Color(0.20, 0.35, 0.51, 0.10))
 	for i in range(left.size() - 1):
-		line(c, left[i], left[i + 1], Color("#669e8f"), 5)
-		line(c, right[i], right[i + 1], Color("#65998b"), 5)
-		line(c, left[i] + Vector2(-8, 0), left[i + 1] + Vector2(-8, 0), Color("#f3eccb"), 10)
-		line(c, right[i] + Vector2(8, 0), right[i + 1] + Vector2(8, 0), Color("#f3eccb"), 10)
-	# Grassy banks, small stones, leaves and cattails. Stable as camera scrolls.
-	for i in range(27):
-		var y := fposmod(float(i) * 91.0 + cam * SCALE, 1150.0) - 70.0
+		line(c, left[i], left[i + 1], Color("#779d95"), 3.5)
+		line(c, right[i], right[i + 1], Color("#799e97"), 3.5)
+	# Water speed lines tilt back with a hand-animated flow.
+	for i in range(69):
+		var x := 65.0 + float((i * 113 + 29) % 410)
+		var y := fposmod(float(i) * 81.7 + cam * SCALE * 0.65 + t * 29.0, 1210.0) - 155.0
+		var n := 10.0 + float(i % 5) * 7.0
+		line(c, Vector2(x, y), Vector2(x + 6, y + n), Color(0.98, 1.0, 1.0, 0.36), 1.4 + float(i % 2) * 0.25)
+	# Pebbles, reeds, small blossoms and flattened grasses.
+	for i in range(42):
+		var y := fposmod(float(i) * 79.0 + cam * SCALE, 1180.0) - 95.0
 		var side: float = -1.0 if i % 2 == 0 else 1.0
-		var edge := 40.0 if side < 0.0 else 499.0
-		var x := edge + side * (float((i * 11) % 16))
-		ellipse(c, Vector2(x, y + 7), Vector2(9, 6), Color("#b9a17d"))
-		ellipse(c, Vector2(x - side * 2.0, y + 4), Vector2(6, 4), Color("#ece0bd"))
-		if i % 3 != 0:
-			line(c, Vector2(x + side * 16, y + 8), Vector2(x + side * 11, y - 14), Color("#748f55"), 2)
-			line(c, Vector2(x + side * 16, y + 8), Vector2(x + side * 21, y - 10), Color("#789a57"), 2)
-			ellipse(c, Vector2(x + side * 11, y - 14), Vector2(2.6, 7.0), Color("#a56d68"))
-	# Tiny hand-drawn water rings and sparkles.
-	for i in range(32):
-		var y := fposmod(float(i) * 71.0 + cam * SCALE * (0.85 + float(i % 3) * 0.05), 1060.0) - 50.0
-		var x := 84.0 + float((i * 137 + 41) % 370)
-		var alpha := 0.17 + float(i % 4) * 0.052
-		c.draw_arc(Vector2(x, y), float(8 + i % 7), 0.45, 2.3, 14, Color(0.95, 1, 0.93, alpha), 1.35, true)
-		c.draw_arc(Vector2(x + 6, y + 4), float(7 + i % 5), 3.45, 5.35, 12, Color(0.95, 1, 0.93, alpha), 1.3, true)
+		var edge := 38.0 if side < 0.0 else 503.0
+		var x := edge + side * float((i * 13) % 28)
+		ellipse(c, Vector2(x + 2, y + 8), Vector2(10, 6), Color("#748b7e"))
+		ellipse(c, Vector2(x, y + 5), Vector2(9, 5), Color("#c1aa9a"))
+		if i % 4 == 0:
+			ellipse(c, Vector2(x - 7 * side, y), Vector2(4, 3), Color("#887986"))
+		for stalk in range(1 + i % 3):
+			var origin := Vector2(x + float(stalk - 1) * 7, y + 14)
+			var tip := origin + Vector2(float(stalk - 1) * 5.0 - side * 2.0, -14 - float(stalk % 2) * 9)
+			line(c, origin, tip, Color("#5e856a"), 2.0)
+			if (i + stalk) % 4 == 0:
+				ellipse(c, tip, Vector2(3.2, 8.0), Color("#9d676d"))
+			else:
+				ellipse(c, tip + Vector2(0, -3), Vector2(2.2, 5.0), Color("#739961"))
+	# Floating rings, bubbles and firefly-like glints.
+	for i in range(38):
+		var y := fposmod(float(i) * 73.0 + cam * SCALE * 0.83 + t * 5.0, 1160.0) - 100.0
+		var x := 87.0 + float((i * 137 + 41) % 365)
+		var alpha := 0.20 + float(i % 4) * 0.055
+		c.draw_arc(Vector2(x, y), float(8 + i % 8), 0.35, 2.65, 16, Color(0.97, 1, 1, alpha), 1.5, true)
+		c.draw_arc(Vector2(x + 7, y + 5), float(6 + i % 6), 3.35, 5.75, 15, Color(0.97, 1, 1, alpha), 1.3, true)
 		if i % 3 == 0:
-			c.draw_circle(Vector2(x - 18, y - 27 + sin(t * 2 + i) * 4), 1.7, Color("#fff9df"))
+			var pulse := 1.5 + sin(t * 3 + float(i)) * 0.55
+			c.draw_circle(Vector2(x - 20, y - 25), pulse, Color("#fff3b8"))
+			c.draw_circle(Vector2(x - 20, y - 25), 4.5, Color(1, 0.96, 0.73, 0.09))
+
 
 static func _lily(c: CanvasItem, pos: Vector2, radius: float, kind: int, t: float, ident: int) -> void:
 	var r := radius * (1.0 + sin(t * 1.5 + float(ident)) * 0.012)
