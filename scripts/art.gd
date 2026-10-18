@@ -37,7 +37,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, tilt: float, squash: float, sway: float, blink: float, impact: float) -> void:
 	_river(c, time, cam)
 	for pad in pads:
 		var screen := Vector2(float(pad["x"]), ANCHOR - (float(pad["m"]) - cam) * SCALE)
@@ -51,7 +51,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	_wave(c, ANCHOR - (wave_m - cam) * SCALE, time)
 	if aiming:
 		_aim_guide(c, player_at, aim_at, time, aim_valid)
-	_character(c, player_at, jump_z, pets, time, mode == 3)
+	_character(c, player_at, jump_z, pets, time, mode == 3, tilt, squash, sway, blink, impact)
 	for particle in particles:
 		var p: Vector2 = particle["pos"]
 		var life: float = particle["life"]
@@ -208,40 +208,68 @@ static func _friend(c: CanvasItem, at: Vector2, kind: int, scale: float = 1.0) -
 		c.draw_circle(at + Vector2(4.0 * side, -2.6) * scale, 1.9 * scale, INK)
 	c.draw_circle(at + Vector2(0, 1.5) * scale, 2 * scale, Color("#744b53"))
 
-static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: float, airborne: bool) -> void:
-	var z := height
-	ellipse(c, at + Vector2(3, 13), Vector2(27 + height * 0.11, 12 + height * 0.045), Color(0.20, 0.39, 0.45, 0.25))
+static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: float, airborne: bool, tilt: float, squash: float, sway: float, blink: float, impact: float) -> void:
+	# Animated vector puppet: springy takeoff, landing compression and follow-through.
+	var flight := clampf(height / 53.0, 0.0, 1.0)
+	var jump_stretch := flight * 0.19
+	var compression := clampf(squash + impact * 0.14, 0.0, 0.34)
+	var scale_y := clampf(1.0 + jump_stretch - compression, 0.78, 1.24)
+	var scale_x := clampf(1.0 - jump_stretch * 0.4 + compression * 0.48, 0.88, 1.19)
+	var breathing := sin(t * 2.5) * (0.8 if not airborne else 0.0)
+	var bounce := -sin(impact * PI) * 7.0
+	ellipse(c, at + Vector2(2, 13), Vector2(29.0 - flight * 8.0, 12.0 - flight * 3.0), Color(0.20, 0.39, 0.45, 0.29 - flight * 0.11))
 	if not airborne:
 		for i in range(2):
-			var r := 35.0 + float(i) * 10.0 + fposmod(t * 12, 12)
-			c.draw_arc(at + Vector2(0, 8), r, 0.15, 3.0, 36, Color(1, 1, 1, 0.23 - i * 0.06), 1.8, true)
-	var body := at + Vector2(0, -18 - z + sin(t * 2.8) * 1.3)
-	# Flippers, body silhouette, cheek and face are deliberately original.
+			c.draw_arc(at + Vector2(0, 8), 34.0 + float(i) * 10.0 + fposmod(t * 12, 12), 0.15, 3.0, 34, Color(1, 1, 1, 0.17 - i * 0.05), 1.5, true)
+	var body := at + Vector2(tilt * 8.0, -18.0 - height + breathing + bounce)
+	# Rotate and scale the character as one articulated group.
+	c.draw_set_transform(body, tilt, Vector2(scale_x, scale_y))
+	var dark := Color("#604a43")
+	var fur := Color("#b48161")
+	var warm := Color("#d6a680")
+	# Behind-the-body paws, tail and ears.
+	ellipse(c, Vector2(21, 24), Vector2(12, 7), dark)
+	ellipse(c, Vector2(-22, 23), Vector2(12, 7), dark)
+	ellipse(c, Vector2(23, 11), Vector2(10, 13), Color("#916a53"))
+	ellipse(c, Vector2(-23, 10), Vector2(10, 13), Color("#916a53"))
+	ellipse(c, Vector2(27, 18), Vector2(7, 6), warm)
+	ellipse(c, Vector2(0, 3), Vector2(30, 41), dark)
+	ellipse(c, Vector2(0, 1), Vector2(28, 39), fur)
+	ellipse(c, Vector2(-7, 11), Vector2(18, 24), Color("#c69670"))
+	ellipse(c, Vector2(12, -3), Vector2(11, 25), Color("#c08c68"))
 	for side in [-1, 1]:
-		ellipse(c, body + Vector2(23.0 * side, 17), Vector2(10, 6), Color("#6c5047"))
-		ellipse(c, body + Vector2(21.0 * side, -13), Vector2(8, 9), Color("#876450"))
-	ellipse(c, body + Vector2(0, 3), Vector2(29, 40), Color("#5d4947"))
-	ellipse(c, body, Vector2(27, 37), Color("#aa795d"))
-	ellipse(c, body + Vector2(-7, 11), Vector2(16, 22), Color("#bc8f69"))
-	ellipse(c, body + Vector2(13, -9), Vector2(8, 18), Color("#bf8d6c"))
+		var ear_pos := Vector2(18.0 * side, -29.0 + sin(t * 5.2 + side) * 1.1)
+		c.draw_circle(ear_pos, 9.4, dark)
+		c.draw_circle(ear_pos, 6.0, Color("#ce9a7b"))
+	# Fluffy head, face and readable muzzle.
+	ellipse(c, Vector2(0, -23), Vector2(26, 23), dark)
+	ellipse(c, Vector2(0, -23), Vector2(24, 21), Color("#bf906e"))
+	ellipse(c, Vector2(0, -14), Vector2(18, 12), warm)
 	for side in [-1, 1]:
-		c.draw_circle(body + Vector2(18 * side, -29), 9.5, Color("#624c46"))
-		c.draw_circle(body + Vector2(18 * side, -29), 6.0, Color("#c9997c"))
-	ellipse(c, body + Vector2(0, -22), Vector2(25, 22), Color("#be8d69"))
-	ellipse(c, body + Vector2(0, -15), Vector2(17, 12), Color("#d9ad82"))
-	for side in [-1, 1]:
-		c.draw_circle(body + Vector2(14 * side, -25), 3.4, Color("#3e3435"))
-		c.draw_circle(body + Vector2(13.3 * side, -26), 1.1, Color.WHITE)
-		ellipse(c, body + Vector2(17 * side, -15), Vector2(4, 2.8), Color("#d68d7a"))
-	ellipse(c, body + Vector2(0, -14), Vector2(7.0, 4.0), Color("#77554b"))
-	line(c, body + Vector2(0, -12), body + Vector2(0, -8), Color("#77554b"), 1.3)
-	# Up to eight riders, swaying slightly.
+		var eye := Vector2(13.0 * side, -27.0)
+		if blink > 0.48:
+			line(c, eye + Vector2(-3, 0), eye + Vector2(3, 0), dark, 2.2)
+		else:
+			ellipse(c, eye, Vector2(3.6, 3.9), Color("#352f36"))
+			c.draw_circle(eye + Vector2(-0.8, -1.1), 1.25, Color.WHITE)
+		ellipse(c, Vector2(17.0 * side, -17), Vector2(4.4, 2.9), Color("#d58979"))
+	ellipse(c, Vector2(0, -14), Vector2(7, 4), Color("#70544c"))
+	line(c, Vector2(0, -11), Vector2(0, -7), Color("#70544c"), 1.5)
+	# Tiny smile, plus asymmetrical fur texture.
+	c.draw_arc(Vector2(0, -8), 4.1, 0.2, PI - 0.2, 14, Color("#81574c"), 1.2, true)
+	line(c, Vector2(-17, 5), Vector2(-14, 11), Color("#d7a885"), 1.1)
+	line(c, Vector2(-13, 4), Vector2(-10, 9), Color("#d7a885"), 1.1)
+	c.draw_set_transform(Vector2.ZERO)
+	# Different phases and amplified inertia per passenger maintain an organic chain.
+	var stack_top := body + Vector2(0, -52.0 * scale_y)
 	for i in range(mini(pets, 8)):
-		var wiggle := sin(t * 3.0 + float(i) * 0.9) * (1.3 + i * 0.25)
-		var p := body + Vector2(wiggle, -52 - float(i) * 18.0)
-		_friend(c, p, i, 0.80)
+		var level := float(i)
+		var lag := sway * (8.0 + level * 5.0)
+		var follow := sin(t * 3.6 - level * 0.65) * (1.1 + level * 0.3)
+		var passenger := stack_top + Vector2(lag + follow, -level * 18.0 + sin(t * 4.5 - level * 0.6) * 1.6)
+		_friend(c, passenger, i, 0.84)
 	if pets > 0:
-		c.draw_circle(body + Vector2(-14, -47 - pets * 18), 3.0, Color("#fff5af"))
+		c.draw_circle(stack_top + Vector2(-14, -pets * 17), 2.5, Color("#fff4ad"))
 
 static func _wave(c: CanvasItem, wave_y: float, t: float) -> void:
 	if wave_y > H + 70:
