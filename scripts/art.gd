@@ -226,8 +226,8 @@ static func _wave(c: CanvasItem, wave_y: float, t: float) -> void:
 		var x := float(i) * W / 44.0
 		var y := wave_y + sin(x * 0.026 + t * 2.3) * 9.0 + sin(x * 0.074 - t) * 3.5
 		pts.append(Vector2(x, y))
-	pts.append(Vector2(W, H + 20))
-	pts.append(Vector2(0, H + 20))
+	pts.append(Vector2(W, H + 1000))
+	pts.append(Vector2(0, H + 1000))
 	c.draw_colored_polygon(pts, Color("#242c55"))
 	for i in range(33):
 		var x := float(i) * W / 32.0
@@ -239,8 +239,8 @@ static func _wave(c: CanvasItem, wave_y: float, t: float) -> void:
 	for i in range(36):
 		var x := float(i) * 16
 		bubbles.append(Vector2(x, wave_y + 39 + sin(x * 0.018 + t * 1.4) * 15))
-	bubbles.append(Vector2(W, H + 20))
-	bubbles.append(Vector2(0, H + 20))
+	bubbles.append(Vector2(W, H + 1000))
+	bubbles.append(Vector2(0, H + 1000))
 	c.draw_colored_polygon(bubbles, Color(0.32, 0.45, 0.65, 0.27))
 
 static func _aim_guide(c: CanvasItem, from: Vector2, target: Vector2, t: float) -> void:
