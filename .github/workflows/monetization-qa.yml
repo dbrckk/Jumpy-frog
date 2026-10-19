@@ -85,6 +85,32 @@ jobs:
           test -s addons/GodotGooglePlayBilling/bin/release/GodotGooglePlayBilling-release.aar
           test -s addons/admob/android/bin/ads/libs/poing-godot-admob-ads-release.aar
           sha256sum build/JumpyFrog-Monetized-QA.aab
+      - name: Export installable monetized TEST APK for real Redmi crash testing
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path=Path("export_presets.cfg")
+          original=path.read_text()
+          assert "[preset.1]" in original and "[preset.1.options]" in original
+          tail=original.split("[preset.1]",1)[1]
+          tail=tail.replace('name="Google Play AAB"','name="Monetized TEST APK"',1)
+          tail=tail.replace('export_path="build/JumpyFrog-Play.aab"','export_path="build/JumpyFrog-Monetized-TEST.apk"',1)
+          tail=tail.replace("[preset.1.options]","[preset.2.options]",1)
+          tail=tail.replace("gradle_build/export_format=1","gradle_build/export_format=0",1)
+          path.write_text(original+"\\n[preset.2]"+tail)
+          PY
+          timeout --kill-after=15s 900s godot --headless --path . --export-debug "Monetized TEST APK" build/JumpyFrog-Monetized-TEST.apk
+          test -s build/JumpyFrog-Monetized-TEST.apk
+          unzip -tq build/JumpyFrog-Monetized-TEST.apk
+          apksigner verify --verbose build/JumpyFrog-Monetized-TEST.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JumpyFrog-Monetized-Android-TEST-APK
+          path: build/JumpyFrog-Monetized-TEST.apk
+          if-no-files-found: error
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
           name: JumpyFrog-Monetized-TEST-ONLY-AAB
