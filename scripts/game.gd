@@ -2,6 +2,7 @@ extends Node2D
 ## A complete endless-runner prototype driven by touch (and mouse emulation).
 const ART = preload("res://scripts/art.gd")
 const AUDIO = preload("res://scripts/audio.gd")
+const DAILY = preload("res://scripts/daily.gd")
 const W := 540.0
 const H := 960.0
 const PX_PER_M := 8.0
@@ -13,6 +14,7 @@ const MODE_FLY := 3
 const MODE_LOST := 4
 const MODE_PAUSED := 5
 const MODE_WARDROBE := 6
+const MODE_GOALS := 7
 const SKIN_COSTS := [0, 12, 30, 65]
 
 var mode: int = MODE_TITLE
@@ -49,6 +51,8 @@ var leaves: int = 0
 var unlocked_skins: int = 1
 var selected_skin: int = 0
 var total_runs: int = 0
+var daily := DAILY.new()
+var run_hops := 0
 var run_leaves: int = 0
 var body_tilt := 0.0
 var body_squash := 0.0
@@ -80,6 +84,7 @@ func _ready() -> void:
 		if not _is_unlocked(selected_skin):
 			selected_skin = 0
 		total_runs = maxi(0, int(save.get_value("progress", "total_runs", 0)))
+	daily.load_from(save)
 	muted = saved_muted or OS.has_feature("android")
 	sound.set_muted(muted)
 	_reset_game()
@@ -109,6 +114,8 @@ func _reset_game() -> void:
 	score = 0
 	combo = 0
 	run_leaves = 0
+	run_hops = 0
+	daily.refresh_day()
 	aim_x = 270.0
 	aim_m = 0.0
 	jump_z = 0.0
@@ -230,7 +237,7 @@ func _draw() -> void:
 			preview = Vector2(float(pad["x"]), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -249,7 +256,7 @@ func _input(event: InputEvent) -> void:
 		if event.keycode in [KEY_R, KEY_SPACE, KEY_ENTER] and mode == MODE_LOST:
 			_reset_game()
 		elif event.keycode == KEY_ESCAPE:
-			if mode == MODE_WARDROBE:
+			if mode in [MODE_WARDROBE, MODE_GOALS]:
 				mode = MODE_TITLE
 			elif mode == MODE_PAUSED:
 				mode = MODE_PLAY
@@ -259,6 +266,10 @@ func _input(event: InputEvent) -> void:
 				sound.set_paused(true)
 
 func _down(pos: Vector2) -> void:
+	if mode == MODE_GOALS:
+		if Rect2(100, 775, 340, 75).has_point(pos):
+			mode = MODE_TITLE
+		return
 	if mode == MODE_WARDROBE:
 		if Rect2(100, 770, 340, 74).has_point(pos):
 			mode = MODE_TITLE
@@ -301,13 +312,18 @@ func _down(pos: Vector2) -> void:
 		_reset_game()
 		mode = MODE_PLAY
 		total_runs += 1
+		daily.begin_run()
 		_save_progress()
 	elif mode == MODE_TITLE:
+		if Rect2(139, 634, 262, 58).has_point(pos):
+			mode = MODE_GOALS
+			return
 		if Rect2(139, 710, 262, 58).has_point(pos):
 			mode = MODE_WARDROBE
 			return
 		mode = MODE_PLAY
 		total_runs += 1
+		daily.begin_run()
 		_save_progress()
 	if mode != MODE_PLAY:
 		return
@@ -385,6 +401,7 @@ func _finish_jump() -> void:
 	for pad in pads:
 		if int(pad["id"]) == jump_pad_id:
 			var gain := maxi(12, int((float(pad["m"]) - highest_m) * 13.0))
+			var collected_leaf: bool = bool(pad["coin"])
 			if bool(pad["coin"]):
 				leaves += 1
 				run_leaves += 1
@@ -403,6 +420,13 @@ func _finish_jump() -> void:
 				sound.play_event("friend")
 			else:
 				sound.play_event("land")
+			run_hops += 1
+			var daily_bonus: int = daily.on_landing(int(float(pad["m"])), collected_leaf)
+			if daily_bonus > 0:
+				leaves += daily_bonus
+				_add_float_text("DAILY +%d" % daily_bonus, _player_screen() + Vector2(0, -138), Color("#e6ffc5"))
+				celebration = 1.0
+			_save_progress()
 			combo += 1
 			if combo >= 3 and combo % 3 == 0:
 				sound.play_event("combo")
@@ -431,6 +455,7 @@ func _die() -> void:
 	sound.play_event("lose")
 	if score > best_score:
 		best_score = score
+	daily.on_finish(score)
 	_save_progress()
 
 func _is_unlocked(index: int) -> bool:
@@ -444,6 +469,7 @@ func _save_progress() -> void:
 	save.set_value("progress", "unlocked_skins", unlocked_skins)
 	save.set_value("progress", "selected_skin", selected_skin)
 	save.set_value("progress", "total_runs", total_runs)
+	daily.write_to(save)
 	save.save("user://jumpy_frog.cfg")
 
 func _add_float_text(value: String, pos: Vector2, color: Color) -> void:
