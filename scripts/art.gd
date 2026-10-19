@@ -518,9 +518,15 @@ static func _goals_overlay(c: CanvasItem, daily: RefCounted) -> void:
 		var ratio: float = minf(1.0, float(progress) / float(target))
 		if ratio > 0.001:
 			rr(c, Rect2(111, y + 76, 318.0 * ratio, 8), 4, Color("#89b874"))
-	text(c, "NEW OBJECTIVES EVERY DAY (UTC)", Vector2(270, 763), 15, Color("#88776b"))
-	rr(c, Rect2(100, 790, 340, 62), 23, Color("#accd85"), Color("#5e7e59"), 2)
-	text(c, "BACK", Vector2(270, 820), 24, Color("#3f5847"))
+	var milestone: Dictionary = daily.next_milestone()
+	var milestone_caption := "ALL MILESTONES COMPLETED" if milestone.is_empty() else ("NEXT: %s" % String(milestone["title"]))
+	var milestone_progress := "" if milestone.is_empty() else ("%d / %d   +%d LEAVES" % [mini(int(milestone["progress"]), int(milestone["target"])), int(milestone["target"]), int(milestone["reward"])])
+	text(c, "LIFETIME MILESTONES  %d / %d" % [daily.milestone_count(), daily.MILESTONES.size()], Vector2(270, 748), 16, Color("#6a815e"))
+	text(c, milestone_caption, Vector2(270, 772), 15, INK)
+	if not milestone_progress.is_empty():
+		text(c, milestone_progress, Vector2(270, 792), 14, Color("#548263"))
+	rr(c, Rect2(100, 815, 340, 67), 23, Color("#accd85"), Color("#5e7e59"), 2)
+	text(c, "BACK", Vector2(270, 848), 24, Color("#3f5847"))
 
 static func _commas(value: int) -> String:
 	var s := str(value)
