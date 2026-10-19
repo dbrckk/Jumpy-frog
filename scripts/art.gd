@@ -441,7 +441,7 @@ static func _aim_guide(c: CanvasItem, from: Vector2, target: Vector2, t: float, 
 		rr(c, Rect2(target.x - 50, target.y - 70, 100, 28), 11, CREAM, accent, 1.5)
 		text(c, "SPLASH!", target + Vector2(0, -56), 14, accent)
 
-static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int, wave_m: float, cam: float, combo: int, mode: int) -> void:
+static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int, wave_m: float, cam: float, combo: int, mode: int, chapters: RefCounted, campaign_stage: int, biome: int, biome_banner: float) -> void:
 	rr(c, Rect2(14, 17, 101, 35), 17, CREAM, Color("#8c806e"), 1.6)
 	text(c, "★  x%d" % pets, Vector2(65, 34), 17, Color("#755b51"))
 	rr(c, Rect2(138, 14, 259, 44), 21, CREAM, Color("#8c806e"), 1.7)
@@ -452,13 +452,30 @@ static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int,
 		rr(c, Rect2(476, 81, 48, 45), 14, CREAM, Color("#8c806e"), 1.5)
 		line(c, Vector2(493, 92), Vector2(493, 113), Color("#6c6470"), 4.0)
 		line(c, Vector2(507, 92), Vector2(507, 113), Color("#6c6470"), 4.0)
+	if campaign_stage >= 0 and mode in [1, 2, 3, 4, 9]:
+		var level: Dictionary = chapters.chapter(campaign_stage)
+		var target := int(level["target"])
+		var fraction := clampf(float(distance) / float(target), 0.0, 1.0)
+		rr(c, Rect2(131, 111, 277, 36), 17, Color("#f7edda"), Color("#817e75"), 1.4)
+		rr(c, Rect2(143, 139, 252, 4), 2, Color("#d2d1c0"))
+		rr(c, Rect2(143, 139, 252.0 * fraction, 4), 2, Color("#92bd84"))
+		text(c, "CHAPTER %d   %d/%d m" % [campaign_stage + 1, distance, target], Vector2(270, 126), 15, INK)
+	if biome_banner > 0.0 and mode in [1, 2, 3]:
+		var names := ["SUNNY BANKS", "LILY GARDEN", "GOLDEN REEDS", "MOONLIT POND", "CRYSTAL RIVER", "STORMY RAPIDS"]
+		var alpha := minf(1.0, biome_banner * 1.5)
+		var bg := Color("#fff0d4")
+		bg.a = alpha * 0.94
+		rr(c, Rect2(121, 168, 298, 56), 22, bg)
+		var ink := Color("#506368")
+		ink.a = alpha
+		text(c, names[clampi(biome, 0, 5)], Vector2(270, 195), 20, ink)
 	if mode in [1, 2, 3] and wave_m > cam - 32:
 		rr(c, Rect2(180, 67, 180, 31), 14, Color("#fff0d9"), Color("#c57e6e"), 1.5)
 		text(c, "WAVE APPROACHING!", Vector2(270, 83), 13, Color("#a15c53"))
 	elif combo >= 3 and mode in [1, 2, 3]:
 		text(c, "COMBO x%d!" % combo, Vector2(270, 84), 19, Color("#f7f1b2"), true)
 
-static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, daily: RefCounted, monetization: Node) -> void:
+static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, daily: RefCounted, monetization: Node, chapters: RefCounted) -> void:
 	rr(c, Rect2(62, 128, 416, 179), 34, Color("#fbedd6"), Color("#ae977d"), 3)
 	text(c, "JUMPY FROG", Vector2(270, 186), 49, Color("#5b5868"), true)
 	text(c, "A RIVER ADVENTURE", Vector2(270, 244), 19, Color("#a17f74"))
@@ -470,6 +487,9 @@ static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, d
 		rr(c, Rect2(139, 403, 262, 58), 23, Color("#f3dfba"), Color("#a88e68"), 2)
 		var label: String = "REMOVE ADS " + (monetization.price_label if not monetization.price_label.is_empty() else "• PLAY STORE")
 		text(c, label, Vector2(270, 429), 18, Color("#755d4f"))
+	rr(c, Rect2(139, 549, 262, 67), 23, Color("#f2d79d"), Color("#92734d"), 2.1)
+	text(c, "CHAPTERS  %d / 6" % chapters.completed_count(), Vector2(270, 579), 23, Color("#60533f"))
+	text(c, "ENDLESS RUN - TAP TO PLAY", Vector2(270, 501), 16, Color("#e6f4df"), true)
 	rr(c, Rect2(139, 634, 262, 58), 23, Color("#c6e2ba"), Color("#748b6b"), 2.2)
 	text(c, "DAILY GOALS  %d/3" % daily.completion_count(), Vector2(270, 660), 21, Color("#4b654b"))
 	rr(c, Rect2(139, 710, 262, 58), 23, Color("#a8d2aa"), Color("#668569"), 2.2)
@@ -570,6 +590,49 @@ static func _goals_overlay(c: CanvasItem, daily: RefCounted) -> void:
 		text(c, milestone_progress, Vector2(270, 792), 14, Color("#548263"))
 	rr(c, Rect2(100, 815, 340, 67), 23, Color("#accd85"), Color("#5e7e59"), 2)
 	text(c, "BACK", Vector2(270, 848), 24, Color("#3f5847"))
+
+static func _chapter_select_overlay(c: CanvasItem, chapters: RefCounted) -> void:
+	c.draw_rect(Rect2(0, 0, W, H), Color(0.12, 0.18, 0.28, 0.76))
+	rr(c, Rect2(28, 161, 484, 740), 33, Color("#fff1db"), Color("#8a7e72"), 3.0)
+	text(c, "THE SIX RIVERS", Vector2(270, 220), 34, Color("#53576b"), true)
+	text(c, "Finish each river to unlock the next", Vector2(270, 260), 18, Color("#998574"))
+	var colors := [Color("#93bf92"), Color("#8ac2a8"), Color("#d9bf83"), Color("#9ba4c9"), Color("#82b5bf"), Color("#878fa7")]
+	for i in range(6):
+		var x := 65.0 + float(i % 2) * 215.0
+		var y := 335.0 + float(i / 2) * 138.0
+		var active: bool = chapters.can_play(i)
+		var level: Dictionary = chapters.chapter(i)
+		var stars: int = int(chapters.medals[i])
+		rr(c, Rect2(x, y, 192, 123), 22, (colors[i] if active else Color("#d5d5d3")), Color("#858576"), 2.0)
+		c.draw_circle(Vector2(x + 26, y + 28), 17, Color("#f7f1de"))
+		text(c, str(i + 1) if active else "×", Vector2(x + 26, y + 27), 20, Color("#626474"))
+		text(c, String(level["name"]), Vector2(x + 98, y + 61), 17, Color("#414854") if active else Color("#777a7e"))
+		if active:
+			var medal_text := "★".repeat(stars) + "☆".repeat(3 - stars)
+			text(c, medal_text, Vector2(x + 96, y + 95), 24, Color("#fff2be"), true)
+		else:
+			text(c, "LOCKED", Vector2(x + 96, y + 95), 19, Color("#6b6d70"))
+	rr(c, Rect2(105, 790, 330, 75), 25, Color("#a8d1a3"), Color("#708768"), 2.0)
+	text(c, "BACK TO HOME", Vector2(270, 826), 25, Color("#3d594b"))
+
+
+static func _chapter_clear_overlay(c: CanvasItem, index: int, stars: int, reward: int, chapters: RefCounted) -> void:
+	if index < 0:
+		return
+	c.draw_rect(Rect2(0, 0, W, H), Color(0.11, 0.20, 0.26, 0.67))
+	rr(c, Rect2(39, 243, 462, 515), 34, Color("#fff2d9"), Color("#a89479"), 4.0)
+	text(c, "RIVER COMPLETED!", Vector2(270, 305), 36, Color("#566d70"), true)
+	var level: Dictionary = chapters.chapter(index)
+	text(c, String(level["name"]), Vector2(270, 356), 23, Color("#827d77"))
+	var medal_text := "★".repeat(stars) + "☆".repeat(3 - stars)
+	text(c, medal_text, Vector2(270, 443), 58, Color("#d7a74c"), true)
+	text(c, "CHAPTER %d / 6" % (index + 1), Vector2(270, 497), 21, Color("#717078"))
+	text(c, "+%d LEAVES" % reward if reward > 0 else "MEDAL RECORDED", Vector2(270, 548), 23, Color("#668957"))
+	rr(c, Rect2(72, 633, 195, 66), 24, Color("#9fcf8b"), Color("#638761"), 2.0)
+	text(c, "NEXT" if chapters.can_play(index + 1) else "HOME", Vector2(169, 663), 25, Color("#435c49"))
+	rr(c, Rect2(285, 633, 190, 66), 24, Color("#e8d8b8"), Color("#938573"), 2.0)
+	text(c, "HOME", Vector2(380, 663), 25, Color("#6a5d54"))
+
 
 static func _commas(value: int) -> String:
 	var s := str(value)
