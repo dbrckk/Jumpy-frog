@@ -1,4 +1,4 @@
-name: Google Play signed AAB
+name: Google Play signed monetized AAB
 
 on:
   workflow_dispatch:
@@ -14,6 +14,9 @@ jobs:
       PLAY_KEYSTORE_BASE64: ${{ secrets.PLAY_KEYSTORE_BASE64 }}
       PLAY_KEY_ALIAS: ${{ secrets.PLAY_KEY_ALIAS }}
       PLAY_KEY_PASSWORD: ${{ secrets.PLAY_KEY_PASSWORD }}
+      ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
+      ADMOB_INTERSTITIAL_UNIT_ID: ${{ secrets.ADMOB_INTERSTITIAL_UNIT_ID }}
+      ADMOB_REWARDED_UNIT_ID: ${{ secrets.ADMOB_REWARDED_UNIT_ID }}
     steps:
       - uses: actions/checkout@v4
       - name: Require persistent Google Play upload signing credentials
@@ -57,10 +60,16 @@ jobs:
           export/android/java_sdk_path = "$JAVA"
           export/android/android_sdk_path = "$SDK"
           EOF
+      - name: Install verified AdMob and Billing SDKs (release configuration)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/prepare_monetized_build.py
       - name: Import and run regression tests
         run: |
           godot --headless --editor --path . --quit
           godot --headless --path . --script res://tests/smoke.gd
+          godot --headless --path . --script res://tests/retention_and_ads.gd
       - name: Generate icons
         run: godot --headless --path . --script res://tools/generate_icons.gd
       - name: Restore upload keystore
@@ -94,7 +103,7 @@ jobs:
           sha256sum build/JumpyFrog-Play.aab
       - uses: actions/upload-artifact@v4
         with:
-          name: JumpyFrog-GooglePlay-signed-AAB
+          name: JumpyFrog-GooglePlay-Monetized-signed-AAB
           path: build/JumpyFrog-Play.aab
           if-no-files-found: error
           retention-days: 30
