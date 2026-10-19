@@ -187,7 +187,7 @@ func _run_tests() -> void:
 	_check(saw_ripple, "water ripple spawned at landing")
 	var existing_ripples: int = scene.ripples.size()
 	scene._add_float_text("TEST", Vector2(270, 320), Color.WHITE)
-	_check(scene.float_texts.size() == 1, "floating reward created")
+	_check(scene.float_texts.any(func(item: Dictionary) -> bool: return String(item["text"]) == "TEST"), "floating reward created")
 	for step in range(65):
 		scene._process(0.02)
 	_check(scene.float_texts.is_empty(), "floating reward expires")
