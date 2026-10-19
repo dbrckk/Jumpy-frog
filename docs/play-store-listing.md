@@ -20,8 +20,10 @@ In Jumpy Frog, every leap counts. Pull back, aim, and release to hop between lil
 - Four cute companion creatures to meet
 - Unlockable color styles using leaves earned by playing
 - Animated lily pads, ripples, splashes and colorful scenery
-- Local best scores and offline play
-- No ads, in-app purchases, accounts or Internet connection
+- Daily goals, earned leaf rewards, persistent streaks and local best scores
+- Optional rewarded ads and occasional ads between games
+- One-time Google Play purchase to remove ads permanently
+- No accounts required
 
 How far can you hop before the river catches you?
 
@@ -41,8 +43,10 @@ Dans Jumpy Frog, chaque bond compte : fais glisser ton doigt pour viser, relâch
 - Quatre petits compagnons à rencontrer
 - Apparences à débloquer avec les feuilles gagnées en jouant
 - Décors illustrés, nénuphars animés, remous et éclaboussures
-- Records enregistrés localement et jeu hors ligne
-- Sans publicité, achat intégré, compte ou connexion Internet
+- Objectifs quotidiens, récompenses et séries de jours
+- Publicités occasionnelles entre deux parties et vidéos récompensées facultatives
+- Achat unique de 2 € via Google Play pour supprimer définitivement les publicités
+- Progression locale et aucun compte nécessaire
 
 Jusqu'où réussiras-tu à sauter ?
 
@@ -50,9 +54,9 @@ Jusqu'où réussiras-tu à sauter ?
 
 - App category: Game → Casual
 - Monetization: Free; no in-app purchases
-- Ads: No ads
-- Personal data: No data collected by the game itself or transmitted
-- Internet permission: None requested by the application
+- Ads: Yes in the monetized Android build (AdMob); offline debug builds contain none
+- Data safety: Google AdMob/UMP may collect device identifiers, diagnostics and ad data; Play Billing handles purchase data. Declare truthfully according to enabled SDKs and current Google documentation.
+- Internet permission: Required in monetized AdMob build; not needed in the offline debug build
 - Content rating: Complete the interactive questionnaire, do not assume an age category
 - Target audience: Select truthfully when submitting; inspect Families policy if children are targeted
 - Privacy policy URL: Use the public permanent URL for `docs/privacy-policy.md`
@@ -62,3 +66,6 @@ Jusqu'où réussiras-tu à sauter ?
 - Store icon: 512 × 512 PNG
 
 Do not claim sound effects are currently available on Android: compatibility mode intentionally disables audio pending device testing.
+
+- Google Play IAP product ID: `remove_ads` (non-consumable), intended French price €2.00; actual checkout displays the current Google Play price.
+- Link to [updated privacy policy](privacy-policy.md).
