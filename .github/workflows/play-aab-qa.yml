@@ -48,7 +48,7 @@ jobs:
       - name: Import + install Gradle template
         run: |
           godot --headless --editor --path . --quit
-          godot --headless --path . --install-android-build-template
+          godot --headless --path . --install-android-build-template --quit
           test -f android/build/gradlew
       - name: Generate app launcher icons
         run: godot --headless --path . --script res://tools/generate_icons.gd
