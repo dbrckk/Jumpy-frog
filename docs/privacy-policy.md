@@ -2,6 +2,8 @@
 
 **Effective date:** 19 October 2026
 
+**Public standalone URL:** https://micro-matrix-a49rp83.shipstatic.com/privacy.html
+
 This policy covers Jumpy Frog version 1.1 and its advertising-enabled builds. If your particular build does not have advertising installed, the ad SDK section below does not apply to that build.
 
 ## Offline gameplay data
@@ -32,7 +34,7 @@ The monetized game is not intended to target children under 13. The developer mu
 
 ## Contact
 
-Support and privacy requests: use the developer contact published in the game's Google Play listing once the developer has supplied it.
+Support and privacy requests: use the developer contact published in the game's Google Play listing once supplied, or the project's public issue tracker: https://github.com/dbrckk/Jumpy-frog/issues.
 
 Source and policy updates: https://github.com/dbrckk/Jumpy-frog
 
@@ -41,6 +43,8 @@ Source and policy updates: https://github.com/dbrckk/Jumpy-frog
 # Jumpy Frog — politique de confidentialité
 
 **Date d'application : 19 octobre 2026**
+
+**Politique publiée :** https://micro-matrix-a49rp83.shipstatic.com/privacy.html
 
 Jumpy Frog est un jeu mobile solo. Les records, feuilles gagnées, apparences débloquées, missions quotidiennes et préférences sont sauvegardés **localement sur l'appareil**. Aucun compte n'est requis.
 
@@ -62,6 +66,6 @@ Les données de progression sont supprimables dans les paramètres Android de l'
 
 La version monétisée n'est pas destinée à viser les enfants de moins de 13 ans. La déclaration du public cible et les obligations de publication doivent être remplies dans Google Play Console.
 
-Pour toute demande, utilisez le contact de support figurant sur la fiche Play Store une fois celui-ci renseigné.
+Pour toute demande, utilisez le contact de support figurant sur la fiche Play Store une fois celui-ci renseigné, ou les signalements publics : https://github.com/dbrckk/Jumpy-frog/issues.
 
 Code source : https://github.com/dbrckk/Jumpy-frog
