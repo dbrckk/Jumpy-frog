@@ -37,7 +37,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float) -> void:
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
 	_river(c, time, cam)
@@ -59,7 +59,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	_wave(c, ANCHOR - (wave_m - cam) * SCALE + shake.y, time)
 	if aiming:
 		_aim_guide(c, player_at + shake, aim_at + shake, time, aim_valid)
-	_character(c, player_at + shake, jump_z, pets, time, mode == 3, tilt, squash, sway, blink, impact, celebration)
+	_character(c, player_at + shake, jump_z, pets, time, mode == 3, tilt, squash, sway, blink, impact, celebration, skin)
 	for particle in particles:
 		var p: Vector2 = Vector2(particle["pos"]) + shake
 		var life: float = particle["life"]
@@ -83,11 +83,13 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		c.draw_rect(Rect2(0, 0, W, H), Color(1.0, 0.97, 0.85, flash * 0.34))
 	_hud(c, score, best, pets, distance, wave_m, cam, combo, mode)
 	if mode == 0:
-		_start_overlay(c, time)
+		_start_overlay(c, time, leaves, skin)
 	if mode == 4:
-		_lost_overlay(c, score, best)
+		_lost_overlay(c, score, best, run_leaves)
 	if mode == 5:
 		_pause_overlay(c, muted)
+	if mode == 6:
+		_wardrobe_overlay(c, time, leaves, skin, unlocked, prices)
 
 static func _river(c: CanvasItem, t: float, cam: float) -> void:
 	# Slate-blue flowing water, pale shoreline and watercolor vegetation.
@@ -282,7 +284,7 @@ static func _friend(c: CanvasItem, at: Vector2, kind: int, scale: float = 1.0, t
 	c.draw_set_transform(Vector2.ZERO)
 
 
-static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: float, airborne: bool, tilt: float, squash: float, sway: float, blink: float, impact: float, celebration: float) -> void:
+static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: float, airborne: bool, tilt: float, squash: float, sway: float, blink: float, impact: float, celebration: float, skin: int = 0) -> void:
 	# Animated vector puppet: springy takeoff, landing compression and follow-through.
 	var flight := clampf(height / 53.0, 0.0, 1.0)
 	var jump_stretch := flight * 0.19
@@ -298,9 +300,13 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 	var body := at + Vector2(tilt * 8.0, -18.0 - height + breathing + bounce)
 	# Rotate and scale the character as one articulated group.
 	c.draw_set_transform(body, tilt, Vector2(scale_x, scale_y))
-	var dark := Color("#604a43")
-	var fur := Color("#b48161")
-	var warm := Color("#d6a680")
+	var darks := [Color("#604a43"), Color("#53586b"), Color("#886048"), Color("#52644f")]
+	var furs := [Color("#b48161"), Color("#a9b9d2"), Color("#e9b379"), Color("#99bd87")]
+	var warms := [Color("#d6a680"), Color("#dde5ed"), Color("#f3d5a1"), Color("#c8dca4")]
+	var id := clampi(skin, 0, 3)
+	var dark: Color = darks[id]
+	var fur: Color = furs[id]
+	var warm: Color = warms[id]
 	# Behind-the-body paws, tail and ears.
 	ellipse(c, Vector2(21, 24), Vector2(12, 7), dark)
 	ellipse(c, Vector2(-22, 23), Vector2(12, 7), dark)
@@ -309,15 +315,15 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 	ellipse(c, Vector2(27, 18), Vector2(7, 6), warm)
 	ellipse(c, Vector2(0, 3), Vector2(30, 41), dark)
 	ellipse(c, Vector2(0, 1), Vector2(28, 39), fur)
-	ellipse(c, Vector2(-7, 11), Vector2(18, 24), Color("#c69670"))
-	ellipse(c, Vector2(12, -3), Vector2(11, 25), Color("#c08c68"))
+	ellipse(c, Vector2(-7, 11), Vector2(18, 24), fur.lightened(0.13))
+	ellipse(c, Vector2(12, -3), Vector2(11, 25), fur.darkened(0.08))
 	for side in [-1, 1]:
 		var ear_pos := Vector2(18.0 * side, -29.0 + sin(t * 5.2 + side) * 1.1)
 		c.draw_circle(ear_pos, 9.4, dark)
-		c.draw_circle(ear_pos, 6.0, Color("#ce9a7b"))
+		c.draw_circle(ear_pos, 6.0, warm)
 	# Fluffy head, face and readable muzzle.
 	ellipse(c, Vector2(0, -23), Vector2(26, 23), dark)
-	ellipse(c, Vector2(0, -23), Vector2(24, 21), Color("#bf906e"))
+	ellipse(c, Vector2(0, -23), Vector2(24, 21), fur.lightened(0.06))
 	ellipse(c, Vector2(0, -14), Vector2(18, 12), warm)
 	for side in [-1, 1]:
 		var eye := Vector2(13.0 * side, -27.0)
@@ -407,24 +413,30 @@ static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int,
 	elif combo >= 3 and mode in [1, 2, 3]:
 		text(c, "COMBO x%d!" % combo, Vector2(270, 84), 19, Color("#f7f1b2"), true)
 
-static func _start_overlay(c: CanvasItem, time: float) -> void:
+static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int) -> void:
 	rr(c, Rect2(62, 128, 416, 179), 34, Color("#fbedd6"), Color("#ae977d"), 3)
 	text(c, "JUMPY FROG", Vector2(270, 186), 49, Color("#5b5868"), true)
 	text(c, "A RIVER ADVENTURE", Vector2(270, 244), 19, Color("#a17f74"))
+	rr(c, Rect2(169, 321, 202, 44), 18, CREAM, Color("#a28f72"), 1.5)
+	text(c, "LEAVES  %d" % leaves, Vector2(270, 341), 21, Color("#5c815c"))
+	rr(c, Rect2(139, 710, 262, 58), 23, Color("#a8d2aa"), Color("#668569"), 2.2)
+	text(c, "CUSTOMIZE", Vector2(270, 736), 24, Color("#3c5543"))
 	rr(c, Rect2(64, 783, 412, 112), 29, Color("#fcf0d9"), Color("#907b69"), 2.0)
 	text(c, "PULL BACK · RELEASE", Vector2(270, 816), 24, INK)
 	text(c, "Hop from lily to lily!", Vector2(270, 863), 19, Color("#947b6b"))
 	c.draw_circle(Vector2(270 + sin(time * 3) * 16, 907), 5, Color("#fff6d0"))
 
-static func _lost_overlay(c: CanvasItem, score: int, best: int) -> void:
+static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.16, 0.21, 0.32, 0.55))
 	rr(c, Rect2(49, 285, 442, 365), 32, Color("#fff0d9"), Color("#8a716a"), 4)
 	text(c, "SPLASH!", Vector2(270, 354), 56, Color("#5c668a"))
 	text(c, "Your score", Vector2(270, 432), 22, Color("#917769"))
 	text(c, _commas(score), Vector2(270, 478), 43, INK)
-	text(c, "Best: %s" % _commas(best), Vector2(270, 538), 20, Color("#8c756c"))
-	rr(c, Rect2(111, 565, 318, 59), 27, Color("#a5ce7c"), Color("#5b7a59"), 2)
-	text(c, "TAP TO RETRY", Vector2(270, 593), 24, Color("#435443"))
+	text(c, "Best: %s   •   Leaves +%d" % [_commas(best), run_leaves], Vector2(270, 538), 19, Color("#8c756c"))
+	rr(c, Rect2(70, 565, 213, 59), 23, Color("#a5ce7c"), Color("#5b7a59"), 2)
+	text(c, "RETRY", Vector2(175, 593), 24, Color("#435443"))
+	rr(c, Rect2(294, 565, 178, 59), 23, Color("#eee0c2"), Color("#92836d"), 2)
+	text(c, "HOME", Vector2(382, 593), 24, INK)
 
 static func _pause_overlay(c: CanvasItem, muted: bool) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.15, 0.22, 0.29, 0.60))
@@ -435,6 +447,30 @@ static func _pause_overlay(c: CanvasItem, muted: bool) -> void:
 	text(c, "RESUME", Vector2(270, 494), 26, Color("#49564b"))
 	rr(c, Rect2(108, 544, 324, 66), 27, Color("#eee0c2"), Color("#92836d"), 2)
 	text(c, "SOUND: TEMP. OFF" if OS.has_feature("android") else ("SOUND: OFF" if muted else "SOUND: ON"), Vector2(270, 577), 22, INK)
+
+static func _wardrobe_overlay(c: CanvasItem, time: float, leaves: int, selected: int, unlocked: int, prices: Array) -> void:
+	c.draw_rect(Rect2(0, 0, W, H), Color(0.15, 0.22, 0.29, 0.67))
+	rr(c, Rect2(29, 226, 482, 670), 33, Color("#fff0dc"), Color("#957d6b"), 3)
+	text(c, "RIVER WARDROBE", Vector2(270, 275), 32, Color("#595468"), true)
+	text(c, "LEAVES  %d" % leaves, Vector2(270, 316), 21, Color("#66835b"))
+	var names := ["ORIGINAL", "MIST", "SUNSHINE", "MOSS"]
+	var fill := [Color("#b48161"), Color("#a9b9d2"), Color("#e9b379"), Color("#99bd87")]
+	for i in range(4):
+		var px := 66.0 + float(i % 2) * 216.0
+		var py := 340.0 + float(i / 2) * 162.0
+		var is_owned := (unlocked & (1 << i)) != 0
+		var is_selected := i == selected
+		var border := Color("#74a17b") if is_selected else Color("#ae9c82")
+		rr(c, Rect2(px, py, 192, 146), 20, Color("#fcf7e9") if is_owned else Color("#e8e2d7"), border, 3.0 if is_selected else 1.5)
+		ellipse(c, Vector2(px + 96, py + 57), Vector2(30, 37), fill[i])
+		ellipse(c, Vector2(px + 96, py + 59), Vector2(18, 14), fill[i].lightened(0.23))
+		for side in [-1, 1]:
+			c.draw_circle(Vector2(px + 88 + side * 11, py + 42), 3.0, INK)
+		text(c, names[i], Vector2(px + 96, py + 108), 18, INK)
+		var status := "EQUIPPED" if is_selected else ("SELECT" if is_owned else "%d LEAVES" % int(prices[i]))
+		text(c, status, Vector2(px + 96, py + 130), 14, Color("#53815d") if is_owned else Color("#a67c57"))
+	rr(c, Rect2(100, 770, 340, 74), 25, Color("#a7ca83"), Color("#577c5b"), 2.5)
+	text(c, "BACK TO RIVER", Vector2(270, 807), 24, Color("#3c5745"))
 
 static func _commas(value: int) -> String:
 	var s := str(value)
