@@ -37,16 +37,19 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int) -> void:
+	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
-	_river(c, time, cam)
+	_river(c, time, cam, biome)
 	c.draw_set_transform(Vector2.ZERO)
 	for pad in pads:
 		var screen := Vector2(float(pad["x"]), ANCHOR - (float(pad["m"]) - cam) * SCALE) + shake
 		if screen.y < -125.0 or screen.y > H + 125.0:
 			continue
-		_lily(c, screen, float(pad["r"]), int(pad["kind"]), time, int(pad["id"]), float(pad_impacts.get(int(pad["id"]), 0.0)))
+		_lily(c, screen, float(pad["r"]), int(pad["kind"]), time, int(pad["id"]), float(pad_impacts.get(int(pad["id"]), 0.0)), chapters.biome_at(float(pad["m"]), campaign_stage))
+		if bool(pad.get("boost", false)):
+			_boost(c, screen + Vector2(-20, -24 + sin(time * 3.7 + float(pad["id"])) * 2.4), time)
 		if bool(pad["coin"]):
 			_coin(c, screen + Vector2(11, -25 + sin(time * 3.0 + float(pad["id"])) * 3), time)
 		if bool(pad["pet"]):
@@ -81,9 +84,9 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	c.draw_set_transform(Vector2.ZERO)
 	if flash > 0.0:
 		c.draw_rect(Rect2(0, 0, W, H), Color(1.0, 0.97, 0.85, flash * 0.34))
-	_hud(c, score, best, pets, distance, wave_m, cam, combo, mode)
+	_hud(c, score, best, pets, distance, wave_m, cam, combo, mode, chapters, campaign_stage, biome, biome_banner)
 	if mode == 0:
-		_start_overlay(c, time, leaves, skin, daily, monetization)
+		_start_overlay(c, time, leaves, skin, daily, monetization, chapters)
 	if mode == 4:
 		_lost_overlay(c, score, best, run_leaves, monetization, rewarded_this_run)
 	if mode == 5:
@@ -92,10 +95,19 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		_wardrobe_overlay(c, time, leaves, skin, unlocked, prices, wardrobe_page)
 	if mode == 7:
 		_goals_overlay(c, daily)
+	if mode == 8:
+		_chapter_select_overlay(c, chapters)
+	if mode == 9:
+		_chapter_clear_overlay(c, campaign_stage, clear_medal, clear_reward, chapters)
 
-static func _river(c: CanvasItem, t: float, cam: float) -> void:
-	# Slate-blue flowing water, pale shoreline and watercolor vegetation.
-	c.draw_rect(Rect2(0, 0, W, H), Color("#a0b796"))
+static func _river(c: CanvasItem, t: float, cam: float, biome: int) -> void:
+	# Each chapter has its own original illustrated color script; no external textures.
+	var earth := [Color("#a6c49e"), Color("#9cc69a"), Color("#d3bd91"), Color("#77879b"), Color("#9cbcc4"), Color("#7c8297")]
+	var water_colors := [Color("#81abb9"), Color("#79b5a8"), Color("#b0b8b0"), Color("#647caa"), Color("#84b7cb"), Color("#627e9b")]
+	var sand_colors := [Color("#f0e1b7"), Color("#e3e7c6"), Color("#f1d5a7"), Color("#afb4d0"), Color("#d9e5e5"), Color("#adb7c2")]
+	var plants := [Color("#558765"), Color("#608c72"), Color("#947f57"), Color("#657c91"), Color("#668f92"), Color("#718078")]
+	var b := clampi(biome, 0, 5)
+	c.draw_rect(Rect2(0, 0, W, H), earth[b])
 	var water := PackedVector2Array()
 	var left := PackedVector2Array()
 	var right := PackedVector2Array()
@@ -107,14 +119,14 @@ static func _river(c: CanvasItem, t: float, cam: float) -> void:
 		right.append(Vector2(494.0 + wiggle * 0.83, y))
 	# Sandy outline adds separation against the banks.
 	for i in range(left.size() - 1):
-		line(c, left[i] + Vector2(-9, 0), left[i + 1] + Vector2(-9, 0), Color("#e9dfbd"), 18)
+		line(c, left[i] + Vector2(-9, 0), left[i + 1] + Vector2(-9, 0), sand_colors[b], 18)
 		line(c, right[i] + Vector2(9, 0), right[i + 1] + Vector2(9, 0), Color("#e9dfbd"), 18)
 	water.append_array(left)
 	for i in range(right.size() - 1, -1, -1):
 		water.append(right[i])
-	c.draw_colored_polygon(water, Color("#7d9bb7"))
+	c.draw_colored_polygon(water, water_colors[b])
 	# Broad drifting translucent current. Polygon edges never self-intersect.
-	for band in range(7):
+	for band in range(5):
 		var y := fposmod(float(band) * 193.0 + cam * SCALE * 0.62 + t * 13.0, 1350.0) - 190.0
 		var band_poly := PackedVector2Array()
 		for i in range(21):
@@ -123,31 +135,31 @@ static func _river(c: CanvasItem, t: float, cam: float) -> void:
 		for i in range(20, -1, -1):
 			var x := float(i) * 27.0
 			band_poly.append(Vector2(x, y + 40 + sin(x * 0.014 + band) * 12.0))
-		c.draw_colored_polygon(band_poly, Color(0.20, 0.35, 0.51, 0.10))
+		c.draw_colored_polygon(band_poly, water_colors[b].darkened(0.28) * Color(1, 1, 1, 0.10))
 	for i in range(left.size() - 1):
-		line(c, left[i], left[i + 1], Color("#779d95"), 3.5)
-		line(c, right[i], right[i + 1], Color("#799e97"), 3.5)
+		line(c, left[i], left[i + 1], plants[b], 3.5)
+		line(c, right[i], right[i + 1], plants[b].lightened(0.06), 3.5)
 	# Low-contrast depth bands mimic watercolor washes without texture assets.
-	for lane in range(9):
+	for lane in range(7):
 		var x := 91.0 + float(lane) * 41.0
 		var width := 16.0 + 4.0 * sin(lane * 1.7)
 		var tint := Color(0.17, 0.32, 0.48, 0.022 + 0.018 * (1.0 - absf(float(lane - 4)) / 4.0))
 		rr(c, Rect2(x, -8, width, H + 16), 9, tint)
 	# Soft animated caustic arcs and drifting surface glints.
-	for i in range(19):
+	for i in range(14):
 		var x := 94.0 + float((i * 67 + 41) % 350)
 		var y := fposmod(float(i) * 103.0 + cam * SCALE * 0.53 + t * 14.0, 1240.0) - 150.0
 		var swish := sin(t * 1.4 + i * 1.6)
 		c.draw_arc(Vector2(x, y), 12.0 + float(i % 4) * 3.0, 0.3 + swish * 0.1, 2.4 + swish * 0.1, 16, Color(0.94, 0.98, 0.98, 0.11), 2.3, true)
 		c.draw_circle(Vector2(x + 19, y + 8), 2.1 + 0.6 * swish, Color(1, 1, 0.94, 0.25))
 	# Water speed lines tilt back with a hand-animated flow.
-	for i in range(69):
+	for i in range(52):
 		var x := 65.0 + float((i * 113 + 29) % 410)
 		var y := fposmod(float(i) * 81.7 + cam * SCALE * 0.65 + t * 29.0, 1210.0) - 155.0
 		var n := 10.0 + float(i % 5) * 7.0
 		line(c, Vector2(x, y), Vector2(x + 6, y + n), Color(0.98, 1.0, 1.0, 0.36), 1.4 + float(i % 2) * 0.25)
 	# Pebbles, reeds, small blossoms and flattened grasses.
-	for i in range(42):
+	for i in range(34):
 		var y := fposmod(float(i) * 79.0 + cam * SCALE, 1180.0) - 95.0
 		var side: float = -1.0 if i % 2 == 0 else 1.0
 		var edge := 38.0 if side < 0.0 else 503.0
@@ -159,13 +171,13 @@ static func _river(c: CanvasItem, t: float, cam: float) -> void:
 		for stalk in range(1 + i % 3):
 			var origin := Vector2(x + float(stalk - 1) * 7, y + 14)
 			var tip := origin + Vector2(float(stalk - 1) * 5.0 - side * 2.0, -14 - float(stalk % 2) * 9)
-			line(c, origin, tip, Color("#5e856a"), 2.0)
+			line(c, origin, tip, plants[b].darkened(0.10), 2.0)
 			if (i + stalk) % 4 == 0:
 				ellipse(c, tip, Vector2(3.2, 8.0), Color("#9d676d"))
 			else:
-				ellipse(c, tip + Vector2(0, -3), Vector2(2.2, 5.0), Color("#739961"))
+				ellipse(c, tip + Vector2(0, -3), Vector2(2.2, 5.0), plants[b].lightened(0.14))
 	# Floating rings, bubbles and firefly-like glints.
-	for i in range(38):
+	for i in range(27):
 		var y := fposmod(float(i) * 73.0 + cam * SCALE * 0.83 + t * 5.0, 1160.0) - 100.0
 		var x := 87.0 + float((i * 137 + 41) % 365)
 		var alpha := 0.20 + float(i % 4) * 0.055
@@ -176,8 +188,27 @@ static func _river(c: CanvasItem, t: float, cam: float) -> void:
 			c.draw_circle(Vector2(x - 20, y - 25), pulse, Color("#fff3b8"))
 			c.draw_circle(Vector2(x - 20, y - 25), 4.5, Color(1, 0.96, 0.73, 0.09))
 
+	# Tiny environmental stories: golden leaves, twilight fireflies and crystals.
+	for i in range(12):
+		var x := 70.0 + float((i * 79 + 31) % 394)
+		var y := fposmod(float(i) * 117.0 + cam * SCALE * 0.68 + t * (9.0 if b == 5 else 3.0), 1250.0) - 145.0
+		if b == 2:
+			var petal := Color("#f7d38c") if i % 2 == 0 else Color("#b88662")
+			ellipse(c, Vector2(x, y), Vector2(3.1, 6.6), petal)
+			line(c, Vector2(x, y + 4), Vector2(x + 3, y + 9), petal.darkened(0.17), 1)
+		elif b == 3 or b == 5:
+			var halo := 4.0 + 2.0 * sin(t * 2.0 + i)
+			c.draw_circle(Vector2(x, y), halo, Color(0.88, 0.92, 1.0, 0.07))
+			c.draw_circle(Vector2(x, y), 1.9, Color(0.93, 0.94, 0.72, 0.73))
+		elif b == 4:
+			var crystal := PackedVector2Array([Vector2(x, y - 8), Vector2(x + 3, y), Vector2(x, y + 7), Vector2(x - 3, y)])
+			c.draw_colored_polygon(crystal, Color(0.83, 0.96, 1.0, 0.56))
+		elif b == 1:
+			c.draw_circle(Vector2(x, y), 3.6, Color("#eedfa9"))
+			c.draw_circle(Vector2(x, y), 1.5, Color("#fff7d8"))
 
-static func _lily(c: CanvasItem, pos: Vector2, radius: float, kind: int, t: float, ident: int, impact: float = 0.0) -> void:
+
+static func _lily(c: CanvasItem, pos: Vector2, radius: float, kind: int, t: float, ident: int, impact: float = 0.0, biome: int = 0) -> void:
 	var r := radius * (1.0 + sin(t * 1.5 + float(ident)) * 0.012)
 	var wiggle := sin(t * 2.1 + float(ident) * 1.7) * 0.035 + sin((1.0 - impact) * 17.0) * impact * 0.075
 	c.draw_set_transform(pos + Vector2(0, impact * 7.0), wiggle, Vector2(1.0 + impact * 0.10, 1.0 - impact * 0.13))
@@ -196,6 +227,12 @@ static func _lily(c: CanvasItem, pos: Vector2, radius: float, kind: int, t: floa
 		var a := start + 0.55 + (TAU - 1.1) * float(i) / 51.0
 		inner.append(center + Vector2(cos(a) * (r - 4), sin(a) * (r - 4) * 0.78))
 	var fill: Color = PALETTE[kind % PALETTE.size()]
+	if biome == 2:
+		fill = fill.lerp(Color("#d9b975"), 0.34)
+	elif biome == 3 or biome == 5:
+		fill = fill.lerp(Color("#7595bc"), 0.32)
+	elif biome == 4:
+		fill = fill.lerp(Color("#96d6c6"), 0.30)
 	c.draw_colored_polygon(inner, fill)
 	# Leaf veins and subtle watercolor highlights.
 	for i in range(5):
@@ -227,6 +264,12 @@ static func _coin(c: CanvasItem, pos: Vector2, time: float) -> void:
 	c.draw_circle(pos, 10.0, Color("#edb645"))
 	c.draw_arc(pos, 7.0, 0, TAU, 30, Color("#fff1a5"), 2.3, true)
 	text(c, "+", pos + Vector2(0, -3), 16, Color("#936636"))
+
+static func _boost(c: CanvasItem, at: Vector2, time: float) -> void:
+	var radius := 9.0 + sin(time * 5.0) * 1.5
+	c.draw_circle(at, radius + 5.0, Color(0.55, 0.91, 0.99, 0.18))
+	c.draw_arc(at, radius, 0.25 + time * 2.0, 5.35 + time * 2.0, 26, Color("#a2f0fb"), 3.0, true)
+	c.draw_circle(at, 3.4, Color("#f7ffef"))
 
 static func _friend(c: CanvasItem, at: Vector2, kind: int, scale: float = 1.0, time: float = 0.0, energy: float = 0.0) -> void:
 	# Four readable species; silhouettes remain distinct even when stacked.
