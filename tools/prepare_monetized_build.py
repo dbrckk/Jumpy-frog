@@ -86,9 +86,9 @@ def main() -> None:
     if "[editor_plugins]" not in text:
         text += "\n[editor_plugins]\nenabled=PackedStringArray(\"res://addons/admob/plugin.cfg\", \"res://addons/GodotGooglePlayBilling/plugin.cfg\")\n"
     if "[admob]" not in text:
-        text += "\n[admob]\ngeneral/android/enabled=true\ngeneral/android/app_id=%r\n" % app_id
+        text += "\n[admob]\ngeneral/android/enabled=true\ngeneral/android/app_id=%s\n" % json.dumps(app_id)
     if "[jumpy]" not in text:
-        text += "\n[jumpy]\nmonetization/interstitial_unit_id=%r\nmonetization/rewarded_unit_id=%r\n" % (interstitial, rewarded)
+        text += "\n[jumpy]\nmonetization/interstitial_unit_id=%s\nmonetization/rewarded_unit_id=%s\n" % (json.dumps(interstitial), json.dumps(rewarded))
     godot_settings.write_text(text)
     print("Monetized dependencies installed: AdMob 5.1.0 + Google Play Billing 3.3.0 (Billing 9.1.0).")
 
