@@ -37,7 +37,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float) -> void:
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
 	_river(c, time, cam)
@@ -83,11 +83,11 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		c.draw_rect(Rect2(0, 0, W, H), Color(1.0, 0.97, 0.85, flash * 0.34))
 	_hud(c, score, best, pets, distance, wave_m, cam, combo, mode)
 	if mode == 0:
-		_start_overlay(c, time, leaves, skin, daily)
+		_start_overlay(c, time, leaves, skin, daily, monetization)
 	if mode == 4:
-		_lost_overlay(c, score, best, run_leaves)
+		_lost_overlay(c, score, best, run_leaves, monetization, rewarded_this_run)
 	if mode == 5:
-		_pause_overlay(c, muted)
+		_pause_overlay(c, muted, monetization)
 	if mode == 6:
 		_wardrobe_overlay(c, time, leaves, skin, unlocked, prices)
 	if mode == 7:
@@ -415,12 +415,18 @@ static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int,
 	elif combo >= 3 and mode in [1, 2, 3]:
 		text(c, "COMBO x%d!" % combo, Vector2(270, 84), 19, Color("#f7f1b2"), true)
 
-static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, daily: RefCounted) -> void:
+static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, daily: RefCounted, monetization: Node) -> void:
 	rr(c, Rect2(62, 128, 416, 179), 34, Color("#fbedd6"), Color("#ae977d"), 3)
 	text(c, "JUMPY FROG", Vector2(270, 186), 49, Color("#5b5868"), true)
 	text(c, "A RIVER ADVENTURE", Vector2(270, 244), 19, Color("#a17f74"))
 	rr(c, Rect2(169, 321, 202, 44), 18, CREAM, Color("#a28f72"), 1.5)
 	text(c, "LEAVES  %d" % leaves, Vector2(270, 341), 21, Color("#5c815c"))
+	if monetization.premium:
+		text(c, "AD-FREE FOREVER", Vector2(270, 416), 20, Color("#5a9462"))
+	elif monetization.purchase_ready:
+		rr(c, Rect2(139, 403, 262, 58), 23, Color("#f3dfba"), Color("#a88e68"), 2)
+		var label := "REMOVE ADS " + (monetization.price_label if not monetization.price_label.is_empty() else "• PLAY STORE")
+		text(c, label, Vector2(270, 429), 18, Color("#755d4f"))
 	rr(c, Rect2(139, 634, 262, 58), 23, Color("#c6e2ba"), Color("#748b6b"), 2.2)
 	text(c, "DAILY GOALS  %d/3" % daily.completion_count(), Vector2(270, 660), 21, Color("#4b654b"))
 	rr(c, Rect2(139, 710, 262, 58), 23, Color("#a8d2aa"), Color("#668569"), 2.2)
@@ -430,9 +436,9 @@ static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, d
 	text(c, "Hop from lily to lily!", Vector2(270, 863), 19, Color("#947b6b"))
 	c.draw_circle(Vector2(270 + sin(time * 3) * 16, 907), 5, Color("#fff6d0"))
 
-static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int) -> void:
+static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int, monetization: Node, rewarded_this_run: bool) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.16, 0.21, 0.32, 0.55))
-	rr(c, Rect2(49, 285, 442, 365), 32, Color("#fff0d9"), Color("#8a716a"), 4)
+	rr(c, Rect2(49, 285, 442, 446), 32, Color("#fff0d9"), Color("#8a716a"), 4)
 	text(c, "SPLASH!", Vector2(270, 354), 56, Color("#5c668a"))
 	text(c, "Your score", Vector2(270, 432), 22, Color("#917769"))
 	text(c, _commas(score), Vector2(270, 478), 43, INK)
@@ -441,8 +447,13 @@ static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int)
 	text(c, "RETRY", Vector2(175, 593), 24, Color("#435443"))
 	rr(c, Rect2(294, 565, 178, 59), 23, Color("#eee0c2"), Color("#92836d"), 2)
 	text(c, "HOME", Vector2(382, 593), 24, INK)
+	if not rewarded_this_run and monetization.can_watch_rewarded():
+		rr(c, Rect2(80, 651, 390, 62), 23, Color("#d9e6ad"), Color("#7f9a64"), 2)
+		text(c, "WATCH AD  •  +5 LEAVES", Vector2(275, 680), 21, Color("#56634c"))
+	elif rewarded_this_run:
+		text(c, "BONUS CLAIMED", Vector2(270, 683), 21, Color("#548463"))
 
-static func _pause_overlay(c: CanvasItem, muted: bool) -> void:
+static func _pause_overlay(c: CanvasItem, muted: bool, monetization: Node) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.15, 0.22, 0.29, 0.60))
 	rr(c, Rect2(55, 295, 430, 360), 32, Color("#fff0d9"), Color("#887b72"), 3)
 	text(c, "PAUSED", Vector2(270, 360), 48, Color("#5a6474"), true)
@@ -451,6 +462,13 @@ static func _pause_overlay(c: CanvasItem, muted: bool) -> void:
 	text(c, "RESUME", Vector2(270, 494), 26, Color("#49564b"))
 	rr(c, Rect2(108, 544, 324, 66), 27, Color("#eee0c2"), Color("#92836d"), 2)
 	text(c, "SOUND: TEMP. OFF" if OS.has_feature("android") else ("SOUND: OFF" if muted else "SOUND: ON"), Vector2(270, 577), 22, INK)
+	if monetization.purchase_ready and not monetization.premium:
+		rr(c, Rect2(108, 633, 324, 62), 22, Color("#eed8ad"), Color("#a48a68"), 2)
+		var label := "NO ADS " + (monetization.price_label if not monetization.price_label.is_empty() else "• PLAY")
+		text(c, label, Vector2(270, 662), 21, INK)
+	if monetization.ads != null:
+		rr(c, Rect2(108, 704, 324, 56), 22, Color("#e8e1d7"), Color("#968b80"), 1.5)
+		text(c, "PRIVACY OPTIONS", Vector2(270, 731), 18, INK)
 
 static func _wardrobe_overlay(c: CanvasItem, time: float, leaves: int, selected: int, unlocked: int, prices: Array) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.15, 0.22, 0.29, 0.67))
