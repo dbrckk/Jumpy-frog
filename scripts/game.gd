@@ -331,6 +331,12 @@ func _down(pos: Vector2) -> void:
 				return
 		return
 	if mode == MODE_CLEAR:
+		if campaign_stage == -2:
+			if Rect2(72, 633, 195, 66).has_point(pos):
+				_start_daily_river()
+			elif Rect2(285, 633, 190, 66).has_point(pos):
+				_reset_game()
+			return
 		if Rect2(72, 633, 195, 66).has_point(pos):
 			var next_stage := campaign_stage + 1
 			if chapters.can_play(next_stage):
@@ -411,6 +417,9 @@ func _down(pos: Vector2) -> void:
 			return
 		if Rect2(70, 565, 213, 65).has_point(pos) and not rewarded_this_run:
 			monetization.request_break_interstitial()
+		if retry_chapter == -2:
+			_start_daily_river()
+			return
 		if retry_chapter >= 0:
 			_start_chapter(retry_chapter)
 			return
@@ -420,6 +429,9 @@ func _down(pos: Vector2) -> void:
 		daily.begin_run()
 		_save_progress()
 	elif mode == MODE_TITLE:
+		if Rect2(281, 470, 197, 62).has_point(pos):
+			_start_daily_river()
+			return
 		if Rect2(139, 550, 262, 66).has_point(pos):
 			mode = MODE_CHAPTERS
 			return
@@ -443,6 +455,43 @@ func _down(pos: Vector2) -> void:
 	aim_x = player_x
 	aim_m = player_m
 	mode = MODE_AIM
+
+func _start_daily_river() -> void:
+	_reset_game()
+	campaign_stage = -2
+	daily.refresh_day()
+	daily.start_river()
+	# Reset RNG after the generic initialization so this day's lily route,
+	# bonuses and animal placements are reproducible on every attempt.
+	rng.seed = daily.river_seed()
+	pads.resize(1)
+	last_generated_m = 0.0
+	last_pad_x = 270.0
+	next_pad_id = 1
+	_generate_pads()
+	mode = MODE_PLAY
+	total_runs += 1
+	daily.begin_run()
+	biome_banner = 2.2
+	_save_progress()
+	queue_redraw()
+
+func _finish_daily_river() -> void:
+	if campaign_stage != -2 or mode != MODE_PLAY:
+		return
+	clear_medal = 0
+	clear_reward = daily.finish_river(score)
+	leaves += clear_reward
+	run_leaves += clear_reward
+	mode = MODE_CLEAR
+	monetization.on_run_finished()
+	daily.on_finish(score)
+	celebration = 1.0
+	impact_flash = 0.42
+	sound.play_event("victory")
+	if score > best_score:
+		best_score = score
+	_save_progress()
 
 func _start_chapter(index: int) -> void:
 	if not chapters.can_play(index):
@@ -615,6 +664,9 @@ func _finish_jump() -> void:
 			_burst(_player_screen() + Vector2(0, 14), 11, "water")
 			_burst(_player_screen() + Vector2(0, -5), 7, "spark")
 			mode = MODE_PLAY
+			if campaign_stage == -2 and player_m >= daily.RIVER_TARGET:
+				_finish_daily_river()
+				return
 			if campaign_stage >= 0 and player_m >= float(chapters.chapter(campaign_stage)["target"]):
 				_finish_chapter()
 				return
