@@ -13,6 +13,8 @@ var rewarded_screen := FullScreenContentCallback.new()
 var earned_listener := OnUserEarnedRewardListener.new()
 var _reward_granted := false
 var _started := false
+var _ads_allowed := false
+var _sdk_initialized := false
 
 func _ready() -> void:
 	interstitial_loader.on_ad_loaded = _interstitial_loaded
@@ -54,53 +56,74 @@ func _on_consent_ready() -> void:
 			UserMessagingPlatform.load_consent_form(_on_form_loaded, _on_consent_failed)
 		return
 	if info.get_consent_status() in [info.ConsentStatus.OBTAINED, info.ConsentStatus.NOT_REQUIRED]:
+		_ads_allowed = true
 		_initialize_ads()
 
 func _on_form_loaded(form: ConsentForm) -> void:
 	form.show(func(_error: FormError) -> void:
 		var info := UserMessagingPlatform.consent_information
 		if info.get_consent_status() in [info.ConsentStatus.OBTAINED, info.ConsentStatus.NOT_REQUIRED]:
+			_ads_allowed = true
 			_initialize_ads()
+		else:
+			stop_ads()
 	)
 
 func _on_consent_failed(_error: FormError) -> void:
-	# Fail closed: no advertising until the consent flow has been resolved.
-	pass
+	# Fail closed: discard loaded ads if consent cannot be determined.
+	stop_ads()
 
 func show_privacy_options() -> void:
 	UserMessagingPlatform.show_privacy_options_form(func(_error: FormError) -> void:
 		var info := UserMessagingPlatform.consent_information
 		if info.get_consent_status() not in [info.ConsentStatus.OBTAINED, info.ConsentStatus.NOT_REQUIRED]:
 			stop_ads()
+		else:
+			_ads_allowed = true
+			_initialize_ads()
 	)
 
 func _initialize_ads() -> void:
-	MobileAds.initialize()
+	if not _ads_allowed:
+		return
+	if not _sdk_initialized:
+		MobileAds.initialize()
+		_sdk_initialized = true
 	_load_interstitial()
 	_load_rewarded()
 
 func _load_interstitial() -> void:
+	if not _ads_allowed:
+		return
 	var unit := String(ProjectSettings.get_setting("jumpy/monetization/interstitial_unit_id", ""))
 	if unit.begins_with("ca-app-pub-") and not unit.is_empty():
 		InterstitialAdLoader.new().load(unit, AdRequest.new(), interstitial_loader)
 
 func _load_rewarded() -> void:
+	if not _ads_allowed:
+		return
 	var unit := String(ProjectSettings.get_setting("jumpy/monetization/rewarded_unit_id", ""))
 	if unit.begins_with("ca-app-pub-") and not unit.is_empty():
 		RewardedAdLoader.new().load(unit, AdRequest.new(), rewarded_loader)
 
 func _interstitial_loaded(ad: InterstitialAd) -> void:
+	if not _ads_allowed:
+		ad.destroy()
+		return
 	_clear_interstitial()
 	interstitial_ad = ad
 	interstitial_ad.full_screen_content_callback = interstitial_screen
 
 func _rewarded_loaded(ad: RewardedAd) -> void:
+	if not _ads_allowed:
+		ad.destroy()
+		return
 	_clear_rewarded()
 	rewarded_ad = ad
 	rewarded_ad.full_screen_content_callback = rewarded_screen
 
 func can_show_interstitial() -> bool:
-	return interstitial_ad != null
+	return _ads_allowed and interstitial_ad != null
 
 func show_interstitial() -> bool:
 	if not can_show_interstitial():
@@ -109,14 +132,17 @@ func show_interstitial() -> bool:
 	return true
 
 func can_show_rewarded() -> bool:
-	return rewarded_ad != null
+	return _ads_allowed and rewarded_ad != null
 
-func show_rewarded() -> void:
-	if rewarded_ad != null:
-		_reward_granted = false
-		rewarded_ad.show(earned_listener)
+func show_rewarded() -> bool:
+	if not can_show_rewarded():
+		return false
+	_reward_granted = false
+	rewarded_ad.show(earned_listener)
+	return true
 
 func stop_ads() -> void:
+	_ads_allowed = false
 	_clear_interstitial()
 	_clear_rewarded()
 
