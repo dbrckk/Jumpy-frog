@@ -158,6 +158,21 @@ func _check_all() -> void:
 	game._down(Vector2(175, 593))
 	_expect(test_ads.shown == ads_before + 1, "ad only requested on voluntary retry")
 	_expect(game.mode == 2, "retry preserves existing touch-to-aim behavior")
+	# Emulate ONLY the trusted monetization->game signal handler. A delayed
+	# native reward callback must survive a navigation away from the score.
+	var wallet_before: int = game.leaves
+	game._on_rewarded_leaves(5)
+	_expect(game.leaves == wallet_before + 5, "verified reward survives result-screen navigation")
+	var wallet_saved := ConfigFile.new()
+	_expect(wallet_saved.load("user://jumpy_frog.cfg") == OK, "delayed reward saved immediately")
+	_expect(int(wallet_saved.get_value("progress", "leaves", -1)) == game.leaves, "wallet persistence after late reward")
+	game.mode = 4
+	game.rewarded_this_run = false
+	game._on_rewarded_leaves(5)
+	_expect(game.rewarded_this_run, "result-screen native reward is marked claimed")
+	_expect(game.leaves == wallet_before + 10, "result-screen callback grants one reward")
+	game._on_rewarded_leaves(5)
+	_expect(game.leaves == wallet_before + 10, "duplicate result-screen callback cannot grant twice")
 	game.monetization.ads = null
 	game.queue_free()
 	await process_frame
