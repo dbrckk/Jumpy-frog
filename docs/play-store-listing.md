@@ -63,7 +63,7 @@ Jusqu'où réussiras-tu à sauter ?
 - Internet permission: Required in monetized AdMob build; not needed in the offline debug build
 - Content rating: Complete the interactive questionnaire, do not assume an age category
 - Target audience: Select truthfully when submitting; inspect Families policy if children are targeted
-- Privacy policy URL: Use the public permanent URL for `docs/privacy-policy.md`
+- Privacy policy URL (live, French and English): https://micro-matrix-a49rp83.shipstatic.com/privacy.html
 - Developer contact: Add a genuine support email in Play Console
 - Screenshots: Capture real frames from an installed release build, showing title, gameplay and wardrobe
 - Feature graphic: 1024 × 500 PNG/JPEG; avoid implying endorsements
@@ -73,3 +73,7 @@ Audio: native Godot audio remains disabled on Android for crash compatibility. E
 
 - Google Play IAP product ID: `remove_ads` (non-consumable), intended French price €2.00; actual checkout displays the current Google Play price.
 - Link to [updated privacy policy](privacy-policy.md).
+
+## Published policy
+
+Public standalone privacy policy: https://micro-matrix-a49rp83.shipstatic.com/privacy.html
