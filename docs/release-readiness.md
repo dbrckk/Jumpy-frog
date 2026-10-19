@@ -1,9 +1,9 @@
-# Release gate for Jumpy Frog 1.0
+# Release gate for Jumpy Frog 1.3.0
 
 **Code-ready does not mean Play-published.** The Google Play submission is blocked until every gate is verified.
 
 ## Build and security
-- [x] Version bumped to 1.0.0 (versionCode 2)
+- [x] Final release-candidate version 1.3.0, Android versionCode 5
 - [x] Original artwork and no runtime dependencies on third-party servers
 - [x] Monetization is opt-in at build time; ordinary debug APK remains offline and ad-free
 - [x] API 36 Gradle AAB preset configured, real AdMob/UMP + Google Play Billing 9.1.0 integrated in monetized QA/release workflow
@@ -12,14 +12,18 @@
 - [x] Original 512×512 store icon and 1024×500 feature artwork generated and checked
 - [x] Four real screenshots (1080×1920) captured automatically from a running Godot build
 - [ ] **Monetized production AAB signed with permanent private upload key, validated, and accepted** in Play Console (requires upload keystore secrets)
-- [ ] 16 KB page-size support validated on the actual AAB/native libraries
+- [x] Android API 36 and 16 KiB native ELF/bundle alignment verified on QA AAB (Godot and monetized SDKs)
+- [ ] The final signed production AAB must pass the same 16 KiB checks and Play Console review
 - [ ] Android 16 edge-to-edge and API 36 behavior tested on device
 - [ ] No native audio crash on the affected Redmi running the release candidate
-- [ ] Stable, audible sound restored and tested without the native audio callback crash
+- [x] Android OpenSL audio disabled; separate opt-in experimental Java system tones and haptics available
+- [ ] Real-device confirmation that Android system tones do not reproduce the audio crash, and sound quality signoff
 
 ## Product
 - [x] Endless river jumping, pickups, companions and increasing pressure
 - [x] Six replayable chapters, stars, saved level unlocks, eight cosmetic styles and endless cyclical biomes
+- [x] Deterministic 180 m daily challenge, one first-win leaf reward per UTC day and best-score persistence
+- [x] Auto-pause on phone focus loss, including safe midair resume after notification/app switch
 - [x] Precision-landing rewards and temporary current boost pads
 - [x] Optional Android haptic feedback, with VIBRATE permission requested
 - [x] Pause/resume, retry and local save. Offline debug has no network; monetized build uses network only for advertising and Google Play Billing
@@ -90,7 +94,7 @@ The test AAB is debug-signed and **must never be uploaded as a production app**.
 - [ ] Play Console new Data safety, targeted audience and 'Contains ads' declarations verified and public privacy policy linked
 - [ ] Long soak test on the specific Android 15 Redmi where Godot's OpenSL audio previously crashed
 
-See [monetization manual](monetization.md). **The ordinary ad-free debug APK does not validate paid purchase or live ad revenue.**
+See [final 1.3.0 checklist](final-1.3.md) and [monetization manual](monetization.md). **The ordinary ad-free debug APK does not validate paid purchase or live ad revenue.**
 
 
 ## Version 1.2 physical-device checks
