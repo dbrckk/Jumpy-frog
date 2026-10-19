@@ -424,6 +424,7 @@ func _finish_jump() -> void:
 		if int(pad["id"]) == jump_pad_id:
 			var gain := maxi(12, int((float(pad["m"]) - highest_m) * 13.0))
 			var collected_leaf: bool = bool(pad["coin"])
+			var rescued_pet: bool = bool(pad["pet"])
 			if bool(pad["coin"]):
 				leaves += 1
 				run_leaves += 1
@@ -443,7 +444,7 @@ func _finish_jump() -> void:
 			else:
 				sound.play_event("land")
 			run_hops += 1
-			var daily_bonus: int = daily.on_landing(int(float(pad["m"])), collected_leaf)
+			var daily_bonus: int = daily.on_landing(int(float(pad["m"])), collected_leaf, rescued_pet, combo + 1, absf(jump_end.x - jump_start.x) >= 80.0)
 			if daily_bonus > 0:
 				leaves += daily_bonus
 				_add_float_text("DAILY +%d" % daily_bonus, _player_screen() + Vector2(0, -138), Color("#e6ffc5"))
