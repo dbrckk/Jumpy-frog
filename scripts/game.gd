@@ -12,6 +12,8 @@ const MODE_AIM := 2
 const MODE_FLY := 3
 const MODE_LOST := 4
 const MODE_PAUSED := 5
+const MODE_WARDROBE := 6
+const SKIN_COSTS := [0, 12, 30, 65]
 
 var mode: int = MODE_TITLE
 var rng := RandomNumberGenerator.new()
@@ -43,6 +45,11 @@ var jump_pad_id: int = -1
 var sound: Node
 var muted: bool = false
 var saved_muted: bool = false
+var leaves: int = 0
+var unlocked_skins: int = 1
+var selected_skin: int = 0
+var total_runs: int = 0
+var run_leaves: int = 0
 var body_tilt := 0.0
 var body_squash := 0.0
 var stack_sway := 0.0
@@ -67,6 +74,12 @@ func _ready() -> void:
 	if save.load("user://jumpy_frog.cfg") == OK:
 		best_score = int(save.get_value("progress", "best_score", 0))
 		saved_muted = bool(save.get_value("progress", "muted", false))
+		leaves = maxi(0, int(save.get_value("progress", "leaves", 0)))
+		unlocked_skins = maxi(1, int(save.get_value("progress", "unlocked_skins", 1))) & 15
+		selected_skin = clampi(int(save.get_value("progress", "selected_skin", 0)), 0, 3)
+		if not _is_unlocked(selected_skin):
+			selected_skin = 0
+		total_runs = maxi(0, int(save.get_value("progress", "total_runs", 0))
 	muted = saved_muted or OS.has_feature("android")
 	sound.set_muted(muted)
 	_reset_game()
@@ -95,6 +108,7 @@ func _reset_game() -> void:
 	pets = 0
 	score = 0
 	combo = 0
+	run_leaves = 0
 	aim_x = 270.0
 	aim_m = 0.0
 	jump_z = 0.0
@@ -216,7 +230,7 @@ func _draw() -> void:
 			preview = Vector2(float(pad["x"]), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -235,7 +249,9 @@ func _input(event: InputEvent) -> void:
 		if event.keycode in [KEY_R, KEY_SPACE, KEY_ENTER] and mode == MODE_LOST:
 			_reset_game()
 		elif event.keycode == KEY_ESCAPE:
-			if mode == MODE_PAUSED:
+			if mode == MODE_WARDROBE:
+				mode = MODE_TITLE
+			elif mode == MODE_PAUSED:
 				mode = MODE_PLAY
 				sound.set_paused(false)
 			elif mode in [MODE_AIM, MODE_PLAY]:
@@ -243,6 +259,27 @@ func _input(event: InputEvent) -> void:
 				sound.set_paused(true)
 
 func _down(pos: Vector2) -> void:
+	if mode == MODE_WARDROBE:
+		if Rect2(100, 770, 340, 74).has_point(pos):
+			mode = MODE_TITLE
+			return
+		for i in range(4):
+			var px := 66.0 + float(i % 2) * 216.0
+			var py := 340.0 + float(i / 2) * 162.0
+			if Rect2(px, py, 192, 146).has_point(pos):
+				if _is_unlocked(i):
+					selected_skin = i
+					sound.play_event("ui")
+					_save_progress()
+				elif leaves >= SKIN_COSTS[i]:
+					leaves -= SKIN_COSTS[i]
+					unlocked_skins |= 1 << i
+					selected_skin = i
+					_save_progress()
+					celebration = 1.0
+					sound.play_event("friend")
+				return
+		return
 	if mode == MODE_PAUSED:
 		if Rect2(108, 460, 324, 66).has_point(pos):
 			mode = MODE_PLAY
@@ -258,10 +295,20 @@ func _down(pos: Vector2) -> void:
 		sound.set_paused(true)
 		return
 	if mode == MODE_LOST:
+		if Rect2(293, 565, 182, 65).has_point(pos):
+			_reset_game()
+			return
 		_reset_game()
 		mode = MODE_PLAY
+		total_runs += 1
+		_save_progress()
 	elif mode == MODE_TITLE:
+		if Rect2(139, 710, 262, 58).has_point(pos):
+			mode = MODE_WARDROBE
+			return
 		mode = MODE_PLAY
+		total_runs += 1
+		_save_progress()
 	if mode != MODE_PLAY:
 		return
 	aim_start = pos
@@ -339,6 +386,10 @@ func _finish_jump() -> void:
 		if int(pad["id"]) == jump_pad_id:
 			var gain := maxi(12, int((float(pad["m"]) - highest_m) * 13.0))
 			if bool(pad["coin"]):
+				leaves += 1
+				run_leaves += 1
+				_save_progress()
+				_add_float_text("+1 LEAF", _player_screen() + Vector2(-25, -79), Color("#e8fbb8"))
 				sound.play_event("coin")
 				_add_float_text("+75", _player_screen() + Vector2(28, -55), Color("#fff3ad"))
 				gain += 75
@@ -382,10 +433,17 @@ func _die() -> void:
 		best_score = score
 	_save_progress()
 
+func _is_unlocked(index: int) -> bool:
+	return index >= 0 and index < 4 and (unlocked_skins & (1 << index)) != 0
+
 func _save_progress() -> void:
 	var save := ConfigFile.new()
 	save.set_value("progress", "best_score", best_score)
 	save.set_value("progress", "muted", saved_muted)
+	save.set_value("progress", "leaves", leaves)
+	save.set_value("progress", "unlocked_skins", unlocked_skins)
+	save.set_value("progress", "selected_skin", selected_skin)
+	save.set_value("progress", "total_runs", total_runs)
 	save.save("user://jumpy_frog.cfg")
 
 func _add_float_text(value: String, pos: Vector2, color: Color) -> void:
