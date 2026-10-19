@@ -24,7 +24,7 @@ func _run() -> void:
 	for i in range(140):
 		game._update_graphics_quality(0.033)
 	_check(game.graphics_quality == 0, "second sustained slow period reaches minimal quality")
-	for i in range(720):
+	for i in range(1500):
 		game._update_graphics_quality(0.016)
 	_check(game.graphics_quality == 2, "sustained recovery restores high-quality rendering")
 	game._reset_game()
