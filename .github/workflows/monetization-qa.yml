@@ -92,6 +92,9 @@ jobs:
           set -euo pipefail
           curl -fLsS --retry 3 -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.18.2/bundletool-all-1.18.2.jar
           java -jar /tmp/bundletool.jar validate --bundle=build/JumpyFrog-Monetized-QA.aab
+          python3 tools/verify_16kb_elf.py build/JumpyFrog-Monetized-QA.aab
+          java -jar /tmp/bundletool.jar dump config --bundle=build/JumpyFrog-Monetized-QA.aab | tee /tmp/jumpy-bundle-config.txt
+          grep -q "PAGE_ALIGNMENT_16K" /tmp/jumpy-bundle-config.txt || { echo "::error::Bundle does not request 16KiB native zip alignment"; exit 1; }
           java -jar /tmp/bundletool.jar dump manifest --bundle=build/JumpyFrog-Monetized-QA.aab --module=base --xpath=/manifest/uses-sdk/@android:targetSdkVersion | tee /tmp/target.txt
           grep -qx '36' /tmp/target.txt
           test -s addons/GodotGooglePlayBilling/bin/release/GodotGooglePlayBilling-release.aar
