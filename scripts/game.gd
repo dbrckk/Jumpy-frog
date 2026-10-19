@@ -5,6 +5,7 @@ const AUDIO = preload("res://scripts/audio.gd")
 const DAILY = preload("res://scripts/daily.gd")
 const MONETIZATION = preload("res://scripts/monetization.gd")
 const CHAPTERS = preload("res://scripts/chapters.gd")
+const RIVER_SHADER = preload("res://shaders/river_surface.gdshader")
 const W := 540.0
 const H := 960.0
 const PX_PER_M := 8.0
@@ -87,8 +88,18 @@ var ripples: Array[Dictionary] = []
 var shake_strength := 0.0
 var impact_flash := 0.0
 var wave_warned := false
+## Adaptive rendering quality never alters simulation or collision rules.
+var graphics_quality := 2
+var _frame_budget_accum := 0.0
+var _frame_budget_sum := 0.0
+var _frame_budget_samples := 0
+var _quality_recovery_windows := 0
+var _quality_downgrade_windows := 0
+var river_shader_rect: ColorRect
+var river_shader_material: ShaderMaterial
 
 func _ready() -> void:
+	_initialize_river_shader()
 	rng.randomize()
 	sound = AUDIO.new()
 	add_child(sound)
@@ -116,6 +127,47 @@ func _ready() -> void:
 		# Fail closed if JNI/system tone output cannot be constructed.
 		android_tones_enabled = sound.set_android_system_tones(true)
 	_reset_game()
+
+func _initialize_river_shader() -> void:
+	river_shader_rect = ColorRect.new()
+	river_shader_rect.name = "RiverSurfaceCaustics"
+	river_shader_rect.position = Vector2.ZERO
+	river_shader_rect.size = Vector2(W, H)
+	river_shader_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	river_shader_rect.z_index = 1
+	river_shader_rect.visible = false
+	river_shader_material = ShaderMaterial.new()
+	river_shader_material.shader = RIVER_SHADER
+	river_shader_rect.material = river_shader_material
+	add_child(river_shader_rect)
+
+func _update_graphics_quality(frame_delta: float) -> void:
+	if mode not in [MODE_PLAY, MODE_AIM, MODE_FLY] or frame_delta <= 0.0:
+		return
+	_frame_budget_accum += minf(frame_delta, 0.2)
+	_frame_budget_sum += minf(frame_delta, 0.2)
+	_frame_budget_samples += 1
+	if _frame_budget_accum < 2.0:
+		return
+	var average: float = _frame_budget_sum / maxf(float(_frame_budget_samples), 1.0)
+	_frame_budget_accum = 0.0
+	_frame_budget_sum = 0.0
+	_frame_budget_samples = 0
+	if average > 0.025:
+		_quality_downgrade_windows += 1
+		_quality_recovery_windows = 0
+		if _quality_downgrade_windows >= 2:
+			graphics_quality = maxi(graphics_quality - 1, 0)
+			_quality_downgrade_windows = 0
+	elif average < 0.018:
+		_quality_recovery_windows += 1
+		_quality_downgrade_windows = 0
+		if _quality_recovery_windows >= 5:
+			graphics_quality = mini(graphics_quality + 1, 2)
+			_quality_recovery_windows = 0
+	else:
+		_quality_downgrade_windows = 0
+		_quality_recovery_windows = 0
 
 func _reset_game() -> void:
 	mode = MODE_TITLE
@@ -201,7 +253,13 @@ func _generate_pads() -> void:
 		})
 
 func _process(delta: float) -> void:
+	_update_graphics_quality(delta)
 	delta = minf(delta, 0.08)
+	if river_shader_rect != null:
+		river_shader_rect.visible = mode in [MODE_PLAY, MODE_AIM, MODE_FLY] and graphics_quality > 0
+		if river_shader_rect.visible:
+			river_shader_material.set_shader_parameter("river_time", clock)
+			river_shader_material.set_shader_parameter("strength", 0.48 if graphics_quality == 2 else 0.26)
 	if mode == MODE_PAUSED:
 		queue_redraw()
 		return
@@ -256,7 +314,9 @@ func _process(delta: float) -> void:
 		blink_clock = rng.randf_range(2.1, 4.2)
 		blink_amount = 1.0
 	blink_amount = maxf(0.0, blink_amount - delta * 7.5)
-	cam_m = lerpf(cam_m, player_m, minf(1.0, delta * 4.7))
+	# Look ahead while aiming and flying without altering the world simulation.
+	var cam_target := player_m + (4.0 if mode in [MODE_AIM, MODE_FLY] else 0.0)
+	cam_m = lerpf(cam_m, cam_target, 1.0 - exp(-delta * 4.7))
 	if not pads.is_empty() and float(pads[0]["m"]) < cam_m - 75.0:
 		pads.pop_front()
 	if mode in [MODE_PLAY, MODE_AIM, MODE_FLY]:
@@ -297,7 +357,7 @@ func _draw() -> void:
 			preview = Vector2(float(pad["x"]), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
