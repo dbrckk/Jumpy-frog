@@ -17,6 +17,7 @@ on:
       - tools/prepare_monetized_build.py
       - tests/retention_and_ads.gd
       - tests/daily_river.gd
+      - tests/endurance.gd
       - .github/workflows/monetization-qa.yml
 
 permissions:
@@ -68,6 +69,7 @@ jobs:
           timeout 120s godot --headless --path . --script res://tests/smoke.gd
           timeout 120s godot --headless --path . --script res://tests/retention_and_ads.gd
           timeout 120s godot --headless --path . --script res://tests/daily_river.gd
+          timeout 120s godot --headless --path . --script res://tests/endurance.gd
           timeout 120s godot --headless --path . --script res://tests/chapters.gd
       - name: Create ephemeral DEBUG signing identity
         run: |
