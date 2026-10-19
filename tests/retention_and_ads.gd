@@ -132,6 +132,26 @@ func _check_all() -> void:
 	monet.elapsed = 2000
 	_expect(not monet.request_break_interstitial(), "owned remove-ads entitlement blocks interstitial")
 	_expect(not monet.request_rewarded_leaves(), "owned remove-ads entitlement blocks rewarded ads")
+	# The score screen must not trigger an unexpected interstitial.
+	var game: Node2D = load("res://main.tscn").instantiate()
+	root.add_child(game)
+	await process_frame
+	game.monetization.premium = false
+	game.monetization.ads = test_ads
+	game.monetization.completed_runs = 3
+	game.monetization.runs_since_ad = 3
+	game.monetization.elapsed = 800.0
+	game.mode = 1
+	var ads_before := test_ads.shown
+	game._die()
+	_expect(game.mode == 4, "run ends at visible score screen")
+	_expect(test_ads.shown == ads_before, "no automatic interruption when score appears")
+	game._down(Vector2(175, 593))
+	_expect(test_ads.shown == ads_before + 1, "ad only requested on voluntary retry")
+	_expect(game.mode == 2, "retry preserves existing touch-to-aim behavior")
+	game.monetization.ads = null
+	game.queue_free()
+	await process_frame
 	monet.ads = null
 	test_ads.queue_free()
 	monet.queue_free()
