@@ -33,7 +33,7 @@
 
 ## Play Console
 - [x] Listing draft in French and English
-- [x] Public privacy policy source available in repo
+- [x] Public bilingual privacy policy hosted permanently: https://micro-matrix-a49rp83.shipstatic.com/privacy.html
 - [ ] Verified developer account, identity and developer support email
 - [ ] Upload generated 512×512 store icon, 1024×500 graphic and authentic screenshots in Play Console
 - [ ] Data safety, content rating and target audience declarations completed **for the monetized version (Google Ads identifiers, AdMob and Billing)**
