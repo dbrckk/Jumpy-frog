@@ -139,6 +139,8 @@ func set_muted(value: bool) -> void:
 
 func set_paused(value: bool) -> void:
 	paused = value
+	if value and _system_tone != null:
+		_system_tone.stopTone()
 	if ambience != null:
 		ambience.stream_paused = value
 	if music != null:
