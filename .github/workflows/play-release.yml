@@ -76,7 +76,7 @@ jobs:
             echo "::error::Godot script import failed"
             exit 1
           fi
-          for suite in smoke chapters retention_and_ads daily_river endurance lifecycle render_quality; do
+          for suite in smoke chapters retention_and_ads daily_river endurance lifecycle render_quality touch_and_fairness; do
             echo "Running $suite"
             timeout --signal=TERM --kill-after=10s 120s godot --headless --path . --script "res://tests/${suite}.gd"
           done
