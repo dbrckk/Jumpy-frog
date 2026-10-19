@@ -434,7 +434,7 @@ static func _pause_overlay(c: CanvasItem, muted: bool) -> void:
 	rr(c, Rect2(108, 460, 324, 66), 27, Color("#b3d185"), Color("#5e7e60"), 2)
 	text(c, "RESUME", Vector2(270, 494), 26, Color("#49564b"))
 	rr(c, Rect2(108, 544, 324, 66), 27, Color("#eee0c2"), Color("#92836d"), 2)
-	text(c, "SOUND: OFF" if muted else "SOUND: ON", Vector2(270, 577), 23, INK)
+	text(c, "SOUND: TEMP. OFF" if OS.has_feature("android") else ("SOUND: OFF" if muted else "SOUND: ON"), Vector2(270, 577), 22, INK)
 
 static func _commas(value: int) -> String:
 	var s := str(value)
