@@ -14,7 +14,7 @@ func _check_all() -> void:
 	_expect(not daily.refresh_day(21999), "clock rollback cannot replay daily rewards")
 	var rewards := 0
 	for i in range(8):
-		rewards += daily.on_landing(i * 11, i % 2 == 0)
+		rewards += daily.on_landing(i * 12, i % 2 == 0)
 	_expect(rewards == 15, "three missions grant exactly 3+5+7 leaves")
 	_expect(daily.goals_claimed == 7, "each goal is claimed once")
 	_expect(daily.claim_goals() == 0, "mission rewards cannot be claimed twice")
