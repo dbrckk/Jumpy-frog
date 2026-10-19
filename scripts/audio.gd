@@ -6,10 +6,14 @@ const VOICE_COUNT := 6
 
 var voices: Array[AudioStreamPlayer] = []
 var ambience: AudioStreamPlayer
+var music: AudioStreamPlayer
 var samples: Dictionary = {}
 var muted := false
 var paused := false
 var mobile_safe_mode := false
+var haptics_enabled := true
+var biome_id := 0
+var last_vibration_ms := -100000
 var next_voice := 0
 var rng := RandomNumberGenerator.new()
 
@@ -22,7 +26,7 @@ func _ready() -> void:
 		muted = true
 		return
 	rng.seed = 0xC0FFEE
-	for event_name in ["jump", "land", "splash", "coin", "friend", "combo", "warning", "lose", "ui"]:
+	for event_name in ["jump", "land", "splash", "coin", "friend", "combo", "warning", "lose", "ui", "boost", "victory"]:
 		samples[event_name] = _synthesize(event_name)
 	for i in range(VOICE_COUNT):
 		var player := AudioStreamPlayer.new()
@@ -36,6 +40,22 @@ func _ready() -> void:
 	ambience.stream = _ambient_loop()
 	add_child(ambience)
 	ambience.play()
+	music = AudioStreamPlayer.new()
+	music.bus = "Master"
+	music.volume_db = -27.0
+	music.stream = _melody_loop()
+	add_child(music)
+	music.play()
+
+func set_haptics(enabled: bool) -> void:
+	haptics_enabled = enabled
+
+func set_biome(index: int) -> void:
+	biome_id = clampi(index, 0, 5)
+	if music != null:
+		music.pitch_scale = [1.0, 1.05, 0.94, 0.87, 1.09, 1.12][biome_id]
+	if ambience != null:
+		ambience.pitch_scale = [1.0, 1.06, 0.94, 0.84, 1.1, 1.16][biome_id]
 
 func set_muted(value: bool) -> void:
 	muted = value or mobile_safe_mode
@@ -43,14 +63,32 @@ func set_muted(value: bool) -> void:
 		voice.volume_db = -80.0 if muted else -13.0
 	if ambience != null:
 		ambience.volume_db = -80.0 if muted else -29.0
+	if music != null:
+		music.volume_db = -80.0 if muted else -27.0
 
 func set_paused(value: bool) -> void:
 	paused = value
 	if ambience != null:
 		ambience.stream_paused = value
+	if music != null:
+		music.stream_paused = value
 
 func play_event(event_name: String, intensity: float = 0.0) -> void:
-	if mobile_safe_mode or muted or paused or voices.is_empty() or not samples.has(event_name):
+	if mobile_safe_mode:
+		if haptics_enabled and not paused:
+			var now := Time.get_ticks_msec()
+			if now - last_vibration_ms >= 75:
+				last_vibration_ms = now
+				match event_name:
+					"jump": Input.vibrate_handheld(18)
+					"land": Input.vibrate_handheld(25)
+					"boost": Input.vibrate_handheld(37)
+					"coin": Input.vibrate_handheld(14)
+					"friend": Input.vibrate_handheld(46)
+					"victory": Input.vibrate_handheld(85)
+					"lose", "splash": Input.vibrate_handheld(65)
+		return
+	if muted or paused or voices.is_empty() or not samples.has(event_name):
 		return
 	var voice: AudioStreamPlayer = voices[next_voice]
 	next_voice = (next_voice + 1) % voices.size()
@@ -63,7 +101,7 @@ func _synthesize(event_name: String) -> AudioStreamWAV:
 	var durations := {
 		"jump": 0.24, "land": 0.22, "splash": 0.49, "coin": 0.32,
 		"friend": 0.58, "combo": 0.52, "warning": 0.47,
-		"lose": 0.65, "ui": 0.12
+		"lose": 0.65, "ui": 0.12, "boost": 0.26, "victory": 0.9
 	}
 	var duration: float = durations[event_name]
 	var n := int(duration * SAMPLE_RATE)
@@ -118,6 +156,14 @@ func _synthesize(event_name: String) -> AudioStreamWAV:
 				freq = 600.0 * pow(1.20, p)
 				e *= 0.37
 				sample_value = sin(phase)
+			"boost":
+				freq = 260.0 + 750.0 * pow(p, 0.75)
+				e *= 0.67
+				sample_value = sin(phase) * 0.72 + sin(phase * 1.5) * 0.15
+			"victory":
+				freq = 440.0 if p < 0.28 else (554.37 if p < 0.52 else (659.25 if p < 0.77 else 880.0))
+				e = ramp * pow(1.0 - p, 0.95)
+				sample_value = sin(phase) * 0.58 + sin(phase * 2.0) * 0.12
 		phase += TAU * freq / SAMPLE_RATE
 		var value := int(clampf(sample_value * e * 10500.0, -32767.0, 32767.0))
 		if value < 0:
