@@ -37,7 +37,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float) -> void:
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
 	_river(c, time, cam)
@@ -83,13 +83,15 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		c.draw_rect(Rect2(0, 0, W, H), Color(1.0, 0.97, 0.85, flash * 0.34))
 	_hud(c, score, best, pets, distance, wave_m, cam, combo, mode)
 	if mode == 0:
-		_start_overlay(c, time, leaves, skin)
+		_start_overlay(c, time, leaves, skin, daily)
 	if mode == 4:
 		_lost_overlay(c, score, best, run_leaves)
 	if mode == 5:
 		_pause_overlay(c, muted)
 	if mode == 6:
 		_wardrobe_overlay(c, time, leaves, skin, unlocked, prices)
+	if mode == 7:
+		_goals_overlay(c, daily)
 
 static func _river(c: CanvasItem, t: float, cam: float) -> void:
 	# Slate-blue flowing water, pale shoreline and watercolor vegetation.
@@ -413,12 +415,14 @@ static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int,
 	elif combo >= 3 and mode in [1, 2, 3]:
 		text(c, "COMBO x%d!" % combo, Vector2(270, 84), 19, Color("#f7f1b2"), true)
 
-static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int) -> void:
+static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, daily: RefCounted) -> void:
 	rr(c, Rect2(62, 128, 416, 179), 34, Color("#fbedd6"), Color("#ae977d"), 3)
 	text(c, "JUMPY FROG", Vector2(270, 186), 49, Color("#5b5868"), true)
 	text(c, "A RIVER ADVENTURE", Vector2(270, 244), 19, Color("#a17f74"))
 	rr(c, Rect2(169, 321, 202, 44), 18, CREAM, Color("#a28f72"), 1.5)
 	text(c, "LEAVES  %d" % leaves, Vector2(270, 341), 21, Color("#5c815c"))
+	rr(c, Rect2(139, 634, 262, 58), 23, Color("#c6e2ba"), Color("#748b6b"), 2.2)
+	text(c, "DAILY GOALS  %d/3" % daily.completion_count(), Vector2(270, 660), 21, Color("#4b654b"))
 	rr(c, Rect2(139, 710, 262, 58), 23, Color("#a8d2aa"), Color("#668569"), 2.2)
 	text(c, "CUSTOMIZE", Vector2(270, 736), 24, Color("#3c5543"))
 	rr(c, Rect2(64, 783, 412, 112), 29, Color("#fcf0d9"), Color("#907b69"), 2.0)
@@ -471,6 +475,28 @@ static func _wardrobe_overlay(c: CanvasItem, time: float, leaves: int, selected:
 		text(c, status, Vector2(px + 96, py + 130), 14, Color("#53815d") if is_owned else Color("#a67c57"))
 	rr(c, Rect2(100, 770, 340, 74), 25, Color("#a7ca83"), Color("#577c5b"), 2.5)
 	text(c, "BACK TO RIVER", Vector2(270, 807), 24, Color("#3c5745"))
+
+static func _goals_overlay(c: CanvasItem, daily: RefCounted) -> void:
+	c.draw_rect(Rect2(0, 0, W, H), Color(0.15, 0.22, 0.29, 0.68))
+	rr(c, Rect2(31, 235, 478, 663), 34, Color("#fff1db"), Color("#93806e"), 3)
+	text(c, "TODAY'S MISSIONS", Vector2(270, 294), 32, Color("#595669"), true)
+	text(c, "STREAK  %d DAY(S)" % daily.streak_days, Vector2(270, 337), 20, Color("#6a835a"))
+	for i in range(3):
+		var goal: Dictionary = daily.GOALS[i]
+		var y := 382.0 + float(i) * 124.0
+		var progress: int = daily.progress(i)
+		var target: int = int(goal["target"])
+		var completed: bool = (daily.goals_claimed & (1 << i)) != 0
+		rr(c, Rect2(66, y, 408, 99), 19, Color("#f5f1dc") if completed else Color("#fae4d0"), Color("#a7a090"), 1)
+		text(c, String(goal["title"]), Vector2(270, y + 23), 20, INK)
+		text(c, "%d / %d     •     +%d LEAVES" % [mini(progress, target), target, int(goal["reward"])], Vector2(270, y + 51), 17, Color("#548263"))
+		rr(c, Rect2(111, y + 76, 318, 8), 4, Color("#dbcbb2"))
+		var ratio: float = minf(1.0, float(progress) / float(target))
+		if ratio > 0.001:
+			rr(c, Rect2(111, y + 76, 318.0 * ratio, 8), 4, Color("#89b874"))
+	text(c, "NEW OBJECTIVES EVERY DAY (UTC)", Vector2(270, 763), 15, Color("#88776b"))
+	rr(c, Rect2(100, 790, 340, 62), 23, Color("#accd85"), Color("#5e7e59"), 2)
+	text(c, "BACK", Vector2(270, 820), 24, Color("#3f5847"))
 
 static func _commas(value: int) -> String:
 	var s := str(value)
