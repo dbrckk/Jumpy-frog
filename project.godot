@@ -27,3 +27,11 @@ environment/defaults/default_clear_color=Color(0.62, 0.83, 0.82, 1)
 [input_devices]
 pointing/emulate_touch_from_mouse=true
 pointing/emulate_mouse_from_touch=false
+
+[audio]
+
+; Emergency compatibility mode for Android OpenSL ES native callback crashes.
+; Crash report: Android 15 HyperOS, libwilhelm.so/audioTrack_handleMoreData_lockPlay.
+; Other platforms retain all original SFX and ambience.
+; Only re-enable Android audio after physical device tests or native symbolication.
+driver/driver.android="Dummy"
