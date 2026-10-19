@@ -11,6 +11,12 @@ var samples: Dictionary = {}
 var muted := false
 var paused := false
 var mobile_safe_mode := false
+# Alternative system Android tones never enter Godot's OpenSL ES driver.
+# Disabled by default until tested on affected real devices.
+var android_system_tones := false
+var _system_tone: Variant = null
+var _tone_class: Variant = null
+var _java_wrapper: Object = null
 var haptics_enabled := true
 var biome_id := 0
 var last_vibration_ms := -100000
@@ -47,6 +53,71 @@ func _ready() -> void:
 	add_child(music)
 	music.play()
 
+func set_android_system_tones(enabled: bool) -> bool:
+	if not mobile_safe_mode:
+		return false
+	if not enabled:
+		android_system_tones = false
+		_release_system_tones()
+		return true
+	android_system_tones = _initialize_system_tones()
+	return android_system_tones
+
+func _initialize_system_tones() -> bool:
+	if _system_tone != null:
+		return true
+	# JavaClassWrapper is exposed by Godot on Android only; resolve by name so
+	# the same GDScript safely imports on Linux/desktop CI.
+	_java_wrapper = Engine.get_singleton("JavaClassWrapper") if Engine.has_singleton("JavaClassWrapper") else null
+	if _java_wrapper == null:
+		return false
+	_tone_class = _java_wrapper.wrap("android.media.ToneGenerator")
+	if _java_wrapper.get_exception() != null or _tone_class == null:
+		_tone_class = null
+		return false
+	# STREAM_MUSIC=3; modest volume and brief feedback, not an ambient loop.
+	_system_tone = _tone_class.ToneGenerator(3, 34)
+	if _java_wrapper.get_exception() != null or _system_tone == null:
+		_system_tone = null
+		_tone_class = null
+		return false
+	return true
+
+func _release_system_tones() -> void:
+	if _system_tone != null:
+		_system_tone.stopTone()
+		_system_tone.release()
+	_system_tone = null
+	_tone_class = null
+
+func _play_system_tone(event_name: String) -> void:
+	if not android_system_tones or _system_tone == null or paused:
+		return
+	# Android ToneGenerator's public constants are used via the reflected class.
+	# DTMF notes differ per action; deliberately under 110 ms.
+	var tone: int = 24  # TONE_PROP_BEEP
+	var duration := 65
+	match event_name:
+		"jump": tone = 1; duration = 45
+		"land": tone = 4; duration = 40
+		"coin": tone = 6; duration = 75
+		"friend": tone = 9; duration = 95
+		"combo": tone = 10; duration = 85
+		"boost": tone = 11; duration = 75
+		"warning": tone = 2; duration = 95
+		"victory": tone = 9; duration = 110
+		"lose", "splash": tone = 0; duration = 110
+		_: return
+	_system_tone.startTone(tone, duration)
+	if _java_wrapper != null and _java_wrapper.get_exception() != null:
+		# Fail closed after any Android Java audio error.
+		android_system_tones = false
+		_release_system_tones()
+
+func _exit_tree() -> void:
+	if mobile_safe_mode:
+		_release_system_tones()
+
 func set_haptics(enabled: bool) -> void:
 	haptics_enabled = enabled
 
@@ -75,6 +146,7 @@ func set_paused(value: bool) -> void:
 
 func play_event(event_name: String, intensity: float = 0.0) -> void:
 	if mobile_safe_mode:
+		_play_system_tone(event_name)
 		if haptics_enabled and not paused:
 			var now := Time.get_ticks_msec()
 			if now - last_vibration_ms >= 75:
