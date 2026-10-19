@@ -57,7 +57,7 @@ func _init_billing() -> void:
 	billing.connect_error.connect(func(_code: int, _message: String) -> void:
 		status_changed.emit("Google Play inaccessible"))
 	billing.query_product_details_response.connect(_on_product_details)
-	billing.query_purchases_response.connect(_on_purchases)
+	billing.query_purchases_response.connect(_on_restore)
 	billing.on_purchase_updated.connect(_on_purchases)
 	billing.acknowledge_purchase_response.connect(_on_acknowledge)
 	billing.start_connection()
@@ -89,6 +89,24 @@ func restore_purchase() -> bool:
 		return false
 	billing.query_purchases(0)
 	return true
+
+func _on_restore(result: Dictionary) -> void:
+	if int(result.get("response_code", -1)) != 0:
+		return # retain locally verified offline ownership during network failures
+	var is_owned := false
+	for candidate in result.get("purchases", []):
+		var p: Dictionary = candidate
+		if p.get("product_ids", []).has(PRODUCT_ID) and int(p.get("purchase_state", 0)) == 1:
+			is_owned = true
+			break
+	if not is_owned and premium:
+		# A successful Google Play ownership query is authoritative for refunds.
+		premium = false
+		_save_cache()
+		premium_changed.emit(false)
+		_init_ads()
+		return
+	_on_purchases(result)
 
 func _on_purchases(result: Dictionary) -> void:
 	if int(result.get("response_code", -1)) != 0:
