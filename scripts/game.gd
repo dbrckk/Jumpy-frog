@@ -42,6 +42,7 @@ var jump_z: float = 0.0
 var jump_pad_id: int = -1
 var sound: Node
 var muted: bool = false
+var saved_muted: bool = false
 var body_tilt := 0.0
 var body_squash := 0.0
 var stack_sway := 0.0
@@ -65,7 +66,8 @@ func _ready() -> void:
 	var save := ConfigFile.new()
 	if save.load("user://jumpy_frog.cfg") == OK:
 		best_score = int(save.get_value("progress", "best_score", 0))
-		muted = bool(save.get_value("progress", "muted", false))
+		saved_muted = bool(save.get_value("progress", "muted", false))
+	muted = saved_muted or OS.has_feature("android")
 	sound.set_muted(muted)
 	_reset_game()
 
@@ -245,8 +247,9 @@ func _down(pos: Vector2) -> void:
 		if Rect2(108, 460, 324, 66).has_point(pos):
 			mode = MODE_PLAY
 			sound.set_paused(false)
-		elif Rect2(108, 544, 324, 66).has_point(pos):
-			muted = not muted
+		elif Rect2(108, 544, 324, 66).has_point(pos) and not OS.has_feature("android"):
+			saved_muted = not saved_muted
+			muted = saved_muted
 			sound.set_muted(muted)
 			_save_progress()
 		return
@@ -382,7 +385,7 @@ func _die() -> void:
 func _save_progress() -> void:
 	var save := ConfigFile.new()
 	save.set_value("progress", "best_score", best_score)
-	save.set_value("progress", "muted", muted)
+	save.set_value("progress", "muted", saved_muted)
 	save.save("user://jumpy_frog.cfg")
 
 func _add_float_text(value: String, pos: Vector2, color: Color) -> void:
