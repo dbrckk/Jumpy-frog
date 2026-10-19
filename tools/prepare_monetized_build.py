@@ -6,6 +6,7 @@ not include network/ads/billing permissions or proprietary SDK binaries.
 """
 from __future__ import annotations
 import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
