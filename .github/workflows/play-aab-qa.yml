@@ -1,0 +1,75 @@
+name: Android API 36 AAB compatibility smoke
+
+on:
+  push:
+    paths:
+      - export_presets.cfg
+      - .github/workflows/play-release.yml
+      - .github/workflows/play-aab-qa.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unsigned-play-shape-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+      - name: Install modern Android SDK
+        run: sdkmanager --install "platforms;android-35" "platforms;android-36" "build-tools;35.0.0" "build-tools;36.0.0"
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.5.1
+          use-dotnet: false
+          include-templates: true
+      - name: Configure editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/.android/sdk}}"
+          JAVA="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
+          test -d "$SDK/platforms/android-36"
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.5.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/java_sdk_path = "$JAVA"
+          export/android/android_sdk_path = "$SDK"
+          EOF
+      - name: Import + install Gradle template
+        run: |
+          godot --headless --editor --path . --quit
+          godot --headless --path . --install-android-build-template
+          test -f android/build/gradlew
+      - name: Generate app launcher icons
+        run: godot --headless --path . --script res://tools/generate_icons.gd
+      - name: Create disposable DEBUG signing key
+        run: |
+          keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/debug.jks" -alias androiddebugkey -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US" -validity 3650 -keyalg RSA -keysize 2048
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$RUNNER_TEMP/debug.jks" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+      - name: Export TEST ONLY AAB targeting API 36
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          timeout --signal=TERM --kill-after=10s 900s godot --headless --path . --export-debug "Google Play AAB" build/JumpyFrog-API36-QA.aab
+          test -s build/JumpyFrog-API36-QA.aab
+          unzip -tq build/JumpyFrog-API36-QA.aab
+      - name: Validate test bundle target SDK
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.18.2/bundletool-all-1.18.2.jar
+          java -jar /tmp/bundletool.jar validate --bundle=build/JumpyFrog-API36-QA.aab
+          java -jar /tmp/bundletool.jar dump manifest --bundle=build/JumpyFrog-API36-QA.aab --module=base --xpath=/manifest/uses-sdk/@android:targetSdkVersion | tee /tmp/target.txt
+          grep -qx '36' /tmp/target.txt || { echo "::error::Target SDK must be 36, not $(cat /tmp/target.txt)"; exit 1; }
+          echo "PASS: AAB successfully built via Gradle and explicitly targets Android 16 (API 36)."
