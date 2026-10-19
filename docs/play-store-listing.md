@@ -16,9 +16,11 @@ In Jumpy Frog, every leap counts. Pull back, aim, and release to hop between lil
 
 **Features**
 - Quick, satisfying one-finger jumping controls
+- Six distinct replayable river chapters with medals, unlocks and increasing difficulty
 - An endless, procedurally generated river course
 - Four cute companion creatures to meet
-- Unlockable color styles using leaves earned by playing
+- Eight unlockable color styles using leaves earned by playing
+- Precision-landing streaks and water-current boost pads
 - Animated lily pads, ripples, splashes and colorful scenery
 - Daily goals, earned leaf rewards, persistent streaks and local best scores
 - Optional rewarded ads and occasional ads between games
@@ -39,9 +41,11 @@ Dans Jumpy Frog, chaque bond compte : fais glisser ton doigt pour viser, relâch
 
 **Au programme**
 - Commandes simples à un doigt
+- Six chapitres rejouables, avec médailles et difficulté progressive
 - Parcours infini généré automatiquement
 - Quatre petits compagnons à rencontrer
-- Apparences à débloquer avec les feuilles gagnées en jouant
+- Huit apparences à débloquer avec les feuilles gagnées en jouant
+- Bonus pour les sauts précis et nénuphars qui repoussent la vague
 - Décors illustrés, nénuphars animés, remous et éclaboussures
 - Objectifs quotidiens, récompenses et séries de jours
 - Publicités occasionnelles entre deux parties et vidéos récompensées facultatives
