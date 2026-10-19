@@ -210,3 +210,34 @@ func _ambient_loop() -> AudioStreamWAV:
 	stream.loop_end = n
 	stream.data = raw
 	return stream
+
+func _melody_loop() -> AudioStreamWAV:
+	# Original quietly plucked pentatonic theme, rendered once as an eight-second loop.
+	var scale_notes := [261.63, 293.66, 329.63, 392.0, 440.0, 523.25]
+	var phrase := [0, 2, 3, 5, 4, 2, 1, 3, 4, 3, 2, 0, 2, 1, 3, 0]
+	var count := SAMPLE_RATE * 8
+	var raw := PackedByteArray()
+	raw.resize(count * 2)
+	for i in range(count):
+		var t := float(i) / SAMPLE_RATE
+		var beat := int(floor(t * 2.0))
+		var note_t := fposmod(t, 0.5)
+		var freq: float = scale_notes[phrase[beat % phrase.size()]]
+		var envelope := (1.0 - exp(-note_t * 110.0)) * exp(-note_t * 9.0)
+		var pluck := sin(TAU * freq * note_t) + sin(TAU * freq * 2.0 * note_t) * 0.20
+		var bass := sin(TAU * freq * 0.5 * t) * 0.12 * (0.5 + 0.5 * cos(TAU * t * 0.25))
+		var sample := (pluck * envelope * 0.23 + bass * 0.17) * minf(1.0, t * 3.0)
+		var value := int(clampf(sample * 13500.0, -32767.0, 32767.0))
+		if value < 0:
+			value += 65536
+		raw[i * 2] = value & 255
+		raw[i * 2 + 1] = (value >> 8) & 255
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = SAMPLE_RATE
+	stream.stereo = false
+	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	stream.loop_begin = 0
+	stream.loop_end = count
+	stream.data = raw
+	return stream
