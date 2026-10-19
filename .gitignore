@@ -7,3 +7,9 @@ exports/
 *.keystore
 *.jks
 .DS_Store
+
+# Downloaded and verified only by monetized Android builds.
+/addons/
+/scripts/admob_bridge.gd
+/.monetization-cache/
+/android/
