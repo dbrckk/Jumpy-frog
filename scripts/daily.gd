@@ -164,6 +164,9 @@ func next_milestone() -> Dictionary:
 			return entry
 	return {}
 
+func milestone_total() -> int:
+	return MILESTONES.size()
+
 func milestone_count() -> int:
 	var total := 0
 	for index in range(MILESTONES.size()):
