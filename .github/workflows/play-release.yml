@@ -1,0 +1,102 @@
+name: Google Play signed AAB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  play-bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PLAY_KEYSTORE_BASE64: ${{ secrets.PLAY_KEYSTORE_BASE64 }}
+      PLAY_KEY_ALIAS: ${{ secrets.PLAY_KEY_ALIAS }}
+      PLAY_KEY_PASSWORD: ${{ secrets.PLAY_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require persistent Google Play upload signing credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$PLAY_KEYSTORE_BASE64" || -z "$PLAY_KEY_ALIAS" || -z "$PLAY_KEY_PASSWORD" ]]; then
+            echo "::error::Set PLAY_KEYSTORE_BASE64, PLAY_KEY_ALIAS and PLAY_KEY_PASSWORD in repository Actions secrets before dispatching."
+            exit 1
+          fi
+      - name: Install JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+      - name: Install Android API 36 and build tools
+        run: |
+          sdkmanager --install "platforms;android-35" "platforms;android-36" "build-tools;35.0.0" "build-tools;36.0.0"
+      - name: Install matching Godot and templates
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.5.1
+          use-dotnet: false
+          include-templates: true
+      - name: Set Android SDK paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/.android/sdk}}"
+          JAVA="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
+          test -d "$SDK/platforms/android-36"
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.5.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/java_sdk_path = "$JAVA"
+          export/android/android_sdk_path = "$SDK"
+          EOF
+      - name: Import and run regression tests
+        run: |
+          godot --headless --editor --path . --quit
+          godot --headless --path . --script res://tests/smoke.gd
+      - name: Install Android Gradle build template
+        run: godot --headless --path . --install-android-build-template
+      - name: Generate icons
+        run: godot --headless --path . --script res://tools/generate_icons.gd
+      - name: Restore upload keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$PLAY_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/jumpy-play-upload.jks"
+          test -s "$RUNNER_TEMP/jumpy-play-upload.jks"
+          keytool -list -keystore "$RUNNER_TEMP/jumpy-play-upload.jks" -alias "$PLAY_KEY_ALIAS" -storepass "$PLAY_KEY_PASSWORD" >/dev/null
+      - name: Export release AAB
+        shell: bash
+        env:
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ runner.temp }}/jumpy-play-upload.jks
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: ${{ secrets.PLAY_KEY_ALIAS }}
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.PLAY_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          godot --headless --path . --export-release "Google Play AAB" build/JumpyFrog-Play.aab
+          test -s build/JumpyFrog-Play.aab
+          unzip -tq build/JumpyFrog-Play.aab
+      - name: Check bundle API level 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.18.2/bundletool-all-1.18.2.jar
+          java -jar /tmp/bundletool.jar validate --bundle=build/JumpyFrog-Play.aab
+          java -jar /tmp/bundletool.jar dump manifest --bundle=build/JumpyFrog-Play.aab --module=base --xpath=/manifest/uses-sdk/@android:targetSdkVersion | tee /tmp/play-target-sdk.txt
+          grep -qx '36' /tmp/play-target-sdk.txt || { echo "::error::The generated AAB does not target Android API 36"; exit 1; }
+          sha256sum build/JumpyFrog-Play.aab
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JumpyFrog-GooglePlay-signed-AAB
+          path: build/JumpyFrog-Play.aab
+          if-no-files-found: error
+          retention-days: 30
