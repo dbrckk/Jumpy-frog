@@ -13,8 +13,9 @@ class TestAdBridge extends Node:
 		return true
 	func can_show_rewarded() -> bool:
 		return true
-	func show_rewarded() -> void:
-		pass
+	var allow_rewarded := true
+	func show_rewarded() -> bool:
+		return allow_rewarded
 
 
 func _initialize() -> void:
@@ -99,6 +100,14 @@ func _check_all() -> void:
 	var test_ads := TestAdBridge.new()
 	root.add_child(test_ads)
 	monet.ads = test_ads
+	test_ads.allow_rewarded = false
+	_expect(not monet.request_rewarded_leaves(), "rewarded ad refusal cannot start a reward")
+	_expect(not monet._reward_pending, "native reward refusal clears pending flag")
+	test_ads.allow_rewarded = true
+	_expect(monet.request_rewarded_leaves(), "real provider acceptance can start rewarded ad")
+	_expect(monet._reward_pending, "accepted rewarded ad marks reward pending")
+	monet._on_reward_failed()
+	_expect(not monet._reward_pending, "dismissed rewarded ad clears pending flag")
 	monet.elapsed = 100.0
 	monet.completed_runs = 3
 	monet.runs_since_ad = 3
