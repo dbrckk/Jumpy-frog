@@ -67,6 +67,9 @@ jobs:
           set -euo pipefail
           curl -fLsS --retry 3 -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.18.2/bundletool-all-1.18.2.jar
           java -jar /tmp/bundletool.jar validate --bundle=build/JumpyFrog-API36-QA.aab
+          python3 tools/verify_16kb_elf.py build/JumpyFrog-API36-QA.aab
+          java -jar /tmp/bundletool.jar dump config --bundle=build/JumpyFrog-API36-QA.aab | tee /tmp/jumpy-bundle-config.txt
+          grep -q "PAGE_ALIGNMENT_16K" /tmp/jumpy-bundle-config.txt || { echo "::error::Bundle does not request 16KiB native zip alignment"; exit 1; }
           java -jar /tmp/bundletool.jar dump manifest --bundle=build/JumpyFrog-API36-QA.aab --module=base --xpath=/manifest/uses-sdk/@android:targetSdkVersion | tee /tmp/target.txt
           grep -qx '36' /tmp/target.txt || { echo "::error::Target SDK must be 36, not $(cat /tmp/target.txt)"; exit 1; }
           echo "PASS: AAB successfully built via Gradle and explicitly targets Android 16 (API 36)."
