@@ -44,6 +44,21 @@ func _check_all() -> void:
 	restored.refresh_day(22008)
 	restored.begin_run(22008)
 	_expect(restored.streak_days == 1, "streak breaks after skipped days")
+
+	# Each of the three rotating daily pools must be independently completable.
+	var rescue_day = Daily.new()
+	rescue_day.refresh_day(22000) # day_id % 3 == 1
+	var rescue_rewards := 0
+	for n in range(10):
+		rescue_rewards += rescue_day.on_landing(10 * n, false, n < 2, maxi(1, n), false)
+	_expect(rescue_day.goals_claimed == 7 and rescue_rewards == 15, "rescue and combo daily mission set pays exactly once")
+	var distance_day = Daily.new()
+	distance_day.refresh_day(22001) # day_id % 3 == 2
+	var distance_rewards := 0
+	for n in range(6):
+		distance_rewards += distance_day.on_landing(28 * n, true, false, n, n < 3)
+	_expect(distance_day.goals_claimed == 7 and distance_rewards == 21, "long-jump/distance daily mission set pays once")
+	_expect(distance_day.claim_goals() == 0 and rescue_day.claim_goals() == 0, "rotated daily missions cannot be farmed twice")
 	var Monet = load("res://scripts/monetization.gd")
 	var monet: Node = Monet.new()
 	root.add_child(monet)
