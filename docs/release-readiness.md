@@ -5,13 +5,13 @@
 ## Build and security
 - [x] Version bumped to 1.0.0 (versionCode 2)
 - [x] Original artwork and no runtime dependencies on third-party servers
-- [x] No in-app purchases or ad SDK
-- [x] API 36 Gradle AAB export preset configured
+- [x] Monetization is opt-in at build time; ordinary debug APK remains offline and ad-free
+- [x] API 36 Gradle AAB preset configured, real AdMob/UMP + Google Play Billing 9.1.0 integrated in monetized QA/release workflow
 - [x] Gradle signed-release workflow defined, secrets kept outside Git
 - [x] Unsigned-for-publication **debug AAB** successfully built and validated via the Android API 36 QA workflow
 - [x] Original 512×512 store icon and 1024×500 feature artwork generated and checked
 - [x] Four real screenshots (1080×1920) captured automatically from a running Godot build
-- [ ] AAB **built, signed, inspected and accepted** by Play Console (requires upload keystore secrets)
+- [ ] **Monetized production AAB signed with permanent private upload key, validated, and accepted** in Play Console (requires upload keystore secrets)
 - [ ] 16 KB page-size support validated on the actual AAB/native libraries
 - [ ] Android 16 edge-to-edge and API 36 behavior tested on device
 - [ ] No native audio crash on the affected Redmi running the release candidate
@@ -20,7 +20,7 @@
 ## Product
 - [x] Endless river jumping, pickups, companions and increasing pressure
 - [x] Local progression and unlockable cosmetic styles
-- [x] Pause/resume, retry, offline save and no runtime network access
+- [x] Pause/resume, retry and local save. Offline debug has no network; monetized build uses network only for advertising and Google Play Billing
 - [ ] 30-minute device soak test with suspend/resume, rotation lock and repeated app restarts
 - [ ] Screen-reader/talkback and touch-accessibility manual audit
 - [ ] Real-device rendering performance confirmed at steady frame rate
@@ -30,7 +30,7 @@
 - [x] Public privacy policy source available in repo
 - [ ] Verified developer account, identity and developer support email
 - [ ] Upload generated 512×512 store icon, 1024×500 graphic and authentic screenshots in Play Console
-- [ ] Data safety, content rating and target audience declarations completed
+- [ ] Data safety, content rating and target audience declarations completed **for the monetized version (Google Ads identifiers, AdMob and Billing)**
 - [ ] Closed test requirements fulfilled if required for the developer account
 - [ ] AAB uploaded first to internal testing, then closed testing
 - [ ] Release manually submitted for review (never automatic without permission)
@@ -71,3 +71,21 @@ This release is a serious internal-testing candidate. It is **not** a publicly r
 - Four genuine portrait gameplay screenshots: https://github.com/dbrckk/Jumpy-frog/actions/runs/39219964989
 
 The test AAB is debug-signed and **must never be uploaded as a production app**. The separate manually dispatched signed-release workflow requires the user's long-lived upload keystore and real device signoff.
+
+## Revenue publication gates (1.1)
+
+- [x] Persistent daily missions with three rotating daily sets, UTC clock-backwards protection, long-term progress and free unlockable skins
+- [x] Actual Google AdMob plugin installed via hash-verified release packages in the monetized Gradle build
+- [x] Actual Google Play Billing plugin v3.3.0 using Billing Library 9.1.0, product identifier `remove_ads`
+- [x] Fail-closed UMP consent adapter; no advertising unless consent state is usable
+- [x] Permanent non-consumable entitlement with restore, acknowledge, local verified cache and refund revocation on authoritative Google purchase query
+- [x] Interstitial policy: 4-run minimum and 6-minute cooldown, score screen only; rewarded advertisements explicitly opt-in
+- [x] Automated mission, save, payout and anti-frequency tests
+- [ ] Google Play in-app product `remove_ads` configured with €2.00 French price and activated
+- [ ] Real AdMob app/units and GDPR/UMP privacy message configured; real publisher IDs stored in GitHub Actions secrets
+- [ ] Google Play signed monetized release built using real identifiers and published to internal test track
+- [ ] Test purchase, restore, refunds, declined ad consent and actual rewarded video callback on Android device
+- [ ] Play Console new Data safety, targeted audience and 'Contains ads' declarations verified and public privacy policy linked
+- [ ] Long soak test on the specific Android 15 Redmi where Godot's OpenSL audio previously crashed
+
+See [monetization manual](monetization.md). **The ordinary ad-free debug APK does not validate paid purchase or live ad revenue.**
