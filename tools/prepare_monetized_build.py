@@ -60,6 +60,14 @@ def main() -> None:
     ):
         if not value.startswith("ca-app-pub-") or token not in value:
             raise SystemExit(f"Missing/invalid {label}; cannot produce monetized build")
+    # The production workflow must never accidentally ship Google's sample ads.
+    # QA is explicitly allowed to use the documented sample IDs.
+    if os.environ.get("REQUIRE_LIVE_ADMOB_IDS", "0") == "1":
+        demo_prefix = "ca-app-pub-3940256099942544"
+        if any(item.startswith(demo_prefix) for item in (app_id, interstitial, rewarded)):
+            raise SystemExit("Production release must use the developer's own AdMob IDs, not Google's test units")
+        if interstitial == rewarded:
+            raise SystemExit("Interstitial and rewarded ad IDs must be separate AdMob ad units")
     downloads = {}
     for name, (url, sha) in ASSETS.items():
         with urllib.request.urlopen(url, timeout=90) as response:
