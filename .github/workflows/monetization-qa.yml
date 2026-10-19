@@ -7,6 +7,10 @@ on:
       - scripts/monetization.gd
       - scripts/game.gd
       - scripts/chapters.gd
+      - scripts/audio.gd
+      - tests/smoke.gd
+      - tests/chapters.gd
+      - export_presets.cfg
       - scripts/daily.gd
       - scripts/art.gd
       - monetization/**
