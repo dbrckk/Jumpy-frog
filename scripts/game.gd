@@ -277,7 +277,7 @@ func _input(event: InputEvent) -> void:
 
 func _down(pos: Vector2) -> void:
 	if mode == MODE_GOALS:
-		if Rect2(100, 775, 340, 75).has_point(pos):
+		if Rect2(100, 815, 340, 67).has_point(pos):
 			mode = MODE_TITLE
 		return
 	if mode == MODE_WARDROBE:
@@ -454,7 +454,7 @@ func _finish_jump() -> void:
 			var daily_bonus: int = daily.on_landing(int(float(pad["m"])), collected_leaf, rescued_pet, combo + 1, absf(jump_end.x - jump_start.x) >= 80.0)
 			if daily_bonus > 0:
 				leaves += daily_bonus
-				_add_float_text("DAILY +%d" % daily_bonus, _player_screen() + Vector2(0, -138), Color("#e6ffc5"))
+				_add_float_text("GOAL +%d" % daily_bonus, _player_screen() + Vector2(0, -138), Color("#e6ffc5"))
 				celebration = 1.0
 			_save_progress()
 			combo += 1
