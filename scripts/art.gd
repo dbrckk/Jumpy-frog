@@ -57,7 +57,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		var screen := Vector2(float(pad["x"]), ANCHOR - (float(pad["m"]) - cam) * SCALE) + shake
 		if screen.y < -125.0 or screen.y > H + 125.0:
 			continue
-		_lily(c, screen, float(pad["r"]), int(pad["kind"]), time, int(pad["id"]), float(pad_impacts.get(int(pad["id"]), 0.0)), chapters.biome_at(float(pad["m"]), campaign_stage))
+		_lily(c, screen, float(pad["r"]), int(pad["kind"]), time, int(pad["id"]), float(pad_impacts.get(int(pad["id"]), 0.0)), chapters.biome_at(float(pad["m"]), campaign_stage), graphics_quality)
 		if bool(pad.get("boost", false)):
 			_boost(c, screen + Vector2(-20, -24 + sin(time * 3.7 + float(pad["id"])) * 2.4), time)
 		if bool(pad["coin"]):
@@ -69,7 +69,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		var pos: Vector2 = Vector2(ripple["pos"]) + shake
 		var radius: float = (15.0 + age * 88.0) * float(ripple["size"])
 		c.draw_arc(pos, radius, 0.0, TAU, 56, Color(0.99, 1.0, 0.91, (1.0 - age / 0.78) * 0.65), 2.9 * (1.0 - age / 0.9), true)
-	_wave(c, ANCHOR - (wave_m - cam) * SCALE + shake.y, time)
+	_wave(c, ANCHOR - (wave_m - cam) * SCALE + shake.y, time, graphics_quality)
 	if aiming:
 		_aim_guide(c, player_at + shake, aim_at + shake, time, aim_valid)
 	_character(c, player_at + shake, jump_z, pets, time, mode == 3, tilt, squash, sway, blink, impact, celebration, skin)
@@ -124,8 +124,8 @@ static func _river(c: CanvasItem, t: float, cam: float, biome: int, graphics_qua
 	var water := PackedVector2Array()
 	var left := PackedVector2Array()
 	var right := PackedVector2Array()
-	for i in range(58):
-		var y := -34.0 + float(i) * 18.6
+	for i in range(58 if graphics_quality >= 2 else 40):
+		var y := -34.0 + float(i) * (18.6 if graphics_quality >= 2 else 27.0)
 		var offset := y + cam * SCALE
 		var wiggle := sin(offset * 0.007) * 9.0 + sin(offset * 0.021 + 1.3) * 4.0
 		left.append(Vector2(45.0 + wiggle, y))
@@ -221,23 +221,24 @@ static func _river(c: CanvasItem, t: float, cam: float, biome: int, graphics_qua
 			c.draw_circle(Vector2(x, y), 1.5, Color("#fff7d8"))
 
 
-static func _lily(c: CanvasItem, pos: Vector2, radius: float, kind: int, t: float, ident: int, impact: float = 0.0, biome: int = 0) -> void:
+static func _lily(c: CanvasItem, pos: Vector2, radius: float, kind: int, t: float, ident: int, impact: float = 0.0, biome: int = 0, graphics_quality: int = 2) -> void:
 	var r := radius * (1.0 + sin(t * 1.5 + float(ident)) * 0.012)
 	var wiggle := sin(t * 2.1 + float(ident) * 1.7) * 0.035 + sin((1.0 - impact) * 17.0) * impact * 0.075
 	c.draw_set_transform(pos + Vector2(0, impact * 7.0), wiggle, Vector2(1.0 + impact * 0.10, 1.0 - impact * 0.13))
 	var center := Vector2.ZERO
 	ellipse(c, center + Vector2(3, 10), Vector2(r + 4, r * 0.69), Color(0.24, 0.48, 0.49, 0.33))
 	c.draw_arc(center + Vector2(0, 3), r + 12.0, 0.1, PI - 0.1, 32, Color(1, 1, 1, 0.24), 1.8, true)
+	var segments := 52 if graphics_quality >= 2 else (38 if graphics_quality == 1 else 24)
 	var pts := PackedVector2Array([center + Vector2(2, -2)])
 	var start := 0.38 + float(ident % 5) * 0.2
-	for i in range(52):
-		var a := start + 0.55 + (TAU - 1.1) * float(i) / 51.0
+	for i in range(segments):
+		var a := start + 0.55 + (TAU - 1.1) * float(i) / float(segments - 1)
 		pts.append(center + Vector2(cos(a) * r, sin(a) * r * 0.78))
 	var dark := Color("#547c57") if kind != 2 else Color("#9d8550")
 	c.draw_colored_polygon(pts, dark)
 	var inner := PackedVector2Array([center])
-	for i in range(52):
-		var a := start + 0.55 + (TAU - 1.1) * float(i) / 51.0
+	for i in range(segments):
+		var a := start + 0.55 + (TAU - 1.1) * float(i) / float(segments - 1)
 		inner.append(center + Vector2(cos(a) * (r - 4), sin(a) * (r - 4) * 0.78))
 	var fill: Color = PALETTE[kind % PALETTE.size()]
 	if biome == 2:
@@ -248,7 +249,7 @@ static func _lily(c: CanvasItem, pos: Vector2, radius: float, kind: int, t: floa
 		fill = fill.lerp(Color("#96d6c6"), 0.30)
 	c.draw_colored_polygon(inner, fill)
 	# Leaf veins and subtle watercolor highlights.
-	for i in range(5):
+	for i in range(5 if graphics_quality >= 2 else 3):
 		var a := start + 1.35 + (TAU - 2.7) * float(i) / 4.0
 		line(c, center, center + Vector2(cos(a) * r * 0.7, sin(a) * r * 0.55), fill.darkened(0.16), 1.5)
 	ellipse(c, center + Vector2(-13, -12), Vector2(9, 4), Color(1, 1, 0.85, 0.13))
@@ -409,26 +410,29 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 	if pets > 0:
 		c.draw_circle(stack_top + Vector2(-14, -pets * 17), 2.5, Color("#fff4ad"))
 
-static func _wave(c: CanvasItem, wave_y: float, t: float) -> void:
+static func _wave(c: CanvasItem, wave_y: float, t: float, graphics_quality: int = 2) -> void:
 	if wave_y > H + 70:
 		return
 	var pts := PackedVector2Array()
-	for i in range(45):
-		var x := float(i) * W / 44.0
+	var wave_steps := 45 if graphics_quality >= 2 else (31 if graphics_quality == 1 else 23)
+	for i in range(wave_steps):
+		var x := float(i) * W / float(wave_steps - 1)
 		var y := wave_y + sin(x * 0.026 + t * 2.3) * 9.0 + sin(x * 0.074 - t) * 3.5
 		pts.append(Vector2(x, y))
 	pts.append(Vector2(W, H + 1000))
 	pts.append(Vector2(0, H + 1000))
 	c.draw_colored_polygon(pts, Color("#242c55"))
-	for i in range(33):
-		var x := float(i) * W / 32.0
+	var foam_steps := 33 if graphics_quality >= 2 else (19 if graphics_quality == 1 else 11)
+	for i in range(foam_steps):
+		var x := float(i) * W / float(foam_steps - 1)
 		var y := wave_y + sin(x * 0.026 + t * 2.3) * 9.0 + sin(x * 0.074 - t) * 3.5
 		c.draw_circle(Vector2(x, y), 6.4, Color("#fff1dd"))
 		if i % 2 == 0:
 			c.draw_circle(Vector2(x + 5, y + 6), 3.5, Color("#fff1dd"))
 	var bubbles := PackedVector2Array()
-	for i in range(36):
-		var x := float(i) * 16
+	var bubble_steps := 36 if graphics_quality >= 2 else (20 if graphics_quality == 1 else 12)
+	for i in range(bubble_steps):
+		var x := float(i) * W / float(bubble_steps - 1)
 		bubbles.append(Vector2(x, wave_y + 39 + sin(x * 0.018 + t * 1.4) * 15))
 	bubbles.append(Vector2(W, H + 1000))
 	bubbles.append(Vector2(0, H + 1000))
