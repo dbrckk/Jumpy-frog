@@ -9,10 +9,18 @@ var ambience: AudioStreamPlayer
 var samples: Dictionary = {}
 var muted := false
 var paused := false
+var mobile_safe_mode := false
 var next_voice := 0
 var rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
+	# Native Android OpenSL ES crashed in the device audio callback.
+	# Do not instantiate players, or allocate/play WAV streams on Android
+	# while its audio driver is configured as Dummy in project.godot.
+	mobile_safe_mode = OS.has_feature("android")
+	if mobile_safe_mode:
+		muted = true
+		return
 	rng.seed = 0xC0FFEE
 	for event_name in ["jump", "land", "splash", "coin", "friend", "combo", "warning", "lose", "ui"]:
 		samples[event_name] = _synthesize(event_name)
@@ -30,10 +38,11 @@ func _ready() -> void:
 	ambience.play()
 
 func set_muted(value: bool) -> void:
-	muted = value
+	muted = value or mobile_safe_mode
 	for voice in voices:
 		voice.volume_db = -80.0 if muted else -13.0
-	ambience.volume_db = -80.0 if muted else -29.0
+	if ambience != null:
+		ambience.volume_db = -80.0 if muted else -29.0
 
 func set_paused(value: bool) -> void:
 	paused = value
@@ -41,7 +50,7 @@ func set_paused(value: bool) -> void:
 		ambience.stream_paused = value
 
 func play_event(event_name: String, intensity: float = 0.0) -> void:
-	if muted or paused or not samples.has(event_name):
+	if mobile_safe_mode or muted or paused or voices.is_empty() or not samples.has(event_name):
 		return
 	var voice: AudioStreamPlayer = voices[next_voice]
 	next_voice = (next_voice + 1) % voices.size()
