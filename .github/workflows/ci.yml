@@ -114,6 +114,7 @@ jobs:
           unzip -tq build/JumpyFrog-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose build/JumpyFrog-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging build/JumpyFrog-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions build/JumpyFrog-debug.apk | grep -F "android.permission.VIBRATE"
           sha256sum build/JumpyFrog-debug.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
