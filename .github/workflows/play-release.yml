@@ -62,7 +62,7 @@ jobs:
           godot --headless --editor --path . --quit
           godot --headless --path . --script res://tests/smoke.gd
       - name: Install Android Gradle build template
-        run: godot --headless --path . --install-android-build-template
+        run: godot --headless --path . --install-android-build-template --quit
       - name: Generate icons
         run: godot --headless --path . --script res://tools/generate_icons.gd
       - name: Restore upload keystore
