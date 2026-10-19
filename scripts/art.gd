@@ -37,7 +37,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
@@ -100,7 +100,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	if mode == 4:
 		_lost_overlay(c, score, best, run_leaves, monetization, rewarded_this_run)
 	if mode == 5:
-		_pause_overlay(c, muted, monetization, haptics_enabled)
+		_pause_overlay(c, muted, monetization, haptics_enabled, android_tones_enabled)
 	if mode == 6:
 		_wardrobe_overlay(c, time, leaves, skin, unlocked, prices, wardrobe_page)
 	if mode == 7:
@@ -535,15 +535,22 @@ static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int,
 	elif rewarded_this_run:
 		text(c, "BONUS CLAIMED", Vector2(270, 683), 21, Color("#548463"))
 
-static func _pause_overlay(c: CanvasItem, muted: bool, monetization: Node, haptics_enabled: bool) -> void:
+static func _pause_overlay(c: CanvasItem, muted: bool, monetization: Node, haptics_enabled: bool, android_tones_enabled: bool) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.15, 0.22, 0.29, 0.60))
 	rr(c, Rect2(55, 295, 430, 565 if (monetization.billing != null or monetization.ads != null) else 360), 32, Color("#fff0d9"), Color("#887b72"), 3)
 	text(c, "PAUSED", Vector2(270, 360), 48, Color("#5a6474"), true)
 	text(c, "The river can wait.", Vector2(270, 418), 21, Color("#897871"))
 	rr(c, Rect2(108, 460, 324, 66), 27, Color("#b3d185"), Color("#5e7e60"), 2)
 	text(c, "RESUME", Vector2(270, 494), 26, Color("#49564b"))
-	rr(c, Rect2(108, 544, 324, 66), 27, Color("#eee0c2"), Color("#92836d"), 2)
-	text(c, ("HAPTICS: ON" if haptics_enabled else "HAPTICS: OFF") if OS.has_feature("android") else ("SOUND: OFF" if muted else "SOUND: ON"), Vector2(270, 577), 22, INK)
+	if OS.has_feature("android"):
+		rr(c, Rect2(108, 544, 154, 66), 22, Color("#d3e6cf") if android_tones_enabled else Color("#eee0c2"), Color("#92836d"), 2)
+		rr(c, Rect2(278, 544, 154, 66), 22, Color("#d3e6cf") if haptics_enabled else Color("#eee0c2"), Color("#92836d"), 2)
+		text(c, "TONES: " + ("ON" if android_tones_enabled else "OFF"), Vector2(185, 575), 17, INK)
+		text(c, "VIBRATE: " + ("ON" if haptics_enabled else "OFF"), Vector2(355, 575), 16, INK)
+		text(c, "Tones: experimental Android system audio", Vector2(270, 620), 13, Color("#917b72"))
+	else:
+		rr(c, Rect2(108, 544, 324, 66), 27, Color("#eee0c2"), Color("#92836d"), 2)
+		text(c, "SOUND: OFF" if muted else "SOUND: ON", Vector2(270, 577), 22, INK)
 	if monetization.purchase_ready and not monetization.premium:
 		rr(c, Rect2(108, 633, 324, 62), 22, Color("#eed8ad"), Color("#a48a68"), 2)
 		var label: String = "NO ADS " + (monetization.price_label if not monetization.price_label.is_empty() else "• PLAY")
