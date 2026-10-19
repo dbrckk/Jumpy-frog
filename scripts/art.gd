@@ -37,14 +37,14 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
-	_river(c, time, cam, biome)
+	_river(c, time, cam, biome, graphics_quality)
 	# Sparse animated surface glints: stable world-space placement, zero textures.
 	# Limited to 15 strokes so older Android GPUs are not overloaded.
-	for i in range(15):
+	for i in range(15 if graphics_quality >= 2 else (6 if graphics_quality == 1 else 0)):
 		var seed := float(i * 83 + 17)
 		var x := 48.0 + fposmod(seed * 3.73, 448.0)
 		var y := fposmod(seed * 9.7 + time * (8.0 + float(i % 4) * 2.0) + cam * 1.3, H + 36.0) - 18.0
@@ -113,7 +113,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		else:
 			_chapter_clear_overlay(c, campaign_stage, clear_medal, clear_reward, chapters)
 
-static func _river(c: CanvasItem, t: float, cam: float, biome: int) -> void:
+static func _river(c: CanvasItem, t: float, cam: float, biome: int, graphics_quality: int = 2) -> void:
 	# Each chapter has its own original illustrated color script; no external textures.
 	var earth := [Color("#a6c49e"), Color("#9cc69a"), Color("#d3bd91"), Color("#77879b"), Color("#9cbcc4"), Color("#7c8297")]
 	var water_colors := [Color("#81abb9"), Color("#79b5a8"), Color("#b0b8b0"), Color("#647caa"), Color("#84b7cb"), Color("#627e9b")]
@@ -139,7 +139,7 @@ static func _river(c: CanvasItem, t: float, cam: float, biome: int) -> void:
 		water.append(right[i])
 	c.draw_colored_polygon(water, water_colors[b])
 	# Broad drifting translucent current. Polygon edges never self-intersect.
-	for band in range(5):
+	for band in range(5 if graphics_quality >= 2 else (3 if graphics_quality == 1 else 1)):
 		var y := fposmod(float(band) * 193.0 + cam * SCALE * 0.62 + t * 13.0, 1350.0) - 190.0
 		var band_poly := PackedVector2Array()
 		for i in range(21):
@@ -153,26 +153,26 @@ static func _river(c: CanvasItem, t: float, cam: float, biome: int) -> void:
 		line(c, left[i], left[i + 1], plants[b], 3.5)
 		line(c, right[i], right[i + 1], plants[b].lightened(0.06), 3.5)
 	# Low-contrast depth bands mimic watercolor washes without texture assets.
-	for lane in range(7):
+	for lane in range(7 if graphics_quality >= 2 else (4 if graphics_quality == 1 else 0)):
 		var x := 91.0 + float(lane) * 41.0
 		var width := 16.0 + 4.0 * sin(lane * 1.7)
 		var tint := Color(0.17, 0.32, 0.48, 0.022 + 0.018 * (1.0 - absf(float(lane - 4)) / 4.0))
 		rr(c, Rect2(x, -8, width, H + 16), 9, tint)
 	# Soft animated caustic arcs and drifting surface glints.
-	for i in range(14):
+	for i in range(14 if graphics_quality >= 2 else (7 if graphics_quality == 1 else 0)):
 		var x := 94.0 + float((i * 67 + 41) % 350)
 		var y := fposmod(float(i) * 103.0 + cam * SCALE * 0.53 + t * 14.0, 1240.0) - 150.0
 		var swish := sin(t * 1.4 + i * 1.6)
 		c.draw_arc(Vector2(x, y), 12.0 + float(i % 4) * 3.0, 0.3 + swish * 0.1, 2.4 + swish * 0.1, 16, Color(0.94, 0.98, 0.98, 0.11), 2.3, true)
 		c.draw_circle(Vector2(x + 19, y + 8), 2.1 + 0.6 * swish, Color(1, 1, 0.94, 0.25))
 	# Water speed lines tilt back with a hand-animated flow.
-	for i in range(52):
+	for i in range(52 if graphics_quality >= 2 else (25 if graphics_quality == 1 else 8)):
 		var x := 65.0 + float((i * 113 + 29) % 410)
 		var y := fposmod(float(i) * 81.7 + cam * SCALE * 0.65 + t * 29.0, 1210.0) - 155.0
 		var n := 10.0 + float(i % 5) * 7.0
 		line(c, Vector2(x, y), Vector2(x + 6, y + n), Color(0.98, 1.0, 1.0, 0.36), 1.4 + float(i % 2) * 0.25)
 	# Pebbles, reeds, small blossoms and flattened grasses.
-	for i in range(34):
+	for i in range(34 if graphics_quality >= 2 else (20 if graphics_quality == 1 else 10)):
 		var y := fposmod(float(i) * 79.0 + cam * SCALE, 1180.0) - 95.0
 		var side: float = -1.0 if i % 2 == 0 else 1.0
 		var edge := 38.0 if side < 0.0 else 503.0
@@ -190,7 +190,7 @@ static func _river(c: CanvasItem, t: float, cam: float, biome: int) -> void:
 			else:
 				ellipse(c, tip + Vector2(0, -3), Vector2(2.2, 5.0), plants[b].lightened(0.14))
 	# Floating rings, bubbles and firefly-like glints.
-	for i in range(27):
+	for i in range(27 if graphics_quality >= 2 else (13 if graphics_quality == 1 else 4)):
 		var y := fposmod(float(i) * 73.0 + cam * SCALE * 0.83 + t * 5.0, 1160.0) - 100.0
 		var x := 87.0 + float((i * 137 + 41) % 365)
 		var alpha := 0.20 + float(i % 4) * 0.055
@@ -202,7 +202,7 @@ static func _river(c: CanvasItem, t: float, cam: float, biome: int) -> void:
 			c.draw_circle(Vector2(x - 20, y - 25), 4.5, Color(1, 0.96, 0.73, 0.09))
 
 	# Tiny environmental stories: golden leaves, twilight fireflies and crystals.
-	for i in range(12):
+	for i in range(12 if graphics_quality >= 2 else (6 if graphics_quality == 1 else 0)):
 		var x := 70.0 + float((i * 79 + 31) % 394)
 		var y := fposmod(float(i) * 117.0 + cam * SCALE * 0.68 + t * (9.0 if b == 5 else 3.0), 1250.0) - 145.0
 		if b == 2:
