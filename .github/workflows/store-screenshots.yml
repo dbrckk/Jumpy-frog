@@ -1,0 +1,53 @@
+name: Capture authentic Play Store screenshots
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - tests/capture_store.gd
+      - .github/workflows/store-screenshots.yml
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install software OpenGL and virtual screen
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq xvfb libgl1-mesa-dri libfontconfig1 libx11-6 libxcursor1 libxrandr2 libxi6 libxinerama1 libxkbcommon0
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.5.1
+          use-dotnet: false
+          include-templates: false
+      - name: Import project
+        run: godot --headless --editor --path . --quit
+      - name: Capture real gameplay frames
+        run: |
+          set -euo pipefail
+          mkdir -p build/store
+          timeout --kill-after=10s 140s xvfb-run -a -s '-screen 0 540x960x24' godot --path . --rendering-driver opengl3 --script res://tests/capture_store.gd
+      - name: Validate Play screenshots
+        run: |
+          python -m pip install Pillow==11.3.0
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          files=sorted(Path('build/store').glob('0*.png'))
+          assert len(files)==4, files
+          for p in files:
+              with Image.open(p) as im:
+                  assert im.size==(1080,1920), (p, im.size)
+                  assert im.mode in ('RGB','RGBA'), (p, im.mode)
+                  print(p, im.size, im.mode)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JumpyFrog-Real-Play-Screenshots
+          path: build/store/0*.png
+          if-no-files-found: error
