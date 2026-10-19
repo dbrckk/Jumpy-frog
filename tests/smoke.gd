@@ -54,9 +54,11 @@ func _run_tests() -> void:
 
 	if not OS.has_feature("android"):
 		# Every original sound is generated offline once and cached for reuse.
-		_check(scene.sound.samples.size() == 9, "nine independent original sound effects are cached")
+		_check(scene.sound.samples.size() == 11, "eleven independent original sound effects are cached")
 		_check(scene.sound.voices.size() == 6, "six simultaneous audio voices are available")
 		_check(scene.sound.ambience.stream is AudioStreamWAV, "ambient river sound has a real audio stream")
+		_check(scene.sound.music != null and scene.sound.music.stream is AudioStreamWAV, "original melodic backing track is available")
+		_check(scene.sound.music.stream.loop_mode == AudioStreamWAV.LOOP_FORWARD, "original melody loops")
 		var distinct_lengths: Dictionary = {}
 		for event_name in scene.sound.samples.keys():
 			var stream: AudioStreamWAV = scene.sound.samples[event_name]
