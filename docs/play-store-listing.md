@@ -22,7 +22,7 @@ In Jumpy Frog, every leap counts. Pull back, aim, and release to hop between lil
 - Eight unlockable color styles using leaves earned by playing
 - Precision-landing streaks and water-current boost pads
 - Animated lily pads, ripples, splashes and colorful scenery
-- Daily goals, earned leaf rewards, persistent streaks and local best scores
+- Daily goals, a same-route 180-meter Daily River challenge, earned leaf rewards, persistent streaks and local best scores
 - Optional rewarded ads and occasional ads between games
 - One-time Google Play purchase to remove ads permanently
 - No accounts required
@@ -47,7 +47,7 @@ Dans Jumpy Frog, chaque bond compte : fais glisser ton doigt pour viser, relâch
 - Huit apparences à débloquer avec les feuilles gagnées en jouant
 - Bonus pour les sauts précis et nénuphars qui repoussent la vague
 - Décors illustrés, nénuphars animés, remous et éclaboussures
-- Objectifs quotidiens, récompenses et séries de jours
+- Objectifs quotidiens, défi Rivière du jour de 180 mètres, récompenses et séries de jours
 - Publicités occasionnelles entre deux parties et vidéos récompensées facultatives
 - Achat unique de 2 € via Google Play pour supprimer définitivement les publicités
 - Progression locale et aucun compte nécessaire
@@ -57,7 +57,7 @@ Jusqu'où réussiras-tu à sauter ?
 ## Play Console declarations to review
 
 - App category: Game → Casual
-- Monetization: Free; no in-app purchases
+- Monetization: Free app, optional Google Play in-app purchase (`remove_ads`) priced in Play Console (intended €2.00 France); rewarded video ads available only on request.
 - Ads: Yes in the monetized Android build (AdMob); offline debug builds contain none
 - Data safety: Google AdMob/UMP may collect device identifiers, diagnostics and ad data; Play Billing handles purchase data. Declare truthfully according to enabled SDKs and current Google documentation.
 - Internet permission: Required in monetized AdMob build; not needed in the offline debug build
@@ -69,7 +69,7 @@ Jusqu'où réussiras-tu à sauter ?
 - Feature graphic: 1024 × 500 PNG/JPEG; avoid implying endorsements
 - Store icon: 512 × 512 PNG
 
-Do not claim sound effects are currently available on Android: compatibility mode intentionally disables audio pending device testing.
+Audio: native Godot audio remains disabled on Android for crash compatibility. Experimental optional Android system tones may be enabled in Settings only after the player chooses; do not describe Android audio as fully restored before device verification.
 
 - Google Play IAP product ID: `remove_ads` (non-consumable), intended French price €2.00; actual checkout displays the current Google Play price.
 - Link to [updated privacy policy](privacy-policy.md).
