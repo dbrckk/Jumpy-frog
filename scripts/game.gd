@@ -3,6 +3,7 @@ extends Node2D
 const ART = preload("res://scripts/art.gd")
 const AUDIO = preload("res://scripts/audio.gd")
 const DAILY = preload("res://scripts/daily.gd")
+const MONETIZATION = preload("res://scripts/monetization.gd")
 const W := 540.0
 const H := 960.0
 const PX_PER_M := 8.0
@@ -52,6 +53,8 @@ var unlocked_skins: int = 1
 var selected_skin: int = 0
 var total_runs: int = 0
 var daily := DAILY.new()
+var monetization: Node
+var rewarded_this_run := false
 var run_hops := 0
 var run_leaves: int = 0
 var body_tilt := 0.0
@@ -74,6 +77,9 @@ func _ready() -> void:
 	rng.randomize()
 	sound = AUDIO.new()
 	add_child(sound)
+	monetization = MONETIZATION.new()
+	add_child(monetization)
+	monetization.rewarded_leaves_granted.connect(_on_rewarded_leaves)
 	var save := ConfigFile.new()
 	if save.load("user://jumpy_frog.cfg") == OK:
 		best_score = int(save.get_value("progress", "best_score", 0))
@@ -115,6 +121,7 @@ func _reset_game() -> void:
 	combo = 0
 	run_leaves = 0
 	run_hops = 0
+	rewarded_this_run = false
 	daily.refresh_day()
 	aim_x = 270.0
 	aim_m = 0.0
@@ -237,7 +244,7 @@ func _draw() -> void:
 			preview = Vector2(float(pad["x"]), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -292,6 +299,12 @@ func _down(pos: Vector2) -> void:
 				return
 		return
 	if mode == MODE_PAUSED:
+		if Rect2(108, 633, 324, 62).has_point(pos) and monetization.purchase_ready and not monetization.premium:
+			monetization.purchase_remove_ads()
+			return
+		if Rect2(108, 704, 324, 56).has_point(pos) and monetization.ads != null:
+			monetization.ads.show_privacy_options()
+			return
 		if Rect2(108, 460, 324, 66).has_point(pos):
 			mode = MODE_PLAY
 			sound.set_paused(false)
@@ -306,6 +319,9 @@ func _down(pos: Vector2) -> void:
 		sound.set_paused(true)
 		return
 	if mode == MODE_LOST:
+		if not rewarded_this_run and Rect2(80, 651, 390, 62).has_point(pos) and monetization.can_watch_rewarded():
+			monetization.request_rewarded_leaves()
+			return
 		if Rect2(293, 565, 182, 65).has_point(pos):
 			_reset_game()
 			return
@@ -315,6 +331,9 @@ func _down(pos: Vector2) -> void:
 		daily.begin_run()
 		_save_progress()
 	elif mode == MODE_TITLE:
+		if Rect2(139, 403, 262, 58).has_point(pos) and monetization.purchase_ready and not monetization.premium:
+			monetization.purchase_remove_ads()
+			return
 		if Rect2(139, 634, 262, 58).has_point(pos):
 			mode = MODE_GOALS
 			return
@@ -450,6 +469,8 @@ func _die() -> void:
 	if mode == MODE_LOST:
 		return
 	mode = MODE_LOST
+	monetization.on_run_finished()
+	_maybe_interstitial()
 	shake_strength = maxf(shake_strength, 7.0)
 	jump_z = 0.0
 	sound.play_event("lose")
@@ -458,11 +479,27 @@ func _die() -> void:
 	daily.on_finish(score)
 	_save_progress()
 
+func _maybe_interstitial() -> void:
+	# The player has time to see the completed run and score before an ad.
+	await get_tree().create_timer(1.75).timeout
+	if is_inside_tree() and mode == MODE_LOST:
+		monetization.request_break_interstitial()
+
+func _on_rewarded_leaves(amount: int) -> void:
+	if mode != MODE_LOST or rewarded_this_run or amount <= 0:
+		return
+	rewarded_this_run = true
+	leaves += amount
+	run_leaves += amount
+	_save_progress()
+	_add_float_text("+%d LEAVES" % amount, Vector2(270, 265), Color("#e6ffc5"))
+
 func _is_unlocked(index: int) -> bool:
 	return index >= 0 and index < 4 and (unlocked_skins & (1 << index)) != 0
 
 func _save_progress() -> void:
 	var save := ConfigFile.new()
+	save.load("user://jumpy_frog.cfg")
 	save.set_value("progress", "best_score", best_score)
 	save.set_value("progress", "muted", saved_muted)
 	save.set_value("progress", "leaves", leaves)
