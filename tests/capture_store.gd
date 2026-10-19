@@ -37,9 +37,14 @@ func _capture() -> void:
 	scene.best_score = 3150
 	scene.run_leaves = 10
 	await _save(scene, "04-game-over.png")
+	# A real rendering of the daily goals board, not an invented menu image.
+	scene.mode = 7
+	scene.daily.today_hops = 4
+	scene.daily.today_distance = 70
+	await _save(scene, "05-daily-goals.png")
 	scene.queue_free()
 	await process_frame
-	print("PASS: four real 1080x1920 PNG store captures")
+	print("PASS: five real 1080x1920 PNG store captures")
 	quit(0)
 
 func _save(scene: Node2D, filename: String) -> void:
