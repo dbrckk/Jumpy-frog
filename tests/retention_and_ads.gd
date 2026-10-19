@@ -5,8 +5,12 @@ class TestAdBridge extends Node:
 	var shown := 0
 	func can_show_interstitial() -> bool:
 		return true
-	func show_interstitial() -> void:
+	var allow_show := true
+	func show_interstitial() -> bool:
+		if not allow_show:
+			return false
 		shown += 1
+		return true
 	func can_show_rewarded() -> bool:
 		return true
 	func show_rewarded() -> void:
@@ -86,6 +90,16 @@ func _check_all() -> void:
 	_expect(monet.request_break_interstitial(), "natural break eligible after four runs and 6 minutes")
 	_expect(test_ads.shown == 1, "one interstitial requested from real-provider abstraction")
 	_expect(not monet.request_break_interstitial(), "cooldown prevents consecutive interstitials")
+	# If the provider refuses an impression, the cadence must not be consumed.
+	monet.last_interstitial = 0.0
+	monet.runs_since_ad = 4
+	monet.elapsed = 1300.0
+	test_ads.allow_show = false
+	_expect(not monet.request_break_interstitial(), "provider refusal cannot count as a shown ad")
+	_expect(monet.runs_since_ad == 4 and monet.last_interstitial == 0.0, "provider refusal preserves ad cadence")
+	test_ads.allow_show = true
+	_expect(monet.request_break_interstitial(), "later eligible ad can be shown normally")
+
 	var earned := [0]
 	monet.rewarded_leaves_granted.connect(func(amount: int) -> void: earned[0] += amount)
 	monet._reward_pending = true
