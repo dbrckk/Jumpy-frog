@@ -94,6 +94,7 @@ jobs:
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/chapters.gd
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/retention_and_ads.gd
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/daily_river.gd
+          timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/endurance.gd
       - name: Create ephemeral debug signing key
         run: |
           keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/jumpy-debug.jks" \
