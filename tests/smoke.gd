@@ -21,6 +21,34 @@ func _run_tests() -> void:
 
 	_check(scene.pads.size() >= 4, "generates platforms")
 	_check(scene.pads[0]["m"] == 0.0, "starts on a lily")
+	# Production meta-progression: wardrobe prices, persistence, and locked choices.
+	_check(scene.selected_skin >= 0 and scene.selected_skin <= 3, "selected skin validated")
+	_check(scene._is_unlocked(0), "starter skin always owned")
+	var prior_leaves: int = scene.leaves
+	scene._reset_game()
+	_check(scene.leaves == prior_leaves, "run reset retains earned leaves")
+	scene.mode = 0
+	scene._down(Vector2(255, 733))
+	_check(scene.mode == 6, "title opens wardrobe")
+	scene.leaves = 200
+	scene._down(Vector2(360, 396))
+	_check(scene._is_unlocked(1), "wardrobe can buy a skin")
+	_check(scene.selected_skin == 1, "purchased skin equipped")
+	_check(scene.leaves == 188, "purchase deducts exact leaf price")
+	scene._down(Vector2(361, 565))
+	_check(scene._is_unlocked(3), "wardrobe can unlock fourth skin")
+	_check(scene.leaves == 123, "second purchase deducted")
+	scene._down(Vector2(260, 806))
+	_check(scene.mode == 0, "wardrobe back button works")
+	var saved_skin: int = scene.selected_skin
+	var saved_leaves: int = scene.leaves
+	scene._save_progress()
+	var persistent := ConfigFile.new()
+	_check(persistent.load("user://jumpy_frog.cfg") == OK, "save file is readable")
+	_check(int(persistent.get_value("progress", "selected_skin", -1)) == saved_skin, "selected skin persisted")
+	_check(int(persistent.get_value("progress", "leaves", -1)) == saved_leaves, "leaf balance persisted")
+	scene._reset_game()
+
 	if not OS.has_feature("android"):
 		# Every original sound is generated offline once and cached for reuse.
 		_check(scene.sound.samples.size() == 9, "nine independent original sound effects are cached")
