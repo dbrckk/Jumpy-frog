@@ -42,9 +42,29 @@ func _capture() -> void:
 	scene.daily.today_hops = 4
 	scene.daily.today_distance = 70
 	await _save(scene, "05-daily-goals.png")
+	# Genuine stage select screen including persistent stars and biome names.
+	scene.mode = 8
+	scene.chapters.unlocked_count = 6
+	scene.chapters.medals = [3, 2, 2, 1, 0, 0]
+	await _save(scene, "06-chapters.png")
+	# Gameplay screenshot of the contrasting moonlit river environment.
+	scene.mode = 1
+	scene.campaign_stage = 3
+	scene.cam_m = 78.0
+	scene.player_m = 78.0
+	scene.highest_m = 78.0
+	scene.score = 1820
+	scene._generate_pads()
+	await _save(scene, "07-moonlit-river.png")
+	# Authentic victory overlay with the star results from the game.
+	scene.mode = 9
+	scene.campaign_stage = 3
+	scene.clear_medal = 3
+	scene.clear_reward = 25
+	await _save(scene, "08-chapter-clear.png")
 	scene.queue_free()
 	await process_frame
-	print("PASS: five real 1080x1920 PNG store captures")
+	print("PASS: eight real 1080x1920 PNG store captures")
 	quit(0)
 
 func _save(scene: Node2D, filename: String) -> void:
