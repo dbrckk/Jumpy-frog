@@ -8,6 +8,9 @@
 - [x] No in-app purchases or ad SDK
 - [x] API 36 Gradle AAB export preset configured
 - [x] Gradle signed-release workflow defined, secrets kept outside Git
+- [x] Unsigned-for-publication **debug AAB** successfully built and validated via the Android API 36 QA workflow
+- [x] Original 512×512 store icon and 1024×500 feature artwork generated and checked
+- [x] Four real screenshots (1080×1920) captured automatically from a running Godot build
 - [ ] AAB **built, signed, inspected and accepted** by Play Console (requires upload keystore secrets)
 - [ ] 16 KB page-size support validated on the actual AAB/native libraries
 - [ ] Android 16 edge-to-edge and API 36 behavior tested on device
@@ -26,7 +29,7 @@
 - [x] Listing draft in French and English
 - [x] Public privacy policy source available in repo
 - [ ] Verified developer account, identity and developer support email
-- [ ] Final 512×512 store icon, 1024×500 feature graphic and real gameplay screenshots uploaded
+- [ ] Upload generated 512×512 store icon, 1024×500 graphic and authentic screenshots in Play Console
 - [ ] Data safety, content rating and target audience declarations completed
 - [ ] Closed test requirements fulfilled if required for the developer account
 - [ ] AAB uploaded first to internal testing, then closed testing
@@ -60,3 +63,11 @@ Sources:
 ## Honest status
 
 This release is a serious internal-testing candidate. It is **not** a publicly releasable binary while the native Redmi audio issue and device/Play Console gates are open.
+
+## Verified GitHub Actions evidence
+
+- Android 1.0 debug APK + store artwork: https://github.com/dbrckk/Jumpy-frog/actions/runs/39219456272
+- API 36 AAB format smoke test: https://github.com/dbrckk/Jumpy-frog/actions/runs/39219737629
+- Four genuine portrait gameplay screenshots: https://github.com/dbrckk/Jumpy-frog/actions/runs/39219964989
+
+The test AAB is debug-signed and **must never be uploaded as a production app**. The separate manually dispatched signed-release workflow requires the user's long-lived upload keystore and real device signoff.
