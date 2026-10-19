@@ -100,6 +100,28 @@ jobs:
           test -s addons/GodotGooglePlayBilling/bin/release/GodotGooglePlayBilling-release.aar
           test -s addons/admob/android/bin/ads/libs/poing-godot-admob-ads-release.aar
           sha256sum build/JumpyFrog-Monetized-QA.aab
+      - name: Validate separately signed RELEASE mode using disposable QA key
+        shell: bash
+        run: |
+          set -euo pipefail
+          # This is NOT the production upload key or the real Play AAB.
+          keytool -genkeypair -noprompt \
+            -keystore "$RUNNER_TEMP/jumpy-temporary-release-qa.jks" \
+            -alias testonly -storepass demo-release-pass -keypass demo-release-pass \
+            -dname "CN=Jumpy QA,O=Testing,C=US" -validity 10 -keyalg RSA -keysize 3072
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$RUNNER_TEMP/jumpy-temporary-release-qa.jks"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_USER="testonly"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="demo-release-pass"
+          timeout --kill-after=15s 900s godot --headless --path . --export-release "Google Play AAB" build/JumpyFrog-RELEASE-TEST-ONLY.aab
+          test -s build/JumpyFrog-RELEASE-TEST-ONLY.aab
+          unzip -tq build/JumpyFrog-RELEASE-TEST-ONLY.aab
+          jarsigner -verify -verbose -certs build/JumpyFrog-RELEASE-TEST-ONLY.aab 2>&1 | tee /tmp/jumpy-qa-signature.txt
+          grep -q "jar verified" /tmp/jumpy-qa-signature.txt
+          python3 tools/verify_16kb_elf.py build/JumpyFrog-RELEASE-TEST-ONLY.aab
+          java -jar /tmp/bundletool.jar validate --bundle=build/JumpyFrog-RELEASE-TEST-ONLY.aab
+          java -jar /tmp/bundletool.jar dump config --bundle=build/JumpyFrog-RELEASE-TEST-ONLY.aab | grep -q 'PAGE_ALIGNMENT_16K'
+          java -jar /tmp/bundletool.jar dump manifest --bundle=build/JumpyFrog-RELEASE-TEST-ONLY.aab --module=base --xpath=/manifest/uses-sdk/@android:targetSdkVersion | grep -qx '36'
+          echo "PASS: signed release-mode AAB with disposable CI key, API 36 and 16KiB ELF/zip alignment"
       - name: Export installable monetized TEST APK for real Redmi crash testing
         shell: bash
         run: |
