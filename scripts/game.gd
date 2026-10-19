@@ -168,8 +168,8 @@ func _generate_pads() -> void:
 		var modifier: Dictionary = chapters.chapter(biome)
 		var progression := minf(highest_m / 1750.0, 1.0) if campaign_stage == -1 else 0.0
 		# Each chapter has its own rhythmic hop spacing, not just a recolored river.
-		var gap_min := [14.6, 15.4, 16.0, 16.8, 17.4, 18.0][biome]
-		var gap_max := [19.3, 20.3, 21.0, 21.6, 22.1, 22.6][biome]
+		var gap_min: float = [14.6, 15.4, 16.0, 16.8, 17.4, 18.0][biome]
+		var gap_max: float = [19.3, 20.3, 21.0, 21.6, 22.1, 22.6][biome]
 		var gap := rng.randf_range(gap_min, gap_max)
 		last_generated_m += gap
 		var lateral: float = float(modifier["drift"])
