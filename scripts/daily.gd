@@ -46,6 +46,12 @@ var lifetime_leaves := 0
 var lifetime_best_distance := 0
 var milestones_claimed := 0
 var daily_sessions := 0
+## Daily River: same seeded route every UTC day, one completion payout.
+const RIVER_TARGET := 180.0
+const RIVER_REWARD := 25
+var river_best_score := 0
+var river_completed_day := -1
+var river_attempts := 0
 
 func load_from(save: ConfigFile) -> void:
 	day_id = int(save.get_value("daily", "day_id", -1))
@@ -64,6 +70,9 @@ func load_from(save: ConfigFile) -> void:
 	lifetime_best_distance = maxi(0, int(save.get_value("lifetime", "best_distance", 0)))
 	milestones_claimed = maxi(0, int(save.get_value("lifetime", "milestones_claimed", 0))) & ((1 << MILESTONES.size()) - 1)
 	daily_sessions = maxi(0, int(save.get_value("daily", "sessions", 0)))
+	river_best_score = maxi(0, int(save.get_value("daily", "river_best_score", 0)))
+	river_completed_day = int(save.get_value("daily", "river_completed_day", -1))
+	river_attempts = maxi(0, int(save.get_value("daily", "river_attempts", 0)))
 	refresh_day()
 
 func write_to(save: ConfigFile) -> void:
@@ -79,6 +88,9 @@ func write_to(save: ConfigFile) -> void:
 	save.set_value("daily", "last_session_day", last_session_day)
 	save.set_value("daily", "streak_days", streak_days)
 	save.set_value("daily", "sessions", daily_sessions)
+	save.set_value("daily", "river_best_score", river_best_score)
+	save.set_value("daily", "river_completed_day", river_completed_day)
+	save.set_value("daily", "river_attempts", river_attempts)
 	save.set_value("lifetime", "hops", lifetime_hops)
 	save.set_value("lifetime", "leaves", lifetime_leaves)
 	save.set_value("lifetime", "best_distance", lifetime_best_distance)
@@ -98,7 +110,26 @@ func refresh_day(now: int = -1) -> bool:
 	today_long_hops = 0
 	goals_claimed = 0
 	daily_sessions = 0
+	river_best_score = 0
+	river_attempts = 0
 	return true
+
+func river_seed() -> int:
+	# No network, account, or mutable server data involved.
+	return int((day_id * 134775813 + 198237) & 0x7FFFFFFF)
+
+func start_river() -> void:
+	river_attempts += 1
+
+func finish_river(score: int) -> int:
+	river_best_score = maxi(river_best_score, maxi(score, 0))
+	if river_completed_day == day_id:
+		return 0
+	river_completed_day = day_id
+	return RIVER_REWARD
+
+func river_complete_today() -> bool:
+	return river_completed_day == day_id
 
 func begin_run(now: int = -1) -> void:
 	refresh_day(now)
