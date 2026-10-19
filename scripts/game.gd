@@ -719,13 +719,19 @@ func _die() -> void:
 	_save_progress()
 
 func _on_rewarded_leaves(amount: int) -> void:
-	if mode != MODE_LOST or rewarded_this_run or amount <= 0:
+	# Only the monetization provider emits this after its verified reward event.
+	# The callback can arrive after the player has returned Home or retried;
+	# never discard an earned reward just because the result screen closed.
+	if amount <= 0:
 		return
-	rewarded_this_run = true
+	if mode == MODE_LOST and rewarded_this_run:
+		return
 	leaves += amount
-	run_leaves += amount
+	if mode == MODE_LOST:
+		rewarded_this_run = true
+		run_leaves += amount
+		_add_float_text("+%d LEAVES" % amount, Vector2(270, 265), Color("#e6ffc5"))
 	_save_progress()
-	_add_float_text("+%d LEAVES" % amount, Vector2(270, 265), Color("#e6ffc5"))
 
 func _is_unlocked(index: int) -> bool:
 	return index >= 0 and index < SKIN_COSTS.size() and (unlocked_skins & (1 << index)) != 0
