@@ -1,0 +1,93 @@
+name: Monetized Android SDK QA
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/monetization.gd
+      - scripts/game.gd
+      - scripts/daily.gd
+      - scripts/art.gd
+      - monetization/**
+      - tools/prepare_monetized_build.py
+      - tests/retention_and_ads.gd
+      - .github/workflows/monetization-qa.yml
+
+permissions:
+  contents: read
+
+jobs:
+  monetized-debug-aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+      - name: Install Android API 36
+        run: sdkmanager --install "platforms;android-36" "platforms;android-35" "build-tools;36.0.0" "build-tools;35.0.0"
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.5.1
+          use-dotnet: false
+          include-templates: true
+      - name: Configure local Godot SDK paths
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/.android/sdk}}"
+          JAVA="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.5.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/java_sdk_path = "$JAVA"
+          export/android/android_sdk_path = "$SDK"
+          EOF
+      - name: Install verified plugins with Google's official SAMPLE AdMob IDs
+        env:
+          ADMOB_APP_ID: ca-app-pub-3940256099942544~3347511713
+          ADMOB_INTERSTITIAL_UNIT_ID: ca-app-pub-3940256099942544/1033173712
+          ADMOB_REWARDED_UNIT_ID: ca-app-pub-3940256099942544/5224354917
+        run: python3 tools/prepare_monetized_build.py
+      - name: Import and test all functionality
+        run: |
+          set -euo pipefail
+          godot --headless --editor --path . --quit 2>&1 | tee /tmp/import.log
+          if grep -E 'SCRIPT ERROR:|Parse Error:|Failed to load script' /tmp/import.log; then exit 1; fi
+          timeout 120s godot --headless --path . --script res://tests/smoke.gd
+          timeout 120s godot --headless --path . --script res://tests/retention_and_ads.gd
+      - name: Create ephemeral DEBUG signing identity
+        run: |
+          keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/jumpy-debug.jks" -alias androiddebugkey -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US" -validity 3650 -keyalg RSA -keysize 2048
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$RUNNER_TEMP/jumpy-debug.jks" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+      - name: Generate icons and export full native SDK test AAB
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          godot --headless --path . --script res://tools/generate_icons.gd
+          timeout --kill-after=15s 900s godot --headless --path . --install-android-build-template --export-debug "Google Play AAB" build/JumpyFrog-Monetized-QA.aab
+          test -s build/JumpyFrog-Monetized-QA.aab
+          unzip -tq build/JumpyFrog-Monetized-QA.aab
+      - name: Validate bundle, Billing SDK and AdMob native package
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.18.2/bundletool-all-1.18.2.jar
+          java -jar /tmp/bundletool.jar validate --bundle=build/JumpyFrog-Monetized-QA.aab
+          java -jar /tmp/bundletool.jar dump manifest --bundle=build/JumpyFrog-Monetized-QA.aab --module=base --xpath=/manifest/uses-sdk/@android:targetSdkVersion | tee /tmp/target.txt
+          grep -qx '36' /tmp/target.txt
+          test -s addons/GodotGooglePlayBilling/bin/release/GodotGooglePlayBilling-release.aar
+          test -s addons/admob/android/bin/ads/libs/poing-godot-admob-ads-release.aar
+          sha256sum build/JumpyFrog-Monetized-QA.aab
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JumpyFrog-Monetized-TEST-ONLY-AAB
+          path: build/JumpyFrog-Monetized-QA.aab
+          if-no-files-found: error
+          retention-days: 14
