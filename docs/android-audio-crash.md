@@ -49,3 +49,8 @@ This issue is only closed when an updated APK:
 4. Eventually restores audio using a separately verified Android-safe implementation.
 
 Headless CI tests or package signature checks alone **cannot** establish (1)–(3).
+
+
+## v1.2 audio status
+
+Android audio remains deliberately off to avoid the reported native Godot OpenSL ES callback failure. Android now has optional short vibration feedback on jumps, pickups and wins, backed by the Android VIBRATE permission. This should be tested on the affected Redmi, and does not demonstrate that the original audio crash is resolved. Desktop builds include an original musical loop; it is not active on Android.
