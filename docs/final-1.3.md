@@ -27,7 +27,7 @@ Do **not** enable ToneGenerator by default for all customers until device testin
 - Purchase `remove_ads`: one-time, non-consumable Google Play Billing item, intended **€2.00 in France**. Play Console defines the price, taxes and localized storefront display.
 - Play Billing must confirm `PURCHASED`; `PENDING` does not unlock it. Signed-in purchase restores are queried; locally cached entitlements remain offline where previously verified.
 - AdMob UMP consent required. If consent is unresolved or withdrawn, loaded ads and late-arriving ad responses are discarded.
-- The monetized build **must** declare advertising SDK data handling and the in-app purchase in Play Console and link the [privacy policy](privacy-policy.md).
+- The monetized build **must** declare advertising SDK data handling and the in-app purchase in Play Console and link the [live public privacy policy](https://micro-matrix-a49rp83.shipstatic.com/privacy.html).
 
 ## Verified by automation (once green)
 
@@ -67,6 +67,8 @@ The normal GitHub QA APK and QA AAB are **not** monetized production binaries. T
 
 - [x] Gameplay feature set frozen for this release candidate.
 - [x] Export definitions and automated QA pipelines configured.
+- [x] Permanent public bilingual privacy page: https://micro-matrix-a49rp83.shipstatic.com/privacy.html.
+- [x] Verified earned-ad payouts persist even when a delayed native callback arrives after the result screen is left.
 - [ ] All latest CI workflows green on the same exact final commit.
 - [ ] Real-device Redmi crash regression signed off.
 - [ ] Sound fallback approved (or opt-in kept off until fixed).
