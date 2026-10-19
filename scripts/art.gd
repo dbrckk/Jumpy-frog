@@ -37,7 +37,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float) -> void:
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
 	_river(c, time, cam)
@@ -89,7 +89,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	if mode == 5:
 		_pause_overlay(c, muted, monetization)
 	if mode == 6:
-		_wardrobe_overlay(c, time, leaves, skin, unlocked, prices)
+		_wardrobe_overlay(c, time, leaves, skin, unlocked, prices, wardrobe_page)
 	if mode == 7:
 		_goals_overlay(c, daily)
 
@@ -473,27 +473,30 @@ static func _pause_overlay(c: CanvasItem, muted: bool, monetization: Node) -> vo
 		rr(c, Rect2(108, 781, 324, 54), 22, Color("#e5d6bb"), Color("#968b80"), 1.5)
 		text(c, "RESTORE PURCHASE", Vector2(270, 806), 19, INK)
 
-static func _wardrobe_overlay(c: CanvasItem, time: float, leaves: int, selected: int, unlocked: int, prices: Array) -> void:
+static func _wardrobe_overlay(c: CanvasItem, time: float, leaves: int, selected: int, unlocked: int, prices: Array, page: int) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.15, 0.22, 0.29, 0.67))
 	rr(c, Rect2(29, 226, 482, 670), 33, Color("#fff0dc"), Color("#957d6b"), 3)
 	text(c, "RIVER WARDROBE", Vector2(270, 275), 32, Color("#595468"), true)
 	text(c, "LEAVES  %d" % leaves, Vector2(270, 316), 21, Color("#66835b"))
-	var names := ["ORIGINAL", "MIST", "SUNSHINE", "MOSS"]
-	var fill := [Color("#b48161"), Color("#a9b9d2"), Color("#e9b379"), Color("#99bd87")]
+	var names := ["ORIGINAL", "MIST", "SUNSHINE", "MOSS", "BERRY", "DUSK", "LOTUS", "GOLD"]
+	var fill := [Color("#b48161"), Color("#a9b9d2"), Color("#e9b379"), Color("#99bd87"), Color("#d68da7"), Color("#9988b5"), Color("#e9a6a2"), Color("#d9be67")]
 	for i in range(4):
+		var index := i + page * 4
 		var px := 66.0 + float(i % 2) * 216.0
 		var py := 340.0 + float(i / 2) * 162.0
-		var is_owned := (unlocked & (1 << i)) != 0
-		var is_selected := i == selected
+		var is_owned := (unlocked & (1 << index)) != 0
+		var is_selected := index == selected
 		var border := Color("#74a17b") if is_selected else Color("#ae9c82")
 		rr(c, Rect2(px, py, 192, 146), 20, Color("#fcf7e9") if is_owned else Color("#e8e2d7"), border, 3.0 if is_selected else 1.5)
-		ellipse(c, Vector2(px + 96, py + 57), Vector2(30, 37), fill[i])
-		ellipse(c, Vector2(px + 96, py + 59), Vector2(18, 14), fill[i].lightened(0.23))
+		ellipse(c, Vector2(px + 96, py + 57), Vector2(30, 37), fill[index])
+		ellipse(c, Vector2(px + 96, py + 59), Vector2(18, 14), fill[index].lightened(0.23))
 		for side in [-1, 1]:
 			c.draw_circle(Vector2(px + 88 + side * 11, py + 42), 3.0, INK)
-		text(c, names[i], Vector2(px + 96, py + 108), 18, INK)
-		var status := "EQUIPPED" if is_selected else ("SELECT" if is_owned else "%d LEAVES" % int(prices[i]))
+		text(c, names[index], Vector2(px + 96, py + 108), 18, INK)
+		var status := "EQUIPPED" if is_selected else ("SELECT" if is_owned else "%d LEAVES" % int(prices[index]))
 		text(c, status, Vector2(px + 96, py + 130), 14, Color("#53815d") if is_owned else Color("#a67c57"))
+	rr(c, Rect2(139, 694, 262, 58), 23, Color("#ead9b4"), Color("#95846a"), 2)
+	text(c, "PAGE %d/2  -  SWITCH" % (page + 1), Vector2(270, 722), 18, INK)
 	rr(c, Rect2(100, 770, 340, 74), 25, Color("#a7ca83"), Color("#577c5b"), 2.5)
 	text(c, "BACK TO RIVER", Vector2(270, 807), 24, Color("#3c5745"))
 
