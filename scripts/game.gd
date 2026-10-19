@@ -4,6 +4,7 @@ const ART = preload("res://scripts/art.gd")
 const AUDIO = preload("res://scripts/audio.gd")
 const DAILY = preload("res://scripts/daily.gd")
 const MONETIZATION = preload("res://scripts/monetization.gd")
+const CHAPTERS = preload("res://scripts/chapters.gd")
 const W := 540.0
 const H := 960.0
 const PX_PER_M := 8.0
@@ -16,6 +17,8 @@ const MODE_LOST := 4
 const MODE_PAUSED := 5
 const MODE_WARDROBE := 6
 const MODE_GOALS := 7
+const MODE_CHAPTERS := 8
+const MODE_CLEAR := 9
 const SKIN_COSTS := [0, 12, 30, 65, 110, 175, 260, 380]
 
 var mode: int = MODE_TITLE
@@ -54,6 +57,12 @@ var selected_skin: int = 0
 var wardrobe_page: int = 0
 var total_runs: int = 0
 var daily := DAILY.new()
+var chapters := CHAPTERS.new()
+var campaign_stage := -1
+var clear_medal := 0
+var clear_reward := 0
+var last_biome := 0
+var biome_banner := 0.0
 var monetization: Node
 var rewarded_this_run := false
 var run_hops := 0
@@ -92,12 +101,18 @@ func _ready() -> void:
 			selected_skin = 0
 		total_runs = maxi(0, int(save.get_value("progress", "total_runs", 0)))
 	daily.load_from(save)
+	chapters.load_from(save)
 	muted = saved_muted or OS.has_feature("android")
 	sound.set_muted(muted)
 	_reset_game()
 
 func _reset_game() -> void:
 	mode = MODE_TITLE
+	campaign_stage = -1
+	clear_medal = 0
+	clear_reward = 0
+	last_biome = 0
+	biome_banner = 0.0
 	if sound != null:
 		sound.set_paused(false)
 	pads.clear()
@@ -141,20 +156,29 @@ func _reset_game() -> void:
 
 func _generate_pads() -> void:
 	while last_generated_m < player_m + 190.0:
-		last_generated_m += rng.randf_range(15.2, 21.7)
-		var dx := rng.randf_range(-110.0, 110.0)
+		var biome := chapters.biome_at(last_generated_m, campaign_stage)
+		var modifier: Dictionary = chapters.chapter(biome)
+		var progression := minf(highest_m / 1750.0, 1.0) if campaign_stage == -1 else 0.0
+		var gap := rng.randf_range(15.2, 21.0)
+		last_generated_m += gap
+		var lateral: float = float(modifier["drift"])
+		var dx := rng.randf_range(-lateral, lateral)
+		if biome in [3, 5] and next_pad_id % 4 == 0:
+			dx = (lateral * 0.85) * (-1.0 if next_pad_id % 8 == 0 else 1.0)
 		last_pad_x = clampf(last_pad_x + dx, 116.0, 421.0)
 		var ident := next_pad_id
 		next_pad_id += 1
 		var kind: int = rng.randi_range(0, 3)
+		var radius_scale := float(modifier["radius"]) - progression * 0.08
 		pads.append({
 			"id": ident,
 			"x": last_pad_x,
 			"m": last_generated_m,
-			"r": rng.randf_range(42.0, 55.0),
+			"r": clampf(rng.randf_range(43.0, 53.0) * radius_scale, 37.0, 62.0),
 			"kind": kind,
 			"coin": ident % 2 == 0,
-			"pet": ident % 3 == 0
+			"pet": ident % 3 == 0,
+			"boost": ident % 7 == 0 and biome >= 1
 		})
 
 func _process(delta: float) -> void:
@@ -163,10 +187,18 @@ func _process(delta: float) -> void:
 		queue_redraw()
 		return
 	clock += delta
+	biome_banner = maxf(0.0, biome_banner - delta)
+	var current_biome := chapters.biome_at(player_m, campaign_stage)
+	if current_biome != last_biome:
+		last_biome = current_biome
+		biome_banner = 2.2
+		if mode in [MODE_PLAY, MODE_AIM, MODE_FLY]:
+			sound.play_event("combo")
 	shake_strength = maxf(0.0, shake_strength - delta * 21.0)
 	impact_flash = maxf(0.0, impact_flash - delta * 1.6)
 	if mode in [MODE_PLAY, MODE_AIM, MODE_FLY]:
-		var pressure := 2.4 + minf(highest_m * 0.013, 4.5)
+		var biome_modifier: Dictionary = chapters.chapter(chapters.biome_at(player_m, campaign_stage))
+		var pressure := 2.4 + minf(highest_m * 0.013, 4.5) + float(biome_modifier["wave"])
 		wave_m += delta * pressure
 		if wave_m > player_m - 14.0 and not wave_warned:
 			wave_warned = true
@@ -245,7 +277,7 @@ func _draw() -> void:
 			preview = Vector2(float(pad["x"]), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -264,7 +296,7 @@ func _input(event: InputEvent) -> void:
 		if event.keycode in [KEY_R, KEY_SPACE, KEY_ENTER] and mode == MODE_LOST:
 			_reset_game()
 		elif event.keycode == KEY_ESCAPE:
-			if mode in [MODE_WARDROBE, MODE_GOALS]:
+			if mode in [MODE_WARDROBE, MODE_GOALS, MODE_CHAPTERS, MODE_CLEAR]:
 				mode = MODE_TITLE
 			elif mode == MODE_PAUSED:
 				mode = MODE_PLAY
@@ -274,6 +306,29 @@ func _input(event: InputEvent) -> void:
 				sound.set_paused(true)
 
 func _down(pos: Vector2) -> void:
+	if mode == MODE_CHAPTERS:
+		if Rect2(105, 790, 330, 75).has_point(pos):
+			mode = MODE_TITLE
+			return
+		for i in range(6):
+			var x := 65.0 + float(i % 2) * 215.0
+			var y := 335.0 + float(i / 2) * 138.0
+			if Rect2(x, y, 192, 123).has_point(pos) and chapters.can_play(i):
+				_start_chapter(i)
+				return
+		return
+	if mode == MODE_CLEAR:
+		if Rect2(72, 633, 195, 66).has_point(pos):
+			var next_stage := campaign_stage + 1
+			if chapters.can_play(next_stage):
+				_start_chapter(next_stage)
+			else:
+				_reset_game()
+			return
+		if Rect2(285, 633, 190, 66).has_point(pos):
+			_reset_game()
+			return
+		return
 	if mode == MODE_GOALS:
 		if Rect2(100, 815, 340, 67).has_point(pos):
 			mode = MODE_TITLE
@@ -327,6 +382,7 @@ func _down(pos: Vector2) -> void:
 		sound.set_paused(true)
 		return
 	if mode == MODE_LOST:
+		var retry_chapter := campaign_stage
 		if not rewarded_this_run and Rect2(80, 651, 390, 62).has_point(pos) and monetization.can_watch_rewarded():
 			monetization.request_rewarded_leaves()
 			return
@@ -338,12 +394,18 @@ func _down(pos: Vector2) -> void:
 			return
 		if Rect2(70, 565, 213, 65).has_point(pos) and not rewarded_this_run:
 			monetization.request_break_interstitial()
+		if retry_chapter >= 0:
+			_start_chapter(retry_chapter)
+			return
 		_reset_game()
 		mode = MODE_PLAY
 		total_runs += 1
 		daily.begin_run()
 		_save_progress()
 	elif mode == MODE_TITLE:
+		if Rect2(139, 550, 262, 66).has_point(pos):
+			mode = MODE_CHAPTERS
+			return
 		if Rect2(139, 403, 262, 58).has_point(pos) and monetization.purchase_ready and not monetization.premium:
 			monetization.purchase_remove_ads()
 			return
@@ -364,6 +426,43 @@ func _down(pos: Vector2) -> void:
 	aim_x = player_x
 	aim_m = player_m
 	mode = MODE_AIM
+
+func _start_chapter(index: int) -> void:
+	if not chapters.can_play(index):
+		return
+	_reset_game()
+	campaign_stage = index
+	last_biome = index
+	biome_banner = 2.5
+	chapters.record_attempt(index)
+	mode = MODE_PLAY
+	total_runs += 1
+	daily.begin_run()
+	# Replace initial pads with biome-aware geometry and chapter pacing.
+	pads.resize(1)
+	last_generated_m = 0.0
+	last_pad_x = 270.0
+	next_pad_id = 1
+	_generate_pads()
+	_save_progress()
+	queue_redraw()
+
+func _finish_chapter() -> void:
+	if campaign_stage < 0 or mode != MODE_PLAY:
+		return
+	var completion: Dictionary = chapters.complete(campaign_stage, score, run_leaves)
+	clear_medal = int(completion["stars"])
+	clear_reward = int(completion["reward"])
+	leaves += clear_reward
+	run_leaves += clear_reward
+	mode = MODE_CLEAR
+	monetization.on_run_finished()
+	daily.on_finish(score)
+	celebration = 1.0
+	impact_flash = 0.55
+	sound.play_event("combo")
+	_add_float_text("CHAPTER COMPLETE", _player_screen() + Vector2(0, -115), Color("#fff3bd"))
+	_save_progress()
 
 func _move(pos: Vector2) -> void:
 	if mode != MODE_AIM:
@@ -444,6 +543,12 @@ func _finish_jump() -> void:
 				_add_float_text("+75", _player_screen() + Vector2(28, -55), Color("#fff3ad"))
 				gain += 75
 				pad["coin"] = false
+			if bool(pad["boost"]):
+				wave_m -= 4.0
+				gain += 90
+				_add_float_text("CURRENT BOOST!", _player_screen() + Vector2(0, -120), Color("#b9edff"))
+				pad["boost"] = false
+				sound.play_event("combo")
 			if bool(pad["pet"]):
 				pets = mini(pets + 1, 8)
 				celebration = 1.0
@@ -474,6 +579,9 @@ func _finish_jump() -> void:
 			_burst(_player_screen() + Vector2(0, 14), 11, "water")
 			_burst(_player_screen() + Vector2(0, -5), 7, "spark")
 			mode = MODE_PLAY
+			if campaign_stage >= 0 and player_m >= float(chapters.chapter(campaign_stage)["target"]):
+				_finish_chapter()
+				return
 			if wave_m >= player_m - 0.25:
 				_die()
 			return
@@ -515,6 +623,7 @@ func _save_progress() -> void:
 	save.set_value("progress", "selected_skin", selected_skin)
 	save.set_value("progress", "total_runs", total_runs)
 	daily.write_to(save)
+	chapters.write_to(save)
 	save.save("user://jumpy_frog.cfg")
 
 func _add_float_text(value: String, pos: Vector2, color: Color) -> void:
