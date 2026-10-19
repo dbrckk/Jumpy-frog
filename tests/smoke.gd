@@ -10,6 +10,15 @@ func _run_tests() -> void:
 	root.add_child(scene)
 	await process_frame
 	_check(scene.mode == 0, "opens on the title screen")
+	# Prevent a native libwilhelm / OpenSL ES regression on Android 15.
+	_check(String(ProjectSettings.get_setting("audio/driver/driver.android", "")) == "Dummy", "Android must use Dummy audio driver until native callback is verified safe")
+	_check(scene.sound.mobile_safe_mode == OS.has_feature("android"), "audio compatibility mode follows Android feature")
+	if OS.has_feature("android"):
+		_check(scene.muted, "Android compatibility mode starts muted")
+		_check(scene.sound.voices.is_empty(), "Android never creates AudioStreamPlayer voices")
+		_check(scene.sound.ambience == null, "Android never starts looping WAV background")
+		_check(scene.sound.samples.is_empty(), "Android skips PCM synthesis")
+
 	_check(scene.pads.size() >= 4, "generates platforms")
 	_check(scene.pads[0]["m"] == 0.0, "starts on a lily")
 	# Every original sound is generated offline once and cached for reuse.
