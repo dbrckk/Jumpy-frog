@@ -51,6 +51,7 @@ var jump_pad_id: int = -1
 var sound: Node
 var muted: bool = false
 var saved_muted: bool = false
+var haptics_enabled := true
 var leaves: int = 0
 var unlocked_skins: int = 1
 var selected_skin: int = 0
@@ -94,6 +95,7 @@ func _ready() -> void:
 	if save.load("user://jumpy_frog.cfg") == OK:
 		best_score = int(save.get_value("progress", "best_score", 0))
 		saved_muted = bool(save.get_value("progress", "muted", false))
+		haptics_enabled = bool(save.get_value("progress", "haptics", true))
 		leaves = maxi(0, int(save.get_value("progress", "leaves", 0)))
 		unlocked_skins = maxi(1, int(save.get_value("progress", "unlocked_skins", 1))) & 255
 		selected_skin = clampi(int(save.get_value("progress", "selected_skin", 0)), 0, 7)
@@ -104,6 +106,7 @@ func _ready() -> void:
 	chapters.load_from(save)
 	muted = saved_muted or OS.has_feature("android")
 	sound.set_muted(muted)
+	sound.set_haptics(haptics_enabled)
 	_reset_game()
 
 func _reset_game() -> void:
@@ -113,6 +116,7 @@ func _reset_game() -> void:
 	clear_reward = 0
 	last_biome = 0
 	biome_banner = 0.0
+	sound.set_biome(0)
 	if sound != null:
 		sound.set_paused(false)
 	pads.clear()
@@ -191,6 +195,7 @@ func _process(delta: float) -> void:
 	var current_biome := chapters.biome_at(player_m, campaign_stage)
 	if current_biome != last_biome:
 		last_biome = current_biome
+		sound.set_biome(current_biome)
 		biome_banner = 2.2
 		if mode in [MODE_PLAY, MODE_AIM, MODE_FLY]:
 			sound.play_event("combo")
@@ -371,10 +376,14 @@ func _down(pos: Vector2) -> void:
 		if Rect2(108, 460, 324, 66).has_point(pos):
 			mode = MODE_PLAY
 			sound.set_paused(false)
-		elif Rect2(108, 544, 324, 66).has_point(pos) and not OS.has_feature("android"):
-			saved_muted = not saved_muted
-			muted = saved_muted
-			sound.set_muted(muted)
+		elif Rect2(108, 544, 324, 66).has_point(pos):
+			if OS.has_feature("android"):
+				haptics_enabled = not haptics_enabled
+				sound.set_haptics(haptics_enabled)
+			else:
+				saved_muted = not saved_muted
+				muted = saved_muted
+				sound.set_muted(muted)
 			_save_progress()
 		return
 	if mode in [MODE_PLAY, MODE_AIM] and Rect2(473, 78, 63, 59).has_point(pos):
@@ -433,6 +442,7 @@ func _start_chapter(index: int) -> void:
 	_reset_game()
 	campaign_stage = index
 	last_biome = index
+	sound.set_biome(index)
 	biome_banner = 2.5
 	chapters.record_attempt(index)
 	mode = MODE_PLAY
@@ -460,7 +470,9 @@ func _finish_chapter() -> void:
 	daily.on_finish(score)
 	celebration = 1.0
 	impact_flash = 0.55
-	sound.play_event("combo")
+	sound.play_event("victory")
+	if score > best_score:
+		best_score = score
 	_add_float_text("CHAPTER COMPLETE", _player_screen() + Vector2(0, -115), Color("#fff3bd"))
 	_save_progress()
 
@@ -548,7 +560,7 @@ func _finish_jump() -> void:
 				gain += 90
 				_add_float_text("CURRENT BOOST!", _player_screen() + Vector2(0, -120), Color("#b9edff"))
 				pad["boost"] = false
-				sound.play_event("combo")
+				sound.play_event("boost")
 			if bool(pad["pet"]):
 				pets = mini(pets + 1, 8)
 				celebration = 1.0
@@ -618,6 +630,7 @@ func _save_progress() -> void:
 	save.load("user://jumpy_frog.cfg")
 	save.set_value("progress", "best_score", best_score)
 	save.set_value("progress", "muted", saved_muted)
+	save.set_value("progress", "haptics", haptics_enabled)
 	save.set_value("progress", "leaves", leaves)
 	save.set_value("progress", "unlocked_skins", unlocked_skins)
 	save.set_value("progress", "selected_skin", selected_skin)
