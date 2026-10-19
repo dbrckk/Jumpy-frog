@@ -302,10 +302,10 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 	var body := at + Vector2(tilt * 8.0, -18.0 - height + breathing + bounce)
 	# Rotate and scale the character as one articulated group.
 	c.draw_set_transform(body, tilt, Vector2(scale_x, scale_y))
-	var darks := [Color("#604a43"), Color("#53586b"), Color("#886048"), Color("#52644f")]
-	var furs := [Color("#b48161"), Color("#a9b9d2"), Color("#e9b379"), Color("#99bd87")]
-	var warms := [Color("#d6a680"), Color("#dde5ed"), Color("#f3d5a1"), Color("#c8dca4")]
-	var id := clampi(skin, 0, 3)
+	var darks := [Color("#604a43"), Color("#53586b"), Color("#886048"), Color("#52644f"), Color("#805463"), Color("#594a72"), Color("#8a626c"), Color("#8c7540")]
+	var furs := [Color("#b48161"), Color("#a9b9d2"), Color("#e9b379"), Color("#99bd87"), Color("#d68da7"), Color("#9988b5"), Color("#e9a6a2"), Color("#d9be67")]
+	var warms := [Color("#d6a680"), Color("#dde5ed"), Color("#f3d5a1"), Color("#c8dca4"), Color("#f1c3d3"), Color("#c7b8e3"), Color("#f9d2c7"), Color("#f1dfa0")]
+	var id := clampi(skin, 0, 7)
 	var dark: Color = darks[id]
 	var fur: Color = furs[id]
 	var warm: Color = warms[id]
