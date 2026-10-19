@@ -99,7 +99,7 @@ jobs:
           tail=tail.replace('export_path="build/JumpyFrog-Play.aab"','export_path="build/JumpyFrog-Monetized-TEST.apk"',1)
           tail=tail.replace("[preset.1.options]","[preset.2.options]",1)
           tail=tail.replace("gradle_build/export_format=1","gradle_build/export_format=0",1)
-          path.write_text(original+"\\n[preset.2]"+tail)
+          path.write_text(original+"\n[preset.2]"+tail)
           PY
           timeout --kill-after=15s 900s godot --headless --path . --export-debug "Monetized TEST APK" build/JumpyFrog-Monetized-TEST.apk
           test -s build/JumpyFrog-Monetized-TEST.apk
