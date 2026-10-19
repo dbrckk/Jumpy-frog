@@ -97,8 +97,13 @@ var _quality_recovery_windows := 0
 var _quality_downgrade_windows := 0
 var river_shader_rect: ColorRect
 var river_shader_material: ShaderMaterial
+var _last_shader_quality := -1
 
 func _ready() -> void:
+	# A 60 Hz cap avoids unnecessary GPU/CPU heat on 90/120 Hz handsets.
+	# The simulation still uses real frame delta to preserve gameplay speed.
+	if OS.has_feature("android"):
+		Engine.max_fps = 60
 	_initialize_river_shader()
 	rng.randomize()
 	sound = AUDIO.new()
@@ -257,9 +262,9 @@ func _process(delta: float) -> void:
 	delta = minf(delta, 0.08)
 	if river_shader_rect != null:
 		river_shader_rect.visible = mode in [MODE_PLAY, MODE_AIM, MODE_FLY] and graphics_quality > 0
-		if river_shader_rect.visible:
-			river_shader_material.set_shader_parameter("river_time", clock)
-			river_shader_material.set_shader_parameter("strength", 0.48 if graphics_quality == 2 else 0.26)
+		if graphics_quality != _last_shader_quality:
+			river_shader_material.set_shader_parameter("strength", 0.48 if graphics_quality == 2 else (0.26 if graphics_quality == 1 else 0.0))
+			_last_shader_quality = graphics_quality
 	if mode == MODE_PAUSED:
 		queue_redraw()
 		return
