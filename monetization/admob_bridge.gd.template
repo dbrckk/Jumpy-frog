@@ -1,0 +1,129 @@
+extends Node
+## Installed as .gd only alongside Poing AdMob 5.1.0 native plugin.
+## No ads are requested until UMP consent status is usable.
+signal reward_earned
+signal reward_failed
+
+var interstitial_ad: InterstitialAd
+var rewarded_ad: RewardedAd
+var interstitial_loader := InterstitialAdLoadCallback.new()
+var rewarded_loader := RewardedAdLoadCallback.new()
+var interstitial_screen := FullScreenContentCallback.new()
+var rewarded_screen := FullScreenContentCallback.new()
+var earned_listener := OnUserEarnedRewardListener.new()
+var _reward_granted := false
+var _started := false
+
+func _ready() -> void:
+	interstitial_loader.on_ad_loaded = _interstitial_loaded
+	interstitial_loader.on_ad_failed_to_load = func(_err: LoadAdError) -> void: pass
+	rewarded_loader.on_ad_loaded = _rewarded_loaded
+	rewarded_loader.on_ad_failed_to_load = func(_err: LoadAdError) -> void: pass
+	interstitial_screen.on_ad_dismissed_full_screen_content = func() -> void:
+		_clear_interstitial()
+		_load_interstitial()
+	interstitial_screen.on_ad_failed_to_show_full_screen_content = func(_err: AdError) -> void:
+		_clear_interstitial()
+		_load_interstitial()
+	rewarded_screen.on_ad_dismissed_full_screen_content = func() -> void:
+		if not _reward_granted:
+			reward_failed.emit()
+		_clear_rewarded()
+		_load_rewarded()
+	rewarded_screen.on_ad_failed_to_show_full_screen_content = func(_err: AdError) -> void:
+		reward_failed.emit()
+		_clear_rewarded()
+		_load_rewarded()
+	earned_listener.on_user_earned_reward = func(_item: RewardedItem) -> void:
+		if not _reward_granted:
+			_reward_granted = true
+			reward_earned.emit()
+
+func start() -> void:
+	if _started:
+		return
+	_started = true
+	var request := ConsentRequestParameters.new()
+	UserMessagingPlatform.consent_information.update(
+		request, _on_consent_ready, _on_consent_failed)
+
+func _on_consent_ready() -> void:
+	var info := UserMessagingPlatform.consent_information
+	if info.get_consent_status() == info.ConsentStatus.REQUIRED:
+		if info.get_is_consent_form_available():
+			UserMessagingPlatform.load_consent_form(_on_form_loaded, _on_consent_failed)
+		return
+	if info.get_consent_status() in [info.ConsentStatus.OBTAINED, info.ConsentStatus.NOT_REQUIRED]:
+		_initialize_ads()
+
+func _on_form_loaded(form: ConsentForm) -> void:
+	form.show(func(_error: FormError) -> void:
+		var info := UserMessagingPlatform.consent_information
+		if info.get_consent_status() in [info.ConsentStatus.OBTAINED, info.ConsentStatus.NOT_REQUIRED]:
+			_initialize_ads()
+	)
+
+func _on_consent_failed(_error: FormError) -> void:
+	# Fail closed: no advertising until the consent flow has been resolved.
+	pass
+
+func show_privacy_options() -> void:
+	UserMessagingPlatform.show_privacy_options_form(func(_error: FormError) -> void:
+		var info := UserMessagingPlatform.consent_information
+		if info.get_consent_status() not in [info.ConsentStatus.OBTAINED, info.ConsentStatus.NOT_REQUIRED]:
+			stop_ads()
+	)
+
+func _initialize_ads() -> void:
+	MobileAds.initialize()
+	_load_interstitial()
+	_load_rewarded()
+
+func _load_interstitial() -> void:
+	var unit := String(ProjectSettings.get_setting("jumpy/monetization/interstitial_unit_id", ""))
+	if unit.begins_with("ca-app-pub-") and not unit.is_empty():
+		InterstitialAdLoader.new().load(unit, AdRequest.new(), interstitial_loader)
+
+func _load_rewarded() -> void:
+	var unit := String(ProjectSettings.get_setting("jumpy/monetization/rewarded_unit_id", ""))
+	if unit.begins_with("ca-app-pub-") and not unit.is_empty():
+		RewardedAdLoader.new().load(unit, AdRequest.new(), rewarded_loader)
+
+func _interstitial_loaded(ad: InterstitialAd) -> void:
+	_clear_interstitial()
+	interstitial_ad = ad
+	interstitial_ad.full_screen_content_callback = interstitial_screen
+
+func _rewarded_loaded(ad: RewardedAd) -> void:
+	_clear_rewarded()
+	rewarded_ad = ad
+	rewarded_ad.full_screen_content_callback = rewarded_screen
+
+func can_show_interstitial() -> bool:
+	return interstitial_ad != null
+
+func show_interstitial() -> void:
+	if can_show_interstitial():
+		interstitial_ad.show()
+
+func can_show_rewarded() -> bool:
+	return rewarded_ad != null
+
+func show_rewarded() -> void:
+	if rewarded_ad != null:
+		_reward_granted = false
+		rewarded_ad.show(earned_listener)
+
+func stop_ads() -> void:
+	_clear_interstitial()
+	_clear_rewarded()
+
+func _clear_interstitial() -> void:
+	if interstitial_ad != null:
+		interstitial_ad.destroy()
+		interstitial_ad = null
+
+func _clear_rewarded() -> void:
+	if rewarded_ad != null:
+		rewarded_ad.destroy()
+		rewarded_ad = null
