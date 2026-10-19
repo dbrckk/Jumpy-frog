@@ -6,9 +6,11 @@ func _initialize() -> void:
 	call_deferred("_run_tests")
 
 func _run_tests() -> void:
+	print("SMOKE STAGE: load scene")
 	var scene: Node2D = load("res://main.tscn").instantiate()
 	root.add_child(scene)
 	await process_frame
+	print("SMOKE STAGE: first frame")
 	_check(scene.mode == 0, "opens on the title screen")
 	# Prevent a native libwilhelm / OpenSL ES regression on Android 15.
 	_check(String(ProjectSettings.get_setting("audio/driver/driver.android", "")) == "Dummy", "Android must use Dummy audio driver until native callback is verified safe")
@@ -21,6 +23,7 @@ func _run_tests() -> void:
 
 	_check(scene.pads.size() >= 4, "generates platforms")
 	_check(scene.pads[0]["m"] == 0.0, "starts on a lily")
+	print("SMOKE STAGE: progression")
 	# Production meta-progression: wardrobe prices, persistence, and locked choices.
 	_check(scene.selected_skin >= 0 and scene.selected_skin <= 3, "selected skin validated")
 	_check(scene._is_unlocked(0), "starter skin always owned")
@@ -80,6 +83,7 @@ func _run_tests() -> void:
 	_check(not predicted.is_empty() and int(predicted.get("id", -1)) == int(first["id"]), "landing preview predicts actual platform")
 	_check(scene._landing_target(70.0, 2000.0).is_empty(), "empty water is marked unsafe")
 	
+	print("SMOKE STAGE: jumping")
 	# A direct hop reproduces a future touch release and tests score/collision.
 	scene.mode = 1
 	scene.aim_x = first["x"]
@@ -138,6 +142,7 @@ func _run_tests() -> void:
 		scene._process(0.02)
 	_check(scene.mode == 1, "touch gesture lands correctly")
 	
+	print("SMOKE STAGE: procedural layouts")
 	# Generated runs must never demand a physically impossible next jump.
 	for seed_index in range(64):
 		scene.rng.seed = seed_index * 173 + 11
@@ -149,6 +154,7 @@ func _run_tests() -> void:
 			var dy: float = (float(curr["m"]) - float(prev["m"])) * 8.0 / 1.35
 			_check(Vector2(dx, dy).length() <= 215.0, "random platform gap reachable")
 	
+	print("SMOKE STAGE: animation / VFX")
 	# Animation state must respond to jumping/landing and reset predictably.
 	scene._reset_game()
 	scene.mode = 1
