@@ -1,4 +1,4 @@
-# Jumpy Frog 1.1 — River Hop
+# Jumpy Frog 1.3 — River Hop
 
 A portrait arcade game for Android, built with Godot 4.5.1. Inspired by the genre of one-finger river-hopping games; all characters and illustrations are original. No third-party assets are redistributed.
 
@@ -16,7 +16,7 @@ The default/debug build runs entirely offline with no ads. The **optional moneti
 - Illustrated capybara, four companion species, animated lily pads and water effects
 - Run loop, increasing wave difficulty, HUD, restart and pause menu
 - High score, leaves and unlocked cosmetics stored on device
-- Android 15 crash mitigation: **Android audio intentionally disabled pending physical-device validation.** See [audio crash investigation](docs/android-audio-crash.md).
+- Android 15 crash mitigation: the native Godot OpenSL driver is disabled. Android system tones are available as an **opt-in experimental** setting, separately from vibration; neither substitutes for physical-device acceptance. See [audio crash investigation](docs/android-audio-crash.md).
 - Desktop builds retain cached original procedural SFX and ambient river audio
 
 ## Development
@@ -85,3 +85,24 @@ Run the extended campaign tests:
 ~~~bash
 godot --headless --path . --script res://tests/chapters.gd
 ~~~
+
+
+## Final 1.3 release candidate
+
+Jumpy Frog 1.3 delivers **three replay loops**: (1) endless hopping across the six cyclical biomes, (2) six unlockable replayable chapters with persistent medals and stars, and (3) a deterministic 180-meter **Daily River** whose first completion each UTC day pays 25 leaves. Long-term milestones, daily missions, unlockable styles and records remain free.
+
+The main Godot audio engine is kept in safe Dummy mode on Android because a real Redmi reported a native OpenSL ES callback crash. The Pause screen has separate **Tones (experimental)** and **Vibrate** controls. Tones are powered by Android's Java `ToneGenerator` (not Godot's OpenSL mixer), remain **off by default**, and shut off after a Java error. This fallback emits basic system notes; it is **not** equivalent to the full desktop soundtrack and must be checked on the affected phone.
+
+The game pauses automatically when Android backgrounds it, including mid-flight, retaining the pending landing trajectory when the user resumes. Rewarded/adstitial SDK code now handles provider errors and withheld consent without locking the interface.
+
+See [final QA and Play publication gates](docs/final-1.3.md). For a **real advertising-enabled build**, use [Monetized Android SDK QA](.github/workflows/monetization-qa.yml); for a **production AAB**, use [Google Play signed monetized AAB](.github/workflows/play-release.yml) only after configuring the real Google Play upload signing key and AdMob identifiers as Actions secrets.
+
+```bash
+godot --headless --path . --script res://tests/lifecycle.gd
+godot --headless --path . --script res://tests/daily_river.gd
+godot --headless --path . --script res://tests/endurance.gd
+```
+
+Native 16 KiB PT_LOAD alignment is verified for each shared library through `tools/verify_16kb_elf.py`, and Play bundles must also request `PAGE_ALIGNMENT_16K`.
+
+**An APK/debug AAB passing CI does not certify a real Play Billing checkout, AdMob consent display, stable audio or production acceptance on the Redmi.**
