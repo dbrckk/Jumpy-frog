@@ -62,6 +62,8 @@ jobs:
           EOF
       - name: Install verified AdMob and Billing SDKs (release configuration)
         shell: bash
+        env:
+          REQUIRE_LIVE_ADMOB_IDS: "1"
         run: |
           set -euo pipefail
           python3 tools/prepare_monetized_build.py
