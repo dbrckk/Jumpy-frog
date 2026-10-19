@@ -74,6 +74,7 @@ func _run() -> void:
 		total_hops += 1
 	_test(game.mode == 9, "real jumps finish first chapter and show victory")
 	_test(total_hops >= 4, "chapter is a real multi-hop challenge")
+	_test(game.perfect_streak >= 4, "center-aimed jumps sustain precise-landing streak")
 	_test(game.chapters.can_play(1), "game unlocks chapter two after success")
 	_test(game.clear_medal >= 1, "game awards at least one star on success")
 	_test(game.best_score >= game.score, "chapter victories update personal best")
