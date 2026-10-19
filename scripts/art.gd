@@ -503,7 +503,7 @@ static func _goals_overlay(c: CanvasItem, daily: RefCounted) -> void:
 	text(c, "TODAY'S MISSIONS", Vector2(270, 294), 32, Color("#595669"), true)
 	text(c, "STREAK  %d DAY(S)" % daily.streak_days, Vector2(270, 337), 20, Color("#6a835a"))
 	for i in range(3):
-		var goal: Dictionary = daily.GOALS[i]
+		var goal: Dictionary = daily.goal_at(i)
 		var y := 382.0 + float(i) * 124.0
 		var progress: int = daily.progress(i)
 		var target: int = int(goal["target"])
