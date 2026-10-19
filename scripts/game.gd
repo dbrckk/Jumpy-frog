@@ -39,6 +39,7 @@ var pets: int = 0
 var score: int = 0
 var best_score: int = 0
 var combo: int = 0
+var _active_touch_index := -1
 var aim_start := Vector2.ZERO
 var aim_current := Vector2.ZERO
 var aim_x: float = 270.0
@@ -175,6 +176,7 @@ func _update_graphics_quality(frame_delta: float) -> void:
 		_quality_recovery_windows = 0
 
 func _reset_game() -> void:
+	_active_touch_index = -1
 	mode = MODE_TITLE
 	resume_mode = MODE_PLAY
 	campaign_stage = -1
@@ -371,12 +373,18 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed:
+			if _active_touch_index >= 0:
+				return # A second finger must never steal or cancel an aim.
 			_down(touch.position)
-		else:
+			if mode == MODE_AIM:
+				_active_touch_index = touch.index
+		elif _active_touch_index == touch.index:
+			_active_touch_index = -1
 			_up(touch.position)
 	elif event is InputEventScreenDrag:
 		var drag := event as InputEventScreenDrag
-		_move(drag.position)
+		if drag.index == _active_touch_index:
+			_move(drag.position)
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode in [KEY_R, KEY_SPACE, KEY_ENTER] and mode == MODE_LOST:
 			_reset_game()
@@ -393,6 +401,7 @@ func _pause_game() -> void:
 		return
 	# Never force an interrupted flight into the grounded PLAY state.
 	resume_mode = MODE_PLAY if mode == MODE_AIM else mode
+	_active_touch_index = -1
 	mode = MODE_PAUSED
 	sound.set_paused(true)
 	_save_progress()
