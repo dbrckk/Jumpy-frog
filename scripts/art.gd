@@ -521,7 +521,7 @@ static func _goals_overlay(c: CanvasItem, daily: RefCounted) -> void:
 	var milestone: Dictionary = daily.next_milestone()
 	var milestone_caption := "ALL MILESTONES COMPLETED" if milestone.is_empty() else ("NEXT: %s" % String(milestone["title"]))
 	var milestone_progress := "" if milestone.is_empty() else ("%d / %d   +%d LEAVES" % [mini(int(milestone["progress"]), int(milestone["target"])), int(milestone["target"]), int(milestone["reward"])])
-	text(c, "LIFETIME MILESTONES  %d / %d" % [daily.milestone_count(), daily.MILESTONES.size()], Vector2(270, 748), 16, Color("#6a815e"))
+	text(c, "LIFETIME MILESTONES  %d / %d" % [daily.milestone_count(), daily.milestone_total()], Vector2(270, 748), 16, Color("#6a815e"))
 	text(c, milestone_caption, Vector2(270, 772), 15, INK)
 	if not milestone_progress.is_empty():
 		text(c, milestone_progress, Vector2(270, 792), 14, Color("#548263"))
