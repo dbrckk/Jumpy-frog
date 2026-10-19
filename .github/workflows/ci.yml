@@ -10,6 +10,34 @@ permissions:
   contents: read
 
 jobs:
+  listing-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate original marketing assets
+        run: |
+          python -m pip install Pillow==11.3.0
+          python tools/generate_store_assets.py
+          python - <<'PY'
+          from PIL import Image
+          specs = [
+              ('build/store/play-icon-512.png',(512,512)),
+              ('build/store/feature-graphic-1024x500.png',(1024,500))
+          ]
+          for path,size in specs:
+              with Image.open(path) as im:
+                  assert im.size==size and im.mode=='RGB', (path,im.size,im.mode)
+          print("PASS: store icon and feature graphic sizes/formats")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JumpyFrog-GooglePlay-Store-Art
+          path: build/store/*.png
+          if-no-files-found: error
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 35
