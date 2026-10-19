@@ -20,6 +20,7 @@ on:
       - tests/endurance.gd
       - tests/lifecycle.gd
       - tests/render_quality.gd
+      - tests/touch_and_fairness.gd
       - .github/workflows/monetization-qa.yml
 
 permissions:
@@ -74,6 +75,7 @@ jobs:
           timeout 120s godot --headless --path . --script res://tests/endurance.gd
           timeout 120s godot --headless --path . --script res://tests/lifecycle.gd
           timeout 120s godot --headless --path . --script res://tests/render_quality.gd
+          timeout 120s godot --headless --path . --script res://tests/touch_and_fairness.gd
           timeout 120s godot --headless --path . --script res://tests/chapters.gd
       - name: Create ephemeral DEBUG signing identity
         run: |
