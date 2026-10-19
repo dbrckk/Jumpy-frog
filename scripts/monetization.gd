@@ -19,7 +19,6 @@ var completed_runs := 0
 var runs_since_ad := 0
 var elapsed := 0.0
 var last_interstitial := 0.0
-var _billing_queried := false
 var _reward_pending := false
 
 func _ready() -> void:
@@ -46,7 +45,6 @@ func _save_cache() -> void:
 	save.save("user://jumpy_frog.cfg")
 
 func _init_billing() -> void:
-	const_path_unused()
 	if not Engine.has_singleton("GodotGooglePlayBilling"):
 		return
 	var path := "res://addons/GodotGooglePlayBilling/BillingClient.gd"
@@ -64,12 +62,8 @@ func _init_billing() -> void:
 	billing.acknowledge_purchase_response.connect(_on_acknowledge)
 	billing.start_connection()
 
-func const_path_unused() -> void:
-	pass
-
 func _on_billing_connected() -> void:
-	_billing_queried = true
-	billing.query_product_details([PRODUCT_ID], 0) # INAPP
+	billing.query_product_details(PackedStringArray([PRODUCT_ID]), 0) # INAPP
 	billing.query_purchases(0) # restore past purchases, not just this session
 
 func _on_product_details(result: Dictionary) -> void:
@@ -78,7 +72,9 @@ func _on_product_details(result: Dictionary) -> void:
 	for item in result.get("product_details", []):
 		var product: Dictionary = item
 		if String(product.get("product_id", "")) == PRODUCT_ID:
-			price_label = String(product.get("formatted_price", ""))
+			var offers: Variant = product.get("one_time_purchase_offer_details_list", [])
+			if offers is Array and not offers.is_empty():
+				price_label = String(offers[0].get("formatted_price", ""))
 			purchase_ready = true
 			status_changed.emit("Purchase available")
 
@@ -108,6 +104,7 @@ func _on_purchases(result: Dictionary) -> void:
 			premium = true
 			_save_cache()
 			premium_changed.emit(true)
+			on_purchase_restored()
 		if not bool(purchase.get("is_acknowledged", false)) and billing != null:
 			var token := String(purchase.get("purchase_token", ""))
 			if not token.is_empty():
@@ -132,6 +129,7 @@ func _init_ads() -> void:
 	ads = bridge_script.new()
 	add_child(ads)
 	ads.reward_earned.connect(_on_reward_earned)
+	ads.reward_failed.connect(_on_reward_failed)
 	ads.start()
 
 func on_run_finished() -> void:
