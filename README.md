@@ -10,6 +10,12 @@ A persistent progression system lets you earn leaves and unlock eight character 
 
 The default/debug build runs entirely offline with no ads. The **optional monetized Google Play build** integrates real Google AdMob/UMP advertising plus Google Play Billing for a permanent one-time remove-ads purchase; it requires real publisher credentials, consent configuration and a signed Gradle AAB.
 
+## 15-pillar game-feel and performance pass
+
+The current development branch adds an original mobile-friendly `canvas_item` river-caustics shader, a 60 Hz Android cap, an intelligent three-tier draw budget (water, banks, lily mesh tessellation and chase wave), a smoother predictive camera, multi-touch-safe aiming and additional reachability/regression tests. It preserves the existing mechanics, scores and chapter layout at every graphics tier.
+
+See [the 15-pillar engineering audit and concrete acceptance gates](docs/quality-pass-15.md). Automated success does **not** demonstrate actual FPS, temperature, audio safety or ad revenue on the affected Redmi.
+
 ## Quality and device compatibility
 
 - 540 × 960 portrait design with Godot Compatibility renderer
