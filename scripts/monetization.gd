@@ -163,7 +163,10 @@ func request_break_interstitial() -> bool:
 		return false
 	if not ads.can_show_interstitial():
 		return false
-	ads.show_interstitial()
+	# An ad should count against pacing only when the native bridge actually
+	# accepts the show request. Missing inventory never blocks the player.
+	if not ads.show_interstitial():
+		return false
 	last_interstitial = elapsed
 	runs_since_ad = 0
 	return true
