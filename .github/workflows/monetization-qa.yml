@@ -104,7 +104,9 @@ jobs:
           timeout --kill-after=15s 900s godot --headless --path . --export-debug "Monetized TEST APK" build/JumpyFrog-Monetized-TEST.apk
           test -s build/JumpyFrog-Monetized-TEST.apk
           unzip -tq build/JumpyFrog-Monetized-TEST.apk
-          apksigner verify --verbose build/JumpyFrog-Monetized-TEST.apk
+          APKSIGNER="${ANDROID_HOME:-${ANDROID_SDK_ROOT}}/build-tools/36.0.0/apksigner"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs build/JumpyFrog-Monetized-TEST.apk
       - uses: actions/upload-artifact@v4
         with:
           name: JumpyFrog-Monetized-Android-TEST-APK
