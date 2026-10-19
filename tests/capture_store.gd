@@ -62,9 +62,19 @@ func _capture() -> void:
 	scene.clear_medal = 3
 	scene.clear_reward = 25
 	await _save(scene, "08-chapter-clear.png")
+	# Actual Daily River environment and objective progress (UTC seeded).
+	scene._start_daily_river()
+	scene.player_m = 91.0
+	scene.cam_m = 91.0
+	scene.highest_m = 91.0
+	scene.wave_m = 47.0
+	scene.score = 1430
+	scene.pets = 3
+	scene._generate_pads()
+	await _save(scene, "09-daily-river.png")
 	scene.queue_free()
 	await process_frame
-	print("PASS: eight real 1080x1920 PNG store captures")
+	print("PASS: nine real 1080x1920 PNG store captures")
 	quit(0)
 
 func _save(scene: Node2D, filename: String) -> void:
