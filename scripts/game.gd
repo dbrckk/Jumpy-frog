@@ -56,7 +56,6 @@ var total_runs: int = 0
 var daily := DAILY.new()
 var monetization: Node
 var rewarded_this_run := false
-var death_serial := 0
 var run_hops := 0
 var run_leaves: int = 0
 var body_tilt := 0.0
@@ -98,7 +97,6 @@ func _ready() -> void:
 	_reset_game()
 
 func _reset_game() -> void:
-	death_serial += 1
 	mode = MODE_TITLE
 	if sound != null:
 		sound.set_paused(false)
@@ -333,8 +331,13 @@ func _down(pos: Vector2) -> void:
 			monetization.request_rewarded_leaves()
 			return
 		if Rect2(293, 565, 182, 65).has_point(pos):
+			# Ads are requested only at an intentional between-run transition.
+			if not rewarded_this_run:
+				monetization.request_break_interstitial()
 			_reset_game()
 			return
+		if Rect2(70, 565, 213, 65).has_point(pos) and not rewarded_this_run:
+			monetization.request_break_interstitial()
 		_reset_game()
 		mode = MODE_PLAY
 		total_runs += 1
@@ -480,9 +483,8 @@ func _die() -> void:
 	if mode == MODE_LOST:
 		return
 	mode = MODE_LOST
+	# Keep the result visible; do not interrupt the end screen with a timer ad.
 	monetization.on_run_finished()
-	death_serial += 1
-	_maybe_interstitial(death_serial)
 	shake_strength = maxf(shake_strength, 7.0)
 	jump_z = 0.0
 	sound.play_event("lose")
@@ -490,12 +492,6 @@ func _die() -> void:
 		best_score = score
 	daily.on_finish(score)
 	_save_progress()
-
-func _maybe_interstitial(serial: int) -> void:
-	# The player has time to see the completed run and score before an ad.
-	await get_tree().create_timer(1.75).timeout
-	if is_inside_tree() and mode == MODE_LOST and serial == death_serial:
-		monetization.request_break_interstitial()
 
 func _on_rewarded_leaves(amount: int) -> void:
 	if mode != MODE_LOST or rewarded_this_run or amount <= 0:
