@@ -102,9 +102,11 @@ func _rewarded_loaded(ad: RewardedAd) -> void:
 func can_show_interstitial() -> bool:
 	return interstitial_ad != null
 
-func show_interstitial() -> void:
-	if can_show_interstitial():
-		interstitial_ad.show()
+func show_interstitial() -> bool:
+	if not can_show_interstitial():
+		return false
+	interstitial_ad.show()
+	return true
 
 func can_show_rewarded() -> bool:
 	return rewarded_ad != null
