@@ -1,4 +1,4 @@
-# Jumpy Frog 1.0 — River Hop
+# Jumpy Frog 1.1 — River Hop
 
 A portrait arcade game for Android, built with Godot 4.5.1. Inspired by the genre of one-finger river-hopping games; all characters and illustrations are original. No third-party assets are redistributed.
 
@@ -6,9 +6,9 @@ A portrait arcade game for Android, built with Godot 4.5.1. Inspired by the genr
 
 Hold and drag **down** to aim a forward jump; drag left/right to steer, then release. Land safely on a lily pad to earn points. Collect leaves, rescue animal companions, and keep ahead of the wave. Missing a pad ends the run.
 
-A persistent progression system lets you earn leaves and unlock four character color styles in the **Customize** screen. Your best score, currency, unlocked styles, chosen style and sound preference are saved locally.
+A persistent progression system lets you earn leaves and unlock four character color styles in the **Customize** screen. **Daily missions** refresh each UTC day, awarding bonus leaves for eight hops, four leaves, or reaching 80 meters. A play streak and lifetime statistics persist across sessions. Scores, unlocked styles, currency and preferences are saved locally.
 
-The game runs entirely offline. No ads, in-app purchases, user accounts, analytics, tracking or network permission.
+The default/debug build runs entirely offline with no ads. The **optional monetized Google Play build** integrates real Google AdMob/UMP advertising plus Google Play Billing for a permanent one-time remove-ads purchase; it requires real publisher credentials, consent configuration and a signed Gradle AAB.
 
 ## Quality and device compatibility
 
@@ -33,9 +33,9 @@ The GitHub Actions **Godot QA and Android APK** workflow tests the game and prod
 
 ## Google Play release
 
-The project includes a separate **Google Play AAB** export preset targeting Android 16 / API level 36 through Gradle, and a manually triggered [Google Play signed AAB](.github/workflows/play-release.yml) workflow. This requires your **private upload keystore** to be configured as GitHub Actions secrets; there is no release key or password in Git.
+The project includes an Android API 36 AAB export preset and **two export paths**: the normal no-ads debug APK and an explicitly configured, monetized Gradle Play build with [AdMob 5.1](https://github.com/poingstudios/godot-admob-plugin) and [Play Billing 3.3](https://github.com/godot-sdk-integrations/godot-google-play-billing). [Monetized Android SDK QA](.github/workflows/monetization-qa.yml) compiles a test-only AAB with Google's official test ad IDs; [Google Play signed AAB](.github/workflows/play-release.yml) requires private upload and AdMob credentials. This requires your **private upload keystore** to be configured as GitHub Actions secrets; there is no release key or password in Git.
 
-Read **[release readiness checklist](docs/release-readiness.md)** before distributing or uploading anything. A successful APK export is not proof of Play approval or stability on your Redmi.
+Read **[monetization integration and Play Console setup](docs/monetization.md)** and the **[release readiness checklist](docs/release-readiness.md)** before distributing or uploading anything. A successful APK export is not proof of Play approval or stability on your Redmi.
 
 Store materials:
 - [Bilingual store listing](docs/play-store-listing.md)
@@ -53,10 +53,18 @@ This generates `build/store/play-icon-512.png` and `build/store/feature-graphic-
 
 - `scripts/game.gd`: touch gameplay, scoring, progression, cosmetics, saves
 - `scripts/art.gd`: original character/river rendering, HUD, menus and VFX
+- `scripts/daily.gd`: three repeatable daily objectives, offline progression and streak tracking
+- `scripts/monetization.gd`: fail-closed real billing/advertising orchestration and ad scheduling
+- `monetization/admob_bridge.gd.template`: native SDK adapter, installed only into monetized builds
 - `scripts/audio.gd`: original cached sounds for desktop; Android native crash mitigation
 - `tests/smoke.gd`: end-to-end gameplay, progression, audio and VFX tests
+- `tests/retention_and_ads.gd`: regression tests for daily rewards, clock rollover and ads/billing guards
 - `tools/`: original Android and store icon generators
 
 ## License and content
 
 All code and illustrations in this repository are the original work of the project. Verify project ownership and choose a source-code license deliberately before releasing source for reuse. The app does not embed art or audio copied from the referenced game.
+
+## Revenue policy
+
+Only advertise at natural game-over breaks; no interstitials during active jumps. First 4 games are ad-free and interstitials have 6-minute cooldowns. Rewarded videos are optional, granting leaves only after an SDK-earned-reward callback. A **non-consumable** Google Play purchase `remove_ads` removes all ads after confirmed ownership, including restores. The price is configured in Play Console (intended €2.00 in France) and fetched from Play Billing. See [monetization](docs/monetization.md).
