@@ -51,6 +51,8 @@ var jump_pad_id: int = -1
 var sound: Node
 var muted: bool = false
 var saved_muted: bool = false
+var android_tones_enabled := false
+var resume_mode := MODE_PLAY
 var haptics_enabled := true
 var leaves: int = 0
 var unlocked_skins: int = 1
@@ -97,6 +99,7 @@ func _ready() -> void:
 	if save.load("user://jumpy_frog.cfg") == OK:
 		best_score = int(save.get_value("progress", "best_score", 0))
 		saved_muted = bool(save.get_value("progress", "muted", false))
+		android_tones_enabled = bool(save.get_value("progress", "android_system_tones", false))
 		haptics_enabled = bool(save.get_value("progress", "haptics", true))
 		leaves = maxi(0, int(save.get_value("progress", "leaves", 0)))
 		unlocked_skins = maxi(1, int(save.get_value("progress", "unlocked_skins", 1))) & 255
@@ -109,10 +112,14 @@ func _ready() -> void:
 	muted = saved_muted or OS.has_feature("android")
 	sound.set_muted(muted)
 	sound.set_haptics(haptics_enabled)
+	if OS.has_feature("android") and android_tones_enabled:
+		# Fail closed if JNI/system tone output cannot be constructed.
+		android_tones_enabled = sound.set_android_system_tones(true)
 	_reset_game()
 
 func _reset_game() -> void:
 	mode = MODE_TITLE
+	resume_mode = MODE_PLAY
 	campaign_stage = -1
 	clear_medal = 0
 	clear_reward = 0
@@ -312,11 +319,32 @@ func _input(event: InputEvent) -> void:
 			if mode in [MODE_WARDROBE, MODE_GOALS, MODE_CHAPTERS, MODE_CLEAR]:
 				mode = MODE_TITLE
 			elif mode == MODE_PAUSED:
-				mode = MODE_PLAY
-				sound.set_paused(false)
-			elif mode in [MODE_AIM, MODE_PLAY]:
-				mode = MODE_PAUSED
-				sound.set_paused(true)
+				_resume_game()
+			elif mode in [MODE_AIM, MODE_PLAY, MODE_FLY]:
+				_pause_game()
+
+func _pause_game() -> void:
+	if mode not in [MODE_PLAY, MODE_AIM, MODE_FLY]:
+		return
+	# Never force an interrupted flight into the grounded PLAY state.
+	resume_mode = MODE_PLAY if mode == MODE_AIM else mode
+	mode = MODE_PAUSED
+	sound.set_paused(true)
+	_save_progress()
+
+func _resume_game() -> void:
+	if mode != MODE_PAUSED:
+		return
+	mode = resume_mode
+	sound.set_paused(false)
+
+func _notification(what: int) -> void:
+	# Android app switch / incoming calls: freeze the river and keep the run.
+	if what in [NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT]:
+		if mode in [MODE_PLAY, MODE_AIM, MODE_FLY]:
+			_pause_game()
+		elif is_node_ready():
+			_save_progress()
 
 func _down(pos: Vector2) -> void:
 	if mode == MODE_CHAPTERS:
@@ -388,12 +416,14 @@ func _down(pos: Vector2) -> void:
 			monetization.ads.show_privacy_options()
 			return
 		if Rect2(108, 460, 324, 66).has_point(pos):
-			mode = MODE_PLAY
-			sound.set_paused(false)
+			_resume_game()
 		elif Rect2(108, 544, 324, 66).has_point(pos):
 			if OS.has_feature("android"):
-				haptics_enabled = not haptics_enabled
-				sound.set_haptics(haptics_enabled)
+				if pos.x < 270.0:
+					android_tones_enabled = sound.set_android_system_tones(not android_tones_enabled)
+				else:
+					haptics_enabled = not haptics_enabled
+					sound.set_haptics(haptics_enabled)
 			else:
 				saved_muted = not saved_muted
 				muted = saved_muted
@@ -401,8 +431,7 @@ func _down(pos: Vector2) -> void:
 			_save_progress()
 		return
 	if mode in [MODE_PLAY, MODE_AIM] and Rect2(473, 78, 63, 59).has_point(pos):
-		mode = MODE_PAUSED
-		sound.set_paused(true)
+		_pause_game()
 		return
 	if mode == MODE_LOST:
 		var retry_chapter := campaign_stage
@@ -706,6 +735,7 @@ func _save_progress() -> void:
 	save.load("user://jumpy_frog.cfg")
 	save.set_value("progress", "best_score", best_score)
 	save.set_value("progress", "muted", saved_muted)
+	save.set_value("progress", "android_system_tones", android_tones_enabled)
 	save.set_value("progress", "haptics", haptics_enabled)
 	save.set_value("progress", "leaves", leaves)
 	save.set_value("progress", "unlocked_skins", unlocked_skins)
