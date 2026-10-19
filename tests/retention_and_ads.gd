@@ -11,7 +11,7 @@ func _check_all() -> void:
 	_expect(daily.refresh_day(22002), "first UTC day initializes")
 	daily.begin_run(22002)
 	_expect(daily.streak_days == 1, "streak starts at 1")
-	_expect(not daily.refresh_day(22003), "clock rollback cannot replay daily rewards")
+	_expect(not daily.refresh_day(22001), "clock rollback cannot replay daily rewards")
 	var rewards := 0
 	for i in range(8):
 		rewards += daily.on_landing(i * 12, i % 2 == 0)
@@ -25,7 +25,7 @@ func _check_all() -> void:
 	var restored = Daily.new()
 	restored.load_from(save)
 	_expect(restored.today_best == 3450 and restored.goals_claimed == 7, "daily progress round trips through ConfigFile")
-	_expect(restored.refresh_day(22001), "new UTC day resets daily goals")
+	_expect(restored.refresh_day(22003), "new UTC day resets daily goals")
 	restored.begin_run(22003)
 	_expect(restored.streak_days == 2, "next-day streak grows")
 	_expect(restored.today_hops == 0 and restored.goals_claimed == 0, "daily progress resets")
