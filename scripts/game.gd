@@ -79,7 +79,7 @@ func _ready() -> void:
 		selected_skin = clampi(int(save.get_value("progress", "selected_skin", 0)), 0, 3)
 		if not _is_unlocked(selected_skin):
 			selected_skin = 0
-		total_runs = maxi(0, int(save.get_value("progress", "total_runs", 0))
+		total_runs = maxi(0, int(save.get_value("progress", "total_runs", 0)))
 	muted = saved_muted or OS.has_feature("android")
 	sound.set_muted(muted)
 	_reset_game()
