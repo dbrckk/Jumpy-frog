@@ -16,7 +16,7 @@ const MODE_LOST := 4
 const MODE_PAUSED := 5
 const MODE_WARDROBE := 6
 const MODE_GOALS := 7
-const SKIN_COSTS := [0, 12, 30, 65]
+const SKIN_COSTS := [0, 12, 30, 65, 110, 175, 260, 380]
 
 var mode: int = MODE_TITLE
 var rng := RandomNumberGenerator.new()
@@ -51,6 +51,7 @@ var saved_muted: bool = false
 var leaves: int = 0
 var unlocked_skins: int = 1
 var selected_skin: int = 0
+var wardrobe_page: int = 0
 var total_runs: int = 0
 var daily := DAILY.new()
 var monetization: Node
@@ -86,8 +87,8 @@ func _ready() -> void:
 		best_score = int(save.get_value("progress", "best_score", 0))
 		saved_muted = bool(save.get_value("progress", "muted", false))
 		leaves = maxi(0, int(save.get_value("progress", "leaves", 0)))
-		unlocked_skins = maxi(1, int(save.get_value("progress", "unlocked_skins", 1))) & 15
-		selected_skin = clampi(int(save.get_value("progress", "selected_skin", 0)), 0, 3)
+		unlocked_skins = maxi(1, int(save.get_value("progress", "unlocked_skins", 1))) & 255
+		selected_skin = clampi(int(save.get_value("progress", "selected_skin", 0)), 0, 7)
 		if not _is_unlocked(selected_skin):
 			selected_skin = 0
 		total_runs = maxi(0, int(save.get_value("progress", "total_runs", 0)))
@@ -246,7 +247,7 @@ func _draw() -> void:
 			preview = Vector2(float(pad["x"]), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -280,21 +281,25 @@ func _down(pos: Vector2) -> void:
 			mode = MODE_TITLE
 		return
 	if mode == MODE_WARDROBE:
+		if Rect2(139, 694, 262, 58).has_point(pos):
+			wardrobe_page = 1 - wardrobe_page
+			return
 		if Rect2(100, 770, 340, 74).has_point(pos):
 			mode = MODE_TITLE
 			return
 		for i in range(4):
+			var index := i + wardrobe_page * 4
 			var px := 66.0 + float(i % 2) * 216.0
 			var py := 340.0 + float(i / 2) * 162.0
 			if Rect2(px, py, 192, 146).has_point(pos):
-				if _is_unlocked(i):
-					selected_skin = i
+				if _is_unlocked(index):
+					selected_skin = index
 					sound.play_event("ui")
 					_save_progress()
-				elif leaves >= SKIN_COSTS[i]:
-					leaves -= SKIN_COSTS[i]
-					unlocked_skins |= 1 << i
-					selected_skin = i
+				elif leaves >= SKIN_COSTS[index]:
+					leaves -= SKIN_COSTS[index]
+					unlocked_skins |= 1 << index
+					selected_skin = index
 					_save_progress()
 					celebration = 1.0
 					sound.play_event("friend")
@@ -502,7 +507,7 @@ func _on_rewarded_leaves(amount: int) -> void:
 	_add_float_text("+%d LEAVES" % amount, Vector2(270, 265), Color("#e6ffc5"))
 
 func _is_unlocked(index: int) -> bool:
-	return index >= 0 and index < 4 and (unlocked_skins & (1 << index)) != 0
+	return index >= 0 and index < SKIN_COSTS.size() and (unlocked_skins & (1 << index)) != 0
 
 func _save_progress() -> void:
 	var save := ConfigFile.new()
