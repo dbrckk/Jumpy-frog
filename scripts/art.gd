@@ -42,6 +42,16 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
 	_river(c, time, cam, biome)
+	# Sparse animated surface glints: stable world-space placement, zero textures.
+	# Limited to 15 strokes so older Android GPUs are not overloaded.
+	for i in range(15):
+		var seed := float(i * 83 + 17)
+		var x := 48.0 + fposmod(seed * 3.73, 448.0)
+		var y := fposmod(seed * 9.7 + time * (8.0 + float(i % 4) * 2.0) + cam * 1.3, H + 36.0) - 18.0
+		var shine := 0.20 + 0.16 * sin(time * 1.9 + seed)
+		c.draw_line(Vector2(x - 7.0, y), Vector2(x + 7.0, y), Color(0.95, 1.0, 0.91, shine), 1.4, true)
+		if i % 3 == 0:
+			c.draw_line(Vector2(x - 3.0, y + 5.0), Vector2(x + 3.0, y + 5.0), Color(0.95, 1.0, 0.91, shine * 0.55), 1.0, true)
 	c.draw_set_transform(Vector2.ZERO)
 	for pad in pads:
 		var screen := Vector2(float(pad["x"]), ANCHOR - (float(pad["m"]) - cam) * SCALE) + shake
