@@ -80,7 +80,13 @@ jobs:
           export/android/android_sdk_path = "$SDK"
           EOF
       - name: Import and validate Godot project
-        run: godot --headless --editor --path . --quit
+        run: |
+          set -euo pipefail
+          godot --headless --editor --path . --quit 2>&1 | tee /tmp/godot-import.log
+          if grep -E 'SCRIPT ERROR:|Parse Error:|Failed to load script' /tmp/godot-import.log; then
+            echo "::error::Godot script parsing failed during import"
+            exit 1
+          fi
       - name: Gameplay regression tests (bounded)
         run: |
           set -euo pipefail
