@@ -455,7 +455,7 @@ static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int,
 
 static func _pause_overlay(c: CanvasItem, muted: bool, monetization: Node) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.15, 0.22, 0.29, 0.60))
-	rr(c, Rect2(55, 295, 430, 360), 32, Color("#fff0d9"), Color("#887b72"), 3)
+	rr(c, Rect2(55, 295, 430, 565 if (monetization.billing != null or monetization.ads != null) else 360), 32, Color("#fff0d9"), Color("#887b72"), 3)
 	text(c, "PAUSED", Vector2(270, 360), 48, Color("#5a6474"), true)
 	text(c, "The river can wait.", Vector2(270, 418), 21, Color("#897871"))
 	rr(c, Rect2(108, 460, 324, 66), 27, Color("#b3d185"), Color("#5e7e60"), 2)
@@ -469,6 +469,9 @@ static func _pause_overlay(c: CanvasItem, muted: bool, monetization: Node) -> vo
 	if monetization.ads != null:
 		rr(c, Rect2(108, 704, 324, 56), 22, Color("#e8e1d7"), Color("#968b80"), 1.5)
 		text(c, "PRIVACY OPTIONS", Vector2(270, 731), 18, INK)
+	if monetization.billing != null and not monetization.premium:
+		rr(c, Rect2(108, 781, 324, 54), 22, Color("#e5d6bb"), Color("#968b80"), 1.5)
+		text(c, "RESTORE PURCHASE", Vector2(270, 806), 19, INK)
 
 static func _wardrobe_overlay(c: CanvasItem, time: float, leaves: int, selected: int, unlocked: int, prices: Array) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.15, 0.22, 0.29, 0.67))
