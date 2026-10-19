@@ -5,6 +5,10 @@ on:
   push:
     paths:
       - tests/capture_store.gd
+      - scripts/game.gd
+      - scripts/art.gd
+      - scripts/chapters.gd
+      - scripts/daily.gd
       - .github/workflows/store-screenshots.yml
 
 permissions:
@@ -39,7 +43,7 @@ jobs:
           from pathlib import Path
           from PIL import Image
           files=sorted(Path('build/store').glob('0*.png'))
-          assert len(files)==8, files
+          assert len(files)==9, files
           for p in files:
               with Image.open(p) as im:
                   assert im.size==(1080,1920), (p, im.size)
