@@ -19,7 +19,9 @@
 
 ## Product
 - [x] Endless river jumping, pickups, companions and increasing pressure
-- [x] Local progression and unlockable cosmetic styles
+- [x] Six replayable chapters, stars, saved level unlocks, eight cosmetic styles and endless cyclical biomes
+- [x] Precision-landing rewards and temporary current boost pads
+- [x] Optional Android haptic feedback, with VIBRATE permission requested
 - [x] Pause/resume, retry and local save. Offline debug has no network; monetized build uses network only for advertising and Google Play Billing
 - [ ] 30-minute device soak test with suspend/resume, rotation lock and repeated app restarts
 - [ ] Screen-reader/talkback and touch-accessibility manual audit
@@ -89,3 +91,12 @@ The test AAB is debug-signed and **must never be uploaded as a production app**.
 - [ ] Long soak test on the specific Android 15 Redmi where Godot's OpenSL audio previously crashed
 
 See [monetization manual](monetization.md). **The ordinary ad-free debug APK does not validate paid purchase or live ad revenue.**
+
+
+## Version 1.2 physical-device checks
+
+- [ ] Complete all six chapter routes at least once on the affected Redmi.
+- [ ] Confirm 1–3 stars, persistent progress and earned bonus leaves after app restart.
+- [ ] Verify the pause-screen haptic toggle works, and Android VIBRATE permission is present.
+- [ ] Compare framerate across all six themed river environments.
+- [ ] Confirm music is correctly available on desktop only; Android sound is not advertised as restored.
