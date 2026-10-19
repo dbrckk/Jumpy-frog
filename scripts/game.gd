@@ -299,6 +299,9 @@ func _down(pos: Vector2) -> void:
 				return
 		return
 	if mode == MODE_PAUSED:
+		if Rect2(108, 781, 324, 54).has_point(pos) and monetization.billing != null and not monetization.premium:
+			monetization.restore_purchase()
+			return
 		if Rect2(108, 633, 324, 62).has_point(pos) and monetization.purchase_ready and not monetization.premium:
 			monetization.purchase_remove_ads()
 			return
