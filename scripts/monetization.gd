@@ -178,7 +178,10 @@ func request_rewarded_leaves() -> bool:
 	if not can_watch_rewarded():
 		return false
 	_reward_pending = true
-	ads.show_rewarded()
+	if not ads.show_rewarded():
+		# Native inventory can disappear between availability and showing.
+		_reward_pending = false
+		return false
 	return true
 
 func _on_reward_earned() -> void:
