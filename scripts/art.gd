@@ -425,7 +425,7 @@ static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, d
 		text(c, "AD-FREE FOREVER", Vector2(270, 416), 20, Color("#5a9462"))
 	elif monetization.purchase_ready:
 		rr(c, Rect2(139, 403, 262, 58), 23, Color("#f3dfba"), Color("#a88e68"), 2)
-		var label := "REMOVE ADS " + (monetization.price_label if not monetization.price_label.is_empty() else "• PLAY STORE")
+		var label: String = "REMOVE ADS " + (monetization.price_label if not monetization.price_label.is_empty() else "• PLAY STORE")
 		text(c, label, Vector2(270, 429), 18, Color("#755d4f"))
 	rr(c, Rect2(139, 634, 262, 58), 23, Color("#c6e2ba"), Color("#748b6b"), 2.2)
 	text(c, "DAILY GOALS  %d/3" % daily.completion_count(), Vector2(270, 660), 21, Color("#4b654b"))
@@ -464,7 +464,7 @@ static func _pause_overlay(c: CanvasItem, muted: bool, monetization: Node) -> vo
 	text(c, "SOUND: TEMP. OFF" if OS.has_feature("android") else ("SOUND: OFF" if muted else "SOUND: ON"), Vector2(270, 577), 22, INK)
 	if monetization.purchase_ready and not monetization.premium:
 		rr(c, Rect2(108, 633, 324, 62), 22, Color("#eed8ad"), Color("#a48a68"), 2)
-		var label := "NO ADS " + (monetization.price_label if not monetization.price_label.is_empty() else "• PLAY")
+		var label: String = "NO ADS " + (monetization.price_label if not monetization.price_label.is_empty() else "• PLAY")
 		text(c, label, Vector2(270, 662), 21, INK)
 	if monetization.ads != null:
 		rr(c, Rect2(108, 704, 324, 56), 22, Color("#e8e1d7"), Color("#968b80"), 1.5)
