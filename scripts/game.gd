@@ -67,6 +67,8 @@ var biome_banner := 0.0
 var monetization: Node
 var rewarded_this_run := false
 var run_hops := 0
+var perfect_streak := 0
+var jump_is_perfect := false
 var run_leaves: int = 0
 var body_tilt := 0.0
 var body_squash := 0.0
@@ -141,6 +143,8 @@ func _reset_game() -> void:
 	combo = 0
 	run_leaves = 0
 	run_hops = 0
+	perfect_streak = 0
+	jump_is_perfect = false
 	rewarded_this_run = false
 	daily.refresh_day()
 	aim_x = 270.0
@@ -520,6 +524,10 @@ func _landing_target(desired_x: float, desired_m: float) -> Dictionary:
 func _start_jump() -> void:
 	var target := _landing_target(aim_x, aim_m)
 	jump_pad_id = -1 if target.is_empty() else int(target["id"])
+	jump_is_perfect = false
+	if not target.is_empty():
+		var diff := Vector2(float(target["x"]) - aim_x, (float(target["m"]) - aim_m) * PX_PER_M)
+		jump_is_perfect = (diff.length_squared() < pow(float(target["r"]) * 0.28, 2))
 	jump_start = Vector2(player_x, player_m)
 	jump_end = Vector2(aim_x, aim_m)
 	if not target.is_empty():
@@ -534,6 +542,7 @@ func _start_jump() -> void:
 func _finish_jump() -> void:
 	jump_z = 0.0
 	if jump_pad_id == -1:
+		perfect_streak = 0
 		shake_strength = 11.0
 		impact_flash = 0.20
 		sound.play_event("splash")
@@ -544,6 +553,17 @@ func _finish_jump() -> void:
 	for pad in pads:
 		if int(pad["id"]) == jump_pad_id:
 			var gain := maxi(12, int((float(pad["m"]) - highest_m) * 13.0))
+			if jump_is_perfect:
+				perfect_streak += 1
+				gain += 35 + mini(perfect_streak, 12) * 4
+				_add_float_text("PERFECT x%d!" % perfect_streak, _player_screen() + Vector2(0, -120), Color("#fff3ac"))
+				if perfect_streak % 5 == 0:
+					leaves += 1
+					run_leaves += 1
+					_add_float_text("STREAK +1 LEAF", _player_screen() + Vector2(0, -159), Color("#e7fbb4"))
+					sound.play_event("combo")
+			else:
+				perfect_streak = 0
 			var collected_leaf: bool = bool(pad["coin"])
 			var rescued_pet: bool = bool(pad["pet"])
 			if bool(pad["coin"]):
