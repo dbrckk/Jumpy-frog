@@ -1,6 +1,17 @@
 extends SceneTree
 ## Strict exit codes for daily missions and monetization policy; no test purchase spoofing.
 var errors := 0
+class TestAdBridge extends Node:
+	var shown := 0
+	func can_show_interstitial() -> bool:
+		return true
+	func show_interstitial() -> void:
+		shown += 1
+	func can_show_rewarded() -> bool:
+		return true
+	func show_rewarded() -> void:
+		pass
+
 
 func _initialize() -> void:
 	call_deferred("_check_all")
@@ -45,6 +56,35 @@ func _check_all() -> void:
 	monet.runs_since_ad = 100
 	monet.elapsed = 10000.0
 	_expect(not monet.request_break_interstitial(), "no fallback fake ad even after threshold")
+
+	var test_ads := TestAdBridge.new()
+	root.add_child(test_ads)
+	monet.ads = test_ads
+	monet.elapsed = 100.0
+	monet.completed_runs = 3
+	monet.runs_since_ad = 3
+	_expect(not monet.request_break_interstitial(), "no interstitial in first three runs")
+	monet.completed_runs = 4
+	monet.runs_since_ad = 4
+	_expect(not monet.request_break_interstitial(), "no interstitial before 6 minutes")
+	monet.elapsed = 361.0
+	_expect(monet.request_break_interstitial(), "natural break eligible after four runs and 6 minutes")
+	_expect(test_ads.shown == 1, "one interstitial requested from real-provider abstraction")
+	_expect(not monet.request_break_interstitial(), "cooldown prevents consecutive interstitials")
+	var earned := [0]
+	monet.rewarded_leaves_granted.connect(func(amount: int) -> void: earned[0] += amount)
+	monet._reward_pending = true
+	monet._on_reward_earned()
+	monet._on_reward_earned()
+	_expect(earned[0] == 5, "reward callback grants exactly five leaves only once")
+	monet.premium = true
+	monet.completed_runs = 100
+	monet.runs_since_ad = 100
+	monet.elapsed = 2000
+	_expect(not monet.request_break_interstitial(), "owned remove-ads entitlement blocks interstitial")
+	_expect(not monet.request_rewarded_leaves(), "owned remove-ads entitlement blocks rewarded ads")
+	monet.ads = null
+	test_ads.queue_free()
 	monet.queue_free()
 	await process_frame
 	if errors == 0:
