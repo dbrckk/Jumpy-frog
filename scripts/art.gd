@@ -108,7 +108,10 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	if mode == 8:
 		_chapter_select_overlay(c, chapters)
 	if mode == 9:
-		_chapter_clear_overlay(c, campaign_stage, clear_medal, clear_reward, chapters)
+		if campaign_stage == -2:
+			_daily_clear_overlay(c, clear_reward, daily, score)
+		else:
+			_chapter_clear_overlay(c, campaign_stage, clear_medal, clear_reward, chapters)
 
 static func _river(c: CanvasItem, t: float, cam: float, biome: int) -> void:
 	# Each chapter has its own original illustrated color script; no external textures.
@@ -462,14 +465,15 @@ static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int,
 		rr(c, Rect2(476, 81, 48, 45), 14, CREAM, Color("#8c806e"), 1.5)
 		line(c, Vector2(493, 92), Vector2(493, 113), Color("#6c6470"), 4.0)
 		line(c, Vector2(507, 92), Vector2(507, 113), Color("#6c6470"), 4.0)
-	if campaign_stage >= 0 and mode in [1, 2, 3, 4, 9]:
-		var level: Dictionary = chapters.chapter(campaign_stage)
+	if (campaign_stage >= 0 or campaign_stage == -2) and mode in [1, 2, 3, 4, 9]:
+		var level: Dictionary = chapters.chapter(campaign_stage) if campaign_stage >= 0 else {"target": 180}
 		var target := int(level["target"])
 		var fraction := clampf(float(distance) / float(target), 0.0, 1.0)
 		rr(c, Rect2(131, 111, 277, 36), 17, Color("#f7edda"), Color("#817e75"), 1.4)
 		rr(c, Rect2(143, 139, 252, 4), 2, Color("#d2d1c0"))
 		rr(c, Rect2(143, 139, 252.0 * fraction, 4), 2, Color("#92bd84"))
-		text(c, "CHAPTER %d   %d/%d m" % [campaign_stage + 1, distance, target], Vector2(270, 126), 15, INK)
+		var progress_title := "DAILY RIVER" if campaign_stage == -2 else "CHAPTER %d" % (campaign_stage + 1)
+		text(c, "%s   %d/%d m" % [progress_title, distance, target], Vector2(270, 126), 15, INK)
 	if biome_banner > 0.0 and mode in [1, 2, 3]:
 		var names := ["SUNNY BANKS", "LILY GARDEN", "GOLDEN REEDS", "MOONLIT POND", "CRYSTAL RIVER", "STORMY RAPIDS"]
 		var alpha := minf(1.0, biome_banner * 1.5)
@@ -499,7 +503,12 @@ static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, d
 		text(c, label, Vector2(270, 429), 18, Color("#755d4f"))
 	rr(c, Rect2(139, 549, 262, 67), 23, Color("#f2d79d"), Color("#92734d"), 2.1)
 	text(c, "CHAPTERS  %d / 6" % chapters.completed_count(), Vector2(270, 579), 23, Color("#60533f"))
-	text(c, "ENDLESS RUN - TAP TO PLAY", Vector2(270, 501), 16, Color("#e6f4df"), true)
+	rr(c, Rect2(62, 470, 197, 62), 22, Color("#8fbc94"), Color("#658b75"), 2)
+	text(c, "ENDLESS", Vector2(160, 499), 22, Color("#f7f6df"), true)
+	rr(c, Rect2(281, 470, 197, 62), 22, Color("#aabedc"), Color("#717e9b"), 2)
+	text(c, "DAILY RIVER", Vector2(379, 494), 19, Color("#fff5db"), true)
+	var today_status := "DONE" if daily.river_complete_today() else "+25 LEAVES"
+	text(c, today_status, Vector2(379, 517), 13, Color("#506277"))
 	rr(c, Rect2(139, 634, 262, 58), 23, Color("#c6e2ba"), Color("#748b6b"), 2.2)
 	text(c, "DAILY GOALS  %d/3" % daily.completion_count(), Vector2(270, 660), 21, Color("#4b654b"))
 	rr(c, Rect2(139, 710, 262, 58), 23, Color("#a8d2aa"), Color("#668569"), 2.2)
@@ -624,6 +633,22 @@ static func _chapter_select_overlay(c: CanvasItem, chapters: RefCounted) -> void
 			text(c, "LOCKED", Vector2(x + 96, y + 95), 19, Color("#6b6d70"))
 	rr(c, Rect2(105, 790, 330, 75), 25, Color("#a8d1a3"), Color("#708768"), 2.0)
 	text(c, "BACK TO HOME", Vector2(270, 826), 25, Color("#3d594b"))
+
+
+static func _daily_clear_overlay(c: CanvasItem, reward: int, daily: RefCounted, score: int) -> void:
+	c.draw_rect(Rect2(0, 0, W, H), Color(0.10, 0.19, 0.30, 0.72))
+	rr(c, Rect2(39, 243, 462, 515), 34, Color("#fff2d9"), Color("#a89479"), 4.0)
+	text(c, "DAILY RIVER!", Vector2(270, 306), 43, Color("#577582"), true)
+	text(c, "TODAY'S CHALLENGE COMPLETED", Vector2(270, 357), 20, Color("#697d75"))
+	text(c, "★", Vector2(270, 435), 78, Color("#e0b451"), true)
+	text(c, "SCORE  %s" % _commas(score), Vector2(270, 505), 26, INK)
+	text(c, "TODAY'S BEST  %s" % _commas(daily.river_best_score), Vector2(270, 548), 18, Color("#827d77"))
+	var prize := "+%d LEAVES" % reward if reward > 0 else "TODAY'S BONUS ALREADY CLAIMED"
+	text(c, prize, Vector2(270, 588), 20, Color("#668957"))
+	rr(c, Rect2(72, 633, 195, 66), 24, Color("#9fcf8b"), Color("#638761"), 2)
+	text(c, "PLAY AGAIN", Vector2(169, 663), 19, Color("#435c49"))
+	rr(c, Rect2(285, 633, 190, 66), 24, Color("#e8d8b8"), Color("#938573"), 2)
+	text(c, "HOME", Vector2(380, 663), 25, Color("#6a5d54"))
 
 
 static func _chapter_clear_overlay(c: CanvasItem, index: int, stars: int, reward: int, chapters: RefCounted) -> void:
