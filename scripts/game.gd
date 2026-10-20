@@ -99,6 +99,8 @@ var _quality_downgrade_windows := 0
 var river_shader_rect: ColorRect
 var river_shader_material: ShaderMaterial
 var _last_shader_quality := -1
+var _last_shader_biome := -1
+var _shader_frame_skip := 0
 
 func _ready() -> void:
 	# A 60 Hz cap avoids unnecessary GPU/CPU heat on 90/120 Hz handsets.
@@ -137,8 +139,9 @@ func _ready() -> void:
 func _initialize_river_shader() -> void:
 	river_shader_rect = ColorRect.new()
 	river_shader_rect.name = "RiverSurfaceCaustics"
-	river_shader_rect.position = Vector2.ZERO
-	river_shader_rect.size = Vector2(W, H)
+	# Crop GPU work to the river corridor: banks and UI stay unshaded.
+	river_shader_rect.position = Vector2(76.0, 0.0)
+	river_shader_rect.size = Vector2(W - 152.0, H)
 	river_shader_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	river_shader_rect.z_index = 1
 	river_shader_rect.visible = false
@@ -150,8 +153,11 @@ func _initialize_river_shader() -> void:
 func _update_graphics_quality(frame_delta: float) -> void:
 	if mode not in [MODE_PLAY, MODE_AIM, MODE_FLY] or frame_delta <= 0.0:
 		return
-	_frame_budget_accum += minf(frame_delta, 0.2)
-	_frame_budget_sum += minf(frame_delta, 0.2)
+	# Ignore background/app-switch stalls: these are not GPU bottlenecks.
+	if frame_delta > 0.12:
+		return
+	_frame_budget_accum += frame_delta
+	_frame_budget_sum += frame_delta
 	_frame_budget_samples += 1
 	if _frame_budget_accum < 2.0:
 		return
@@ -267,6 +273,16 @@ func _process(delta: float) -> void:
 		if graphics_quality != _last_shader_quality:
 			river_shader_material.set_shader_parameter("strength", 0.48 if graphics_quality == 2 else (0.26 if graphics_quality == 1 else 0.0))
 			_last_shader_quality = graphics_quality
+		# The color only changes at chapter boundaries, not on every frame.
+		var shader_biome: int = chapters.biome_at(player_m, campaign_stage)
+		if shader_biome != _last_shader_biome:
+			var water_colors := [
+				Color("#b8f9e5"), Color("#b0f4e0"), Color("#f9e7bb"),
+				Color("#c5f2f5"), Color("#d7e3ff"), Color("#ffe1c9")
+			]
+			river_shader_material.set_shader_parameter("highlight_color", water_colors[shader_biome])
+			river_shader_material.set_shader_parameter("current_speed", 0.82 + float(shader_biome) * 0.11)
+			_last_shader_biome = shader_biome
 	if mode == MODE_PAUSED:
 		queue_redraw()
 		return
@@ -324,7 +340,9 @@ func _process(delta: float) -> void:
 	# Look ahead while aiming and flying without altering the world simulation.
 	var cam_target := player_m + (4.0 if mode in [MODE_AIM, MODE_FLY] else 0.0)
 	cam_m = lerpf(cam_m, cam_target, 1.0 - exp(-delta * 4.7))
-	if not pads.is_empty() and float(pads[0]["m"]) < cam_m - 75.0:
+	# Reclaim every platform behind the camera after large frame jumps,
+	# without allowing the procedural array to grow indefinitely.
+	while pads.size() > 1 and float(pads[0]["m"]) < cam_m - 75.0:
 		pads.pop_front()
 	if mode in [MODE_PLAY, MODE_AIM, MODE_FLY]:
 		_generate_pads()
