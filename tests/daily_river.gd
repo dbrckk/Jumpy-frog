@@ -11,6 +11,11 @@ func _verify() -> void:
 	await process_frame
 	var today: int = game.daily.day_id
 	_check(today > 0, "UTC day is initialized")
+	# Test must not inherit yesterday's QA run or today's already-claimed
+	# reward from the same user:// save file. Production claim-once remains intact.
+	game.daily.river_completed_day = -1
+	game.daily.river_best_score = 0
+	game.daily.river_attempts = 0
 	game._start_daily_river()
 	_check(game.mode == 1 and game.campaign_stage == -2, "daily challenge starts")
 	var initial_route: Array = []
