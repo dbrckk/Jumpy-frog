@@ -1,11 +1,18 @@
 extends SceneTree
 ## Screenshots rendered by the real Godot game, not marketing mockups.
 const OUTPUT := "res://build/store"
+var capture_failures := 0
 
 func _initialize() -> void:
 	call_deferred("_capture")
 
 func _capture() -> void:
+	# A headless Godot display has no post-draw framebuffer signal: fail fast
+	# instead of hanging forever while awaiting RenderingServer.frame_post_draw.
+	if DisplayServer.get_name() == "headless":
+		printerr("Store capture requires a graphics display. Use xvfb-run with --rendering-driver opengl3.")
+		quit(2)
+		return
 	var scene: Node2D = load("res://main.tscn").instantiate()
 	root.add_child(scene)
 	scene.sound.set_muted(true)
@@ -74,8 +81,12 @@ func _capture() -> void:
 	await _save(scene, "09-daily-river.png")
 	scene.queue_free()
 	await process_frame
-	print("PASS: nine real 1080x1920 PNG store captures")
-	quit(0)
+	if capture_failures == 0:
+		print("PASS: nine real 1080x1920 PNG store captures")
+		quit(0)
+	else:
+		printerr("FAILED: %d store screenshots could not be saved" % capture_failures)
+		quit(1)
 
 func _save(scene: Node2D, filename: String) -> void:
 	scene.queue_redraw()
@@ -85,11 +96,11 @@ func _save(scene: Node2D, filename: String) -> void:
 	var img: Image = root.get_texture().get_image()
 	if img.is_empty():
 		push_error("Capture failed: empty frame " + filename)
-		quit(1)
+		capture_failures += 1
 		return
 	img.resize(1080, 1920, Image.INTERPOLATE_LANCZOS)
 	var path := ProjectSettings.globalize_path(OUTPUT.path_join(filename))
 	var error := img.save_png(path)
 	if error != OK:
 		push_error("Failed writing " + path + ": " + str(error))
-		quit(1)
+		capture_failures += 1
