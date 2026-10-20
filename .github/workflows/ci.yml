@@ -90,10 +90,19 @@ jobs:
       - name: Gameplay regression tests (bounded)
         run: |
           set -euo pipefail
-          timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/smoke.gd
+          # Exit code alone is insufficient: catch regressions that leak audio
+          # resources while still reporting a successful gameplay smoke test.
+          timeout --signal=TERM --kill-after=10s 100s godot --verbose --headless --path . --script res://tests/smoke.gd 2>&1 | tee /tmp/jumpy-smoke.log
+          if grep -E 'ObjectDB instances leaked|Leaked instance:' /tmp/jumpy-smoke.log; then
+            echo "::error::Godot emitted a leaked-object warning during smoke test"
+            exit 1
+          fi
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/chapters.gd
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/retention_and_ads.gd
-          timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/daily_river.gd
+          # Running twice ensures an already-claimed daily save does not break QA.
+          for attempt in 1 2; do
+            timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/daily_river.gd
+          done
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/endurance.gd
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/lifecycle.gd
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/render_quality.gd
