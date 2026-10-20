@@ -45,6 +45,10 @@ func _run_tests() -> void:
 	scene.mode = 0
 	scene._down(Vector2(255, 733))
 	_check(scene.mode == 6, "title opens wardrobe")
+	# Purchases must be tested from a known wardrobe state; previous QA runs
+	# may have persisted unlocked skins in the shared user:// directory.
+	scene.unlocked_skins = 1
+	scene.selected_skin = 0
 	scene.leaves = 200
 	scene._down(Vector2(360, 396))
 	_check(scene._is_unlocked(1), "wardrobe can buy a skin")
