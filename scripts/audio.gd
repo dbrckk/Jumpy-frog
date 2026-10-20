@@ -115,8 +115,30 @@ func _play_system_tone(event_name: String) -> void:
 		_release_system_tones()
 
 func _exit_tree() -> void:
-	if mobile_safe_mode:
-		_release_system_tones()
+	# Explicitly release the short-lived streams before their owner leaves the tree.
+	# The audio thread can otherwise keep WAV/playback objects alive at shutdown.
+	android_system_tones = false
+	_release_system_tones()
+	for voice in voices:
+		if is_instance_valid(voice):
+			voice.stop()
+			voice.stream = null
+	if is_instance_valid(ambience):
+		ambience.stop()
+		ambience.stream = null
+	if is_instance_valid(music):
+		music.stop()
+		music.stream = null
+	# Stopping an AudioStreamPlayer queues release in the audio mix thread.
+	# Give that thread one bounded mix interval before dropping cached WAVs;
+	# without this, Godot 4.5.1 may leak WAV/playback instances at process exit.
+	# Android safe mode does not create players, so it never incurs the delay.
+	if not mobile_safe_mode and (not voices.is_empty() or ambience != null or music != null):
+		OS.delay_msec(90)
+	samples.clear()
+	voices.clear()
+	ambience = null
+	music = null
 
 func set_haptics(enabled: bool) -> void:
 	haptics_enabled = enabled
