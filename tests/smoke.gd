@@ -21,6 +21,18 @@ func _run_tests() -> void:
 		_check(scene.sound.ambience == null, "Android never starts looping WAV background")
 		_check(scene.sound.samples.is_empty(), "Android skips PCM synthesis")
 
+	# Rendering is cosmetic: no shader quality change may alter physics.
+	_check(scene.river_shader_rect != null, "water caustics shader exists")
+	_check(scene.river_shader_rect.size.x < 540.0, "water shader is cropped to river, not full-screen")
+	_check(scene.river_shader_rect.mouse_filter == Control.MOUSE_FILTER_IGNORE, "shader never intercepts touch")
+	_check(scene.graphics_quality >= 0 and scene.graphics_quality <= 2, "adaptive quality remains bounded")
+	var initial_pad_count: int = scene.pads.size()
+	scene.cam_m = 130.0
+	scene.mode = 0
+	scene._process(0.016)
+	_check(scene.pads.size() <= initial_pad_count, "offscreen platform pruning does not grow arrays")
+	scene._reset_game()
+	_check(scene.pads.size() >= 4, "platforms regenerate after quality/pruning test")
 	_check(scene.pads.size() >= 4, "generates platforms")
 	_check(scene.pads[0]["m"] == 0.0, "starts on a lily")
 	print("SMOKE STAGE: progression")
