@@ -5,6 +5,7 @@ signal premium_changed(enabled: bool)
 signal rewarded_leaves_granted(amount: int)
 signal status_changed(message: String)
 
+const SAVE_STORE = preload("res://scripts/save_store.gd")
 const PRODUCT_ID := "remove_ads"
 const REWARD_LEAVES := 5
 const INTERSTITIAL_MIN_RUNS := 4
@@ -33,16 +34,18 @@ func _process(delta: float) -> void:
 
 func _load_cache() -> void:
 	var save := ConfigFile.new()
-	if save.load("user://jumpy_frog.cfg") == OK:
+	if SAVE_STORE.read_into(save) == OK:
 		# Cache only a purchase previously observed through Play Billing.
 		premium = bool(save.get_value("billing", "remove_ads_verified", false))
 
 func _save_cache() -> void:
 	var save := ConfigFile.new()
 	# Use the same file as the game and preserve other sections.
-	save.load("user://jumpy_frog.cfg")
+	SAVE_STORE.read_into(save)
 	save.set_value("billing", "remove_ads_verified", premium)
-	save.save("user://jumpy_frog.cfg")
+	var result: Error = SAVE_STORE.write(save)
+	if result != OK:
+		push_warning("Billing cache write failed: %s" % error_string(result))
 
 func _init_billing() -> void:
 	if not Engine.has_singleton("GodotGooglePlayBilling"):
