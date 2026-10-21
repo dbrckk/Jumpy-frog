@@ -58,9 +58,14 @@ if im.size != (540, 960):
     raise SystemExit
 samples=[im.getpixel((x,y)) for y in range(160,820,15) for x in range(40,500,15)]
 overlay=sum(rgb==(238,237,244) for rgb in samples)/len(samples)
+splash=sum(rgb==(241,240,247) for rgb in samples)/len(samples)
 spread=max(hi-lo for lo,hi in im.getextrema())
 if overlay>0.20:
     print('overlay')
+elif splash>0.25:
+    # Android shows the application's large frog launcher icon before
+    # Godot draws its first game frame: do not mistake it for gameplay.
+    print('splash')
 elif spread<55 or len(open(sys.argv[1],'rb').read())<10000:
     print('flat')
 else:
