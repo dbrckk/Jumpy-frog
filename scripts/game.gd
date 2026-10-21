@@ -10,6 +10,7 @@ const CHAPTERS = preload("res://scripts/chapters.gd")
 const RIVER_SHADER = preload("res://shaders/river_surface.gdshader")
 const PLATFORM_MOTION = preload("res://scripts/platform_motion.gd")
 const PAD_DANGER = preload("res://scripts/pad_danger.gd")
+const RIVER_FESTIVAL = preload("res://scripts/river_festival.gd")
 const DEVICE_DIAGNOSTICS = preload("res://scripts/device_diagnostics.gd")
 const W := 540.0
 const H := 960.0
@@ -42,6 +43,8 @@ var last_generated_m: float = 0.0
 var last_pad_x: float = 270.0
 var next_pad_id: int = 1
 var last_danger_id := -99
+var festival := RIVER_FESTIVAL.new()
+var festival_banner_seconds := 0.0
 var standing_pad_id := 0
 var pets: int = 0
 var score: int = 0
@@ -249,6 +252,8 @@ func _reset_game() -> void:
 	last_pad_x = 270.0
 	next_pad_id = 1
 	last_danger_id = -99
+	festival.reset()
+	festival_banner_seconds = 0.0
 	standing_pad_id = 0
 	pets = 0
 	score = 0
@@ -294,11 +299,19 @@ func _generate_pads() -> void:
 		# Each chapter has its own rhythmic hop spacing, not just a recolored river.
 		var gap_min: float = [14.6, 15.4, 16.0, 16.8, 17.4, 18.0][biome]
 		var gap_max: float = [19.3, 20.3, 21.0, 21.6, 22.1, 22.6][biome]
+		var festival_info: Dictionary = festival.decorate_primary(next_pad_id, rng) if campaign_stage == -1 else {"festival_group": -1, "festival_step": -1}
+		var festival_step: int = int(festival_info["festival_step"])
 		var gap := rng.randf_range(gap_min, gap_max)
+		# The three rare celebration hops are a gentler, visually distinct
+		# breathing space, not a surprise difficulty spike.
+		if festival_step >= 0:
+			gap *= 0.91
 		last_generated_m += gap
 		var lateral: float = float(modifier["drift"])
 		var dx := rng.randf_range(-lateral, lateral)
-		if biome in [3, 5] and next_pad_id % 4 == 0:
+		if festival_step >= 0:
+			dx *= 0.38
+		if festival_step < 0 and biome in [3, 5] and next_pad_id % 4 == 0:
 			dx = (lateral * 0.85) * (-1.0 if next_pad_id % 8 == 0 else 1.0)
 		# Readable 16-hop phrases: two easy recovery hops, a short alternating
 		# slalom, then the biome's organic random rhythm. Every adjustment
@@ -306,7 +319,7 @@ func _generate_pads() -> void:
 		var phrase_step := (next_pad_id - 1) % 16
 		if phrase_step in [0, 1]:
 			dx *= 0.28
-		elif phrase_step in [5, 6, 7]:
+		elif festival_step < 0 and phrase_step in [5, 6, 7]:
 			dx = lateral * (0.67 if phrase_step % 2 == 1 else -0.67)
 		last_pad_x = clampf(last_pad_x + dx, 116.0, 421.0)
 		var ident := next_pad_id
@@ -315,17 +328,19 @@ func _generate_pads() -> void:
 		var kind: int = (rng.randi_range(0, 3) + biome) % 4
 		var radius_scale := float(modifier["radius"]) - progression * 0.08
 		var motion := PLATFORM_MOTION.create_fields(biome, ident)
+		if festival_step >= 0:
+			motion["moving"] = false
 		# Harmony lilies are optional precision objectives. Keep the standard
 		# landing collision exactly as before; no forced perfect aim or paywall.
 		# Exclude moving / fragile / Guardian pads to keep the objective readable.
 		var harmony := ident >= 6 and ident % 8 == 6 and ident % 13 != 0
-		harmony = harmony and not bool(motion["moving"])
+		harmony = harmony and festival_step < 0 and not bool(motion["moving"])
 		harmony = harmony and not (biome in [2, 5] and ident % 7 == 5)
 		# Rare red water sprites make some landings temporarily dangerous.
 		# Never put two close together, overlap a timed/moving collectible, or
 		# force a hazard in the tutorial. Other reachable pads remain safe.
 		var dangerous := campaign_stage == -1 and ident >= 8 and ident - last_danger_id >= 3
-		dangerous = dangerous and not bool(motion["moving"]) and not harmony
+		dangerous = dangerous and festival_step < 0 and not bool(motion["moving"]) and not harmony
 		dangerous = dangerous and ident % 13 != 0 and not (biome in [2, 5] and ident % 7 == 5)
 		dangerous = dangerous and rng.randf() < 0.20
 		var danger_phase := rng.randf_range(0.0, PAD_DANGER.CYCLE_SECONDS) if dangerous else 0.0
@@ -335,13 +350,16 @@ func _generate_pads() -> void:
 			"id": ident,
 			"x": last_pad_x,
 			"m": last_generated_m,
-			"r": clampf(rng.randf_range(43.0, 53.0) * radius_scale, 37.0, 62.0),
+			"r": 57.0 if festival_step >= 0 else clampf(rng.randf_range(43.0, 53.0) * radius_scale, 37.0, 62.0),
 			"kind": kind,
-			"coin": ident % 2 == 0,
-			"pet": ident % 3 == 0,
-			"boost": ident % 7 == 0 and biome >= 1,
-			"guardian": ident % 13 == 0,
+			"coin": festival_step < 0 and ident % 2 == 0,
+			"pet": festival_step < 0 and ident % 3 == 0,
+			"boost": festival_step < 0 and ident % 7 == 0 and biome >= 1,
+			"guardian": festival_step < 0 and ident % 13 == 0,
 			"harmony": harmony,
+			"festival_group": int(festival_info["festival_group"]),
+			"festival_step": festival_step,
+			"festival_collected": false,
 			"danger": dangerous,
 			"danger_phase": danger_phase,
 			"moving": bool(motion["moving"]),
@@ -349,13 +367,13 @@ func _generate_pads() -> void:
 			"motion_amplitude": float(motion["motion_amplitude"]),
 			# A timed hazard is always clearly marked; it never changes
 			# generated collision size, and never coincides with a Guardian.
-			"fragile": biome in [2, 5] and ident > 4 and ident % 7 == 5 and ident % 13 != 0
+			"fragile": festival_step < 0 and biome in [2, 5] and ident > 4 and ident % 7 == 5 and ident % 13 != 0
 		})
 		# An optional second route, with a smaller golden lily and a better
 		# reward. Always keep the ordinary primary lily at the same m.
 		# The next primary landing remains reachable even from the gold lane.
 		var split_path := campaign_stage == -1 and ident >= 9 and ident % 12 == 9
-		split_path = split_path and not dangerous and not bool(motion["moving"])
+		split_path = split_path and festival_step < 0 and not dangerous and not bool(motion["moving"])
 		split_path = split_path and not harmony and ident % 13 != 0
 		split_path = split_path and not (biome in [2, 5] and ident % 7 == 5)
 		if split_path:
@@ -411,6 +429,7 @@ func _process(delta: float) -> void:
 					player_x = PLATFORM_MOTION.x_at(standing, clock)
 				break
 	biome_banner = maxf(0.0, biome_banner - delta)
+	festival_banner_seconds = maxf(0.0, festival_banner_seconds - delta)
 	var current_biome := chapters.biome_at(player_m, campaign_stage)
 	if current_biome != last_biome:
 		last_biome = current_biome
@@ -445,6 +464,9 @@ func _process(delta: float) -> void:
 		if flow_seconds > 0.0:
 			pressure *= FLOW_WAVE_SCALE
 			flow_seconds = maxf(flow_seconds - delta, 0.0)
+		# A rare festival is a restful interlude, not another timed obstacle.
+		if campaign_stage == -1 and festival.progress > 0:
+			pressure *= 0.85
 		wave_m += delta * pressure
 		if wave_m > player_m - 14.0 and not wave_warned:
 			wave_warned = true
@@ -546,7 +568,7 @@ func _draw() -> void:
 				aim_danger_seconds = float(warning["wait"])
 
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {}, aim_danger_seconds)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {}, aim_danger_seconds, festival.progress, festival_banner_seconds)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -941,7 +963,23 @@ func _finish_jump() -> void:
 			if fragile_pad_id >= 0:
 				_add_float_text("FRAGILE LILY - KEEP MOVING!", _player_screen() + Vector2(0, -157), Color("#ffdda2"))
 				sound.play_event("warning")
+			var festival_complete: bool = festival.land(pad) if campaign_stage == -1 else false
+			if int(pad.get("festival_step", -1)) >= 0:
+				_add_float_text("FIREFLY %d/3" % (int(pad["festival_step"]) + 1), _player_screen() + Vector2(0, -142), Color("#e8d7ff"))
+				_burst(_player_screen() + Vector2(0, -10), 8, "spark")
 			var gain := maxi(12, int((float(pad["m"]) - highest_m) * 13.0))
+			if festival_complete:
+				leaves += RIVER_FESTIVAL.LEAVES
+				run_leaves += RIVER_FESTIVAL.LEAVES
+				gain += RIVER_FESTIVAL.SCORE
+				wave_m -= 5.0
+				festival_banner_seconds = 2.4
+				celebration = 1.0
+				precision_pulse = 1.25
+				shake_strength = maxf(shake_strength, 6.0)
+				_add_float_text("FESTIVAL +3 LEAVES!", _player_screen() + Vector2(0, -182), Color("#fff4bb"))
+				_burst(_player_screen() + Vector2(0, -14), 24, "spark")
+				sound.play_event("victory")
 			if jump_is_perfect:
 				run_perfects += 1
 				precision_pulse = 1.0
