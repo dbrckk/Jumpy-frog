@@ -54,7 +54,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_LEFT, -1, actual_size, color)
 
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
@@ -75,6 +75,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		if screen.y < -125.0 or screen.y > H + 125.0:
 			continue
 		_lily(c, screen, float(pad["r"]), int(pad["kind"]), time, int(pad["id"]), float(pad_impacts.get(int(pad["id"]), 0.0)), chapters.biome_at(float(pad["m"]), campaign_stage), graphics_quality)
+		if bool(pad.get("branch_bonus", false)):
+			_bonus_branch_lily(c, screen, float(pad["r"]), time, graphics_quality)
 		if bool(pad.get("moving", false)):
 			_moving_lily_cue(c, screen, float(pad["r"]), time, graphics_quality)
 		if bool(pad.get("danger", false)):
@@ -100,7 +102,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	if graphics_quality > 0:
 		_flight_ribbon(c, flight_trail, cam, shake, graphics_quality)
 	if aiming:
-		_aim_guide(c, player_at + shake, aim_at + shake, time, aim_valid)
+		_aim_guide(c, player_at + shake, aim_at + shake, time, aim_valid, aim_danger_seconds)
 	if flow_seconds > 0.0:
 		_flow_aura(c, player_at + shake, jump_z, time, flow_seconds, graphics_quality)
 	if precision_pulse > 0.0:
@@ -334,6 +336,22 @@ static func _flow_hud(c: CanvasItem, remaining: float) -> void:
 	rr(c, Rect2(377, 96, 137, 3), 1.5, Color("#a5d5d5"))
 	if progress > 0.001:
 		rr(c, Rect2(377, 96, 137.0 * progress, 3), 1.5, Color("#3abdc2"))
+
+
+static func _bonus_branch_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, quality: int) -> void:
+	# Optional skill route. Gold ring and two leaves are readable at
+	# quality zero; higher tiers get subtle glow, never costly shaders.
+	var pulse := 0.55 + 0.45 * sin(time * 3.1)
+	c.draw_arc(pos, radius + 9, 0.0, TAU, 36, Color(1.0, 0.82, 0.39, 0.49 + 0.25 * pulse), 3.2, true)
+	var center := pos + Vector2(0, -16.0)
+	c.draw_circle(center, 13, Color("#8e7045"))
+	c.draw_circle(center, 10.5, Color("#ffe4a2"))
+	text(c, "+2", center + Vector2(0, -2), 15, Color("#745031"), true, 29.0)
+	if quality >= 1:
+		for i in range(4):
+			var angle := time * 0.3 + float(i) * TAU / 4.0
+			c.draw_circle(pos + Vector2(cos(angle), sin(angle)) * (radius + 17),
+				2.2 + float(quality - 1), Color(1.0, 0.94, 0.60, 0.5))
 
 
 static func _danger_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, active: bool, quality: int) -> void:
@@ -720,7 +738,7 @@ static func _wave(c: CanvasItem, wave_y: float, t: float, graphics_quality: int 
 	bubbles.append(Vector2(0, H + 1000))
 	c.draw_colored_polygon(bubbles, Color(0.32, 0.45, 0.65, 0.27))
 
-static func _aim_guide(c: CanvasItem, from: Vector2, target: Vector2, t: float, valid: bool) -> void:
+static func _aim_guide(c: CanvasItem, from: Vector2, target: Vector2, t: float, valid: bool, danger_seconds: float = 0.0) -> void:
 	var ink := Color("#dcfbc3") if valid else Color("#ffb5a3")
 	var accent := Color("#5f895f") if valid else Color("#ac5c63")
 	var pulse := sin(t * 7.5) * 3.0
@@ -736,6 +754,9 @@ static func _aim_guide(c: CanvasItem, from: Vector2, target: Vector2, t: float, 
 	if valid:
 		rr(c, Rect2(target.x - 67, target.y - 70, 134, 28), 11, CREAM, accent, 1.5)
 		text(c, "SAFE LANDING", target + Vector2(0, -56), 14, accent)
+	elif danger_seconds > 0.0:
+		rr(c, Rect2(target.x - 85, target.y - 74, 170, 32), 12, Color("#fff1d9"), Color("#cd685e"), 1.8)
+		text(c, "CRAB - WAIT %.1fs" % danger_seconds, target + Vector2(0, -57), 13, Color("#a34740"), false, 154.0)
 	else:
 		rr(c, Rect2(target.x - 50, target.y - 70, 100, 28), 11, CREAM, accent, 1.5)
 		text(c, "SPLASH!", target + Vector2(0, -56), 14, accent)
