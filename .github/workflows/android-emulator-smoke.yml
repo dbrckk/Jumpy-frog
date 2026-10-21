@@ -62,6 +62,14 @@ jobs:
           head=head.replace('architectures/arm64-v8a=true','architectures/arm64-v8a=false',1)
           head=head.replace('architectures/x86_64=false','architectures/x86_64=true',1)
           p.write_text(head+'[preset.1]'+rest)
+          # Godot 4.5.1's GLES3 built-in shader exceeds SwiftShader's
+          # fragment uniform budget on some Android emulators (Godot #109550).
+          # Use Vulkan Mobile ONLY for this emulator APK, not for Redmi builds.
+          project=Path('project.godot')
+          settings=project.read_text()
+          needle='renderer/rendering_method.mobile="gl_compatibility"'
+          assert needle in settings
+          project.write_text(settings.replace(needle, 'renderer/rendering_method.mobile="mobile"', 1))
           PY
           godot --headless --editor --path . --quit
           godot --headless --path . --script res://tools/generate_icons.gd
