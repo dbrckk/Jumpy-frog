@@ -99,7 +99,7 @@ jobs:
           ram-size: 2048M
           cores: 2
           disable-animations: true
-          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu lavapipe -noaudio -no-boot-anim -camera-back none -camera-front none
           script: bash tools/emulator_smoke.sh
       - name: Upload device evidence
         if: always()
