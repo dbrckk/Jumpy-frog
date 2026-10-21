@@ -73,6 +73,10 @@ var rewarded_this_run := false
 var run_hops := 0
 var perfect_streak := 0
 var jump_is_perfect := false
+# Rare, free safety pickup. A charge saves one missed landing per collection.
+var guardian_charge := false
+var flight_trail: Array[Dictionary] = []
+var _trail_clock := 0.0
 var run_leaves: int = 0
 var body_tilt := 0.0
 var body_squash := 0.0
@@ -217,6 +221,9 @@ func _reset_game() -> void:
 	run_hops = 0
 	perfect_streak = 0
 	jump_is_perfect = false
+	guardian_charge = false
+	flight_trail.clear()
+	_trail_clock = 0.0
 	rewarded_this_run = false
 	daily.refresh_day()
 	aim_x = 270.0
@@ -262,7 +269,8 @@ func _generate_pads() -> void:
 			"kind": kind,
 			"coin": ident % 2 == 0,
 			"pet": ident % 3 == 0,
-			"boost": ident % 7 == 0 and biome >= 1
+			"boost": ident % 7 == 0 and biome >= 1,
+			"guardian": ident % 13 == 0
 		})
 
 func _process(delta: float) -> void:
@@ -308,7 +316,17 @@ func _process(delta: float) -> void:
 			wave_warned = false
 		if wave_m >= player_m - 0.25 and mode != MODE_FLY:
 			_die()
+	for i in range(flight_trail.size() - 1, -1, -1):
+		flight_trail[i]["age"] = float(flight_trail[i]["age"]) + delta
+		if float(flight_trail[i]["age"]) > 0.34:
+			flight_trail.remove_at(i)
 	if mode == MODE_FLY:
+		_trail_clock += delta
+		if _trail_clock >= (0.045 if graphics_quality >= 2 else 0.075):
+			_trail_clock = 0.0
+			if flight_trail.size() >= 9:
+				flight_trail.pop_front()
+			flight_trail.append({"x": player_x, "m": player_m, "z": jump_z, "age": 0.0})
 		jump_elapsed += delta
 		var t := clampf(jump_elapsed / jump_duration, 0.0, 1.0)
 		var smooth := t * t * (3.0 - 2.0 * t)
@@ -382,7 +400,7 @@ func _draw() -> void:
 			preview = Vector2(float(pad["x"]), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -708,6 +726,8 @@ func _start_jump() -> void:
 		# Subtle magnetism produces consistent, legible landings on touchscreens.
 		jump_end = Vector2(float(target["x"]), float(target["m"]))
 	jump_elapsed = 0.0
+	_trail_clock = 0.0
+	flight_trail.clear()
 	jump_duration = clampf(0.40 + (jump_end.y - jump_start.y) * 0.012, 0.48, 0.87)
 	body_squash = 0.23
 	mode = MODE_FLY
@@ -716,6 +736,9 @@ func _start_jump() -> void:
 func _finish_jump() -> void:
 	jump_z = 0.0
 	if jump_pad_id == -1:
+		if guardian_charge:
+			_rescue_from_splash()
+			return
 		perfect_streak = 0
 		shake_strength = 11.0
 		impact_flash = 0.20
@@ -755,6 +778,15 @@ func _finish_jump() -> void:
 				_add_float_text("CURRENT BOOST!", _player_screen() + Vector2(0, -120), Color("#b9edff"))
 				pad["boost"] = false
 				sound.play_event("boost")
+			if bool(pad.get("guardian", false)):
+				guardian_charge = true
+				gain += 180
+				wave_m -= 5.0
+				pad["guardian"] = false
+				celebration = 1.0
+				_add_float_text("GUARDIAN READY!", _player_screen() + Vector2(0, -153), Color("#fff3b9"))
+				_burst(_player_screen() + Vector2(0, -16), 15, "spark")
+				sound.play_event("victory")
 			if bool(pad["pet"]):
 				pets = mini(pets + 1, 8)
 				celebration = 1.0
@@ -795,6 +827,28 @@ func _finish_jump() -> void:
 				_die()
 			return
 	_die()
+
+func _rescue_from_splash() -> void:
+	guardian_charge = false
+	perfect_streak = 0
+	combo = 0
+	player_x = jump_start.x
+	player_m = jump_start.y
+	previous_x = player_x
+	jump_z = 0.0
+	jump_pad_id = -1
+	mode = MODE_PLAY
+	wave_m = minf(wave_m, player_m - 22.0)
+	body_squash = 0.32
+	landing_impact = 0.90
+	shake_strength = 6.5
+	impact_flash = 0.26
+	celebration = 0.45
+	_add_ripple(_player_screen() + Vector2(0, 12), 1.8)
+	_burst(_player_screen(), 20, "spark")
+	_add_float_text("GUARDIAN SAVE!", _player_screen() + Vector2(0, -113), Color("#fff6c9"))
+	sound.play_event("boost")
+
 
 func _die() -> void:
 	if mode == MODE_LOST:
