@@ -42,7 +42,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
-	_river(c, time, cam, biome, graphics_quality)
+	_river(c, time, cam, biome, graphics_quality, campaign_stage)
 	# Sparse animated surface glints: stable world-space placement, zero textures.
 	# Limited to 15 strokes so older Android GPUs are not overloaded.
 	for i in range(15 if graphics_quality >= 2 else (6 if graphics_quality == 1 else 0)):
@@ -133,14 +133,29 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		else:
 			_chapter_clear_overlay(c, campaign_stage, clear_medal, clear_reward, chapters)
 
-static func _river(c: CanvasItem, t: float, cam: float, biome: int, graphics_quality: int = 2) -> void:
+static func _biome_blend(cam: float, campaign_stage: int) -> float:
+	# Full palette in chapters, daily runs and before the first transition.
+	if campaign_stage != -1 or cam < 140.0:
+		return 1.0
+	return smoothstep(0.0, 16.0, fposmod(cam, 140.0))
+
+
+static func _river(c: CanvasItem, t: float, cam: float, biome: int, graphics_quality: int = 2, campaign_stage: int = -1) -> void:
 	# Each chapter has its own original illustrated color script; no external textures.
 	var earth := [Color("#a6c49e"), Color("#9cc69a"), Color("#d3bd91"), Color("#77879b"), Color("#9cbcc4"), Color("#7c8297")]
 	var water_colors := [Color("#81abb9"), Color("#79b5a8"), Color("#b0b8b0"), Color("#647caa"), Color("#84b7cb"), Color("#627e9b")]
 	var sand_colors := [Color("#f0e1b7"), Color("#e3e7c6"), Color("#f1d5a7"), Color("#afb4d0"), Color("#d9e5e5"), Color("#adb7c2")]
 	var plants := [Color("#558765"), Color("#608c72"), Color("#947f57"), Color("#657c91"), Color("#668f92"), Color("#718078")]
 	var b := clampi(biome, 0, 5)
-	c.draw_rect(Rect2(0, 0, W, H), earth[b])
+	# In endless mode, crossfade each sector palette rather than snapping
+	# abruptly at 140m boundaries. No state or GPU textures required.
+	var old_b := posmod(b + 5, 6)
+	var blend := _biome_blend(cam, campaign_stage)
+	var ground_ink: Color = earth[old_b].lerp(earth[b], blend)
+	var water_ink: Color = water_colors[old_b].lerp(water_colors[b], blend)
+	var sand_ink: Color = sand_colors[old_b].lerp(sand_colors[b], blend)
+	var plants_ink: Color = plants[old_b].lerp(plants[b], blend)
+	c.draw_rect(Rect2(0, 0, W, H), ground_ink)
 	var water := PackedVector2Array()
 	var left := PackedVector2Array()
 	var right := PackedVector2Array()
@@ -152,12 +167,12 @@ static func _river(c: CanvasItem, t: float, cam: float, biome: int, graphics_qua
 		right.append(Vector2(494.0 + wiggle * 0.83, y))
 	# Sandy outline adds separation against the banks.
 	for i in range(left.size() - 1):
-		line(c, left[i] + Vector2(-9, 0), left[i + 1] + Vector2(-9, 0), sand_colors[b], 18)
-		line(c, right[i] + Vector2(9, 0), right[i + 1] + Vector2(9, 0), Color("#e9dfbd"), 18)
+		line(c, left[i] + Vector2(-9, 0), left[i + 1] + Vector2(-9, 0), sand_ink, 18)
+		line(c, right[i] + Vector2(9, 0), right[i + 1] + Vector2(9, 0), sand_ink.lightened(0.03), 18)
 	water.append_array(left)
 	for i in range(right.size() - 1, -1, -1):
 		water.append(right[i])
-	c.draw_colored_polygon(water, water_colors[b])
+	c.draw_colored_polygon(water, water_ink)
 	# Broad drifting translucent current. Polygon edges never self-intersect.
 	for band in range(5 if graphics_quality >= 2 else (3 if graphics_quality == 1 else 1)):
 		var y := fposmod(float(band) * 193.0 + cam * SCALE * 0.62 + t * 13.0, 1350.0) - 190.0
@@ -168,10 +183,10 @@ static func _river(c: CanvasItem, t: float, cam: float, biome: int, graphics_qua
 		for i in range(20, -1, -1):
 			var x := float(i) * 27.0
 			band_poly.append(Vector2(x, y + 40 + sin(x * 0.014 + band) * 12.0))
-		c.draw_colored_polygon(band_poly, water_colors[b].darkened(0.28) * Color(1, 1, 1, 0.10))
+		c.draw_colored_polygon(band_poly, water_ink.darkened(0.28) * Color(1, 1, 1, 0.10))
 	for i in range(left.size() - 1):
-		line(c, left[i], left[i + 1], plants[b], 3.5)
-		line(c, right[i], right[i + 1], plants[b].lightened(0.06), 3.5)
+		line(c, left[i], left[i + 1], plants_ink, 3.5)
+		line(c, right[i], right[i + 1], plants_ink.lightened(0.06), 3.5)
 	# Low-contrast depth bands mimic watercolor washes without texture assets.
 	for lane in range(7 if graphics_quality >= 2 else (4 if graphics_quality == 1 else 0)):
 		var x := 91.0 + float(lane) * 41.0
@@ -204,11 +219,11 @@ static func _river(c: CanvasItem, t: float, cam: float, biome: int, graphics_qua
 		for stalk in range(1 + i % 3):
 			var origin := Vector2(x + float(stalk - 1) * 7, y + 14)
 			var tip := origin + Vector2(float(stalk - 1) * 5.0 - side * 2.0, -14 - float(stalk % 2) * 9)
-			line(c, origin, tip, plants[b].darkened(0.10), 2.0)
+			line(c, origin, tip, plants_ink.darkened(0.10), 2.0)
 			if (i + stalk) % 4 == 0:
 				ellipse(c, tip, Vector2(3.2, 8.0), Color("#9d676d"))
 			else:
-				ellipse(c, tip + Vector2(0, -3), Vector2(2.2, 5.0), plants[b].lightened(0.14))
+				ellipse(c, tip + Vector2(0, -3), Vector2(2.2, 5.0), plants_ink.lightened(0.14))
 	# Floating rings, bubbles and firefly-like glints.
 	for i in range(27 if graphics_quality >= 2 else (13 if graphics_quality == 1 else 4)):
 		var y := fposmod(float(i) * 73.0 + cam * SCALE * 0.83 + t * 5.0, 1160.0) - 100.0
@@ -223,6 +238,7 @@ static func _river(c: CanvasItem, t: float, cam: float, biome: int, graphics_qua
 
 	if graphics_quality > 0:
 		_biome_accents(c, b, t, cam, graphics_quality)
+		_biome_atmosphere(c, b, t, cam, graphics_quality)
 	# Tiny environmental stories: golden leaves, twilight fireflies and crystals.
 	for i in range(12 if graphics_quality >= 2 else (6 if graphics_quality == 1 else 0)):
 		var x := 70.0 + float((i * 79 + 31) % 394)
@@ -241,6 +257,35 @@ static func _river(c: CanvasItem, t: float, cam: float, biome: int, graphics_qua
 		elif b == 1:
 			c.draw_circle(Vector2(x, y), 3.6, Color("#eedfa9"))
 			c.draw_circle(Vector2(x, y), 1.5, Color("#fff7d8"))
+
+
+static func _biome_atmosphere(c: CanvasItem, biome: int, time: float, cam: float, quality: int) -> void:
+	# Restrained hand-illustrated weather. Fixed capped draw count with no
+	# allocations outside the existing CanvasItem command buffer.
+	var count := 12 if quality >= 2 else 5
+	for i in range(count):
+		var phase := float(i) * 1.618 + float(biome) * 2.31
+		var x := 84.0 + fposmod(float(i * 117 + 53), 372.0)
+		var y := fposmod(float(i * 149) + cam * SCALE * 0.27 + time * (5.0 if biome != 5 else 48.0), 1080.0) - 65.0
+		match biome:
+			0: # Sun motes slowly ascend through soft light.
+				var at := Vector2(x + sin(time + phase) * 5.0, y)
+				c.draw_circle(at, 2.3, Color("#fff6c9") * Color(1, 1, 1, 0.44))
+			1: # Floating garden petals.
+				var at := Vector2(x + sin(time * 1.4 + phase) * 13.0, y)
+				ellipse(c, at, Vector2(3.0, 5.2), Color(0.98, 0.83, 0.89, 0.38))
+			2: # Amber drifting autumn leaves.
+				var p := Vector2(x + sin(time * 1.1 + phase) * 19.0, y)
+				c.draw_colored_polygon(PackedVector2Array([p + Vector2(0, -6), p + Vector2(4, 0), p + Vector2(0, 7), p + Vector2(-4, 0)]), Color(0.96, 0.77, 0.48, 0.40))
+			3: # Tiny, breathing moonlit fireflies.
+				var a := 0.3 + 0.15 * sin(time * 3.0 + phase)
+				c.draw_circle(Vector2(x, y), 3.4, Color(0.92, 0.98, 1.0, a * 0.35))
+				c.draw_circle(Vector2(x, y), 1.6, Color(0.92, 0.96, 0.77, a))
+			4: # Light refractions in the crystal river.
+				line(c, Vector2(x - 3, y - 7), Vector2(x + 3, y + 7), Color(0.83, 0.96, 1.0, 0.41), 1.5)
+				line(c, Vector2(x + 3, y - 7), Vector2(x - 3, y + 7), Color(0.96, 1.0, 1.0, 0.34), 1.3)
+			5: # Fast visible rain streaks, well clear of touch indicators.
+				line(c, Vector2(x + 9, y - 12), Vector2(x - 5, y + 17), Color(0.92, 0.97, 1.0, 0.41), 1.8)
 
 
 static func _flow_aura(c: CanvasItem, pos: Vector2, height: float, t: float, remaining: float, quality: int) -> void:
@@ -489,6 +534,7 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 	# Animated vector puppet: springy takeoff, landing compression and follow-through.
 	var flight := clampf(height / 53.0, 0.0, 1.0)
 	var jump_stretch := flight * 0.19
+	var limb_swing := sin(t * 14.0) * (0.6 + flight * 4.5)
 	var compression := clampf(squash + impact * 0.14, 0.0, 0.34)
 	var scale_y := clampf(1.0 + jump_stretch - compression, 0.78, 1.24)
 	var scale_x := clampf(1.0 - jump_stretch * 0.4 + compression * 0.48, 0.88, 1.19)
@@ -508,21 +554,30 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 	var dark: Color = darks[id]
 	var fur: Color = furs[id]
 	var warm: Color = warms[id]
-	# Behind-the-body paws, tail and ears.
-	ellipse(c, Vector2(21, 24), Vector2(12, 7), dark)
-	ellipse(c, Vector2(-22, 23), Vector2(12, 7), dark)
-	ellipse(c, Vector2(23, 11), Vector2(10, 13), Color("#916a53"))
-	ellipse(c, Vector2(-23, 10), Vector2(10, 13), Color("#916a53"))
-	ellipse(c, Vector2(27, 18), Vector2(7, 6), warm)
+	# Responsive frog hind legs: tuck in flight, splay on impact, and
+	# rotate slightly with the leap. Webbed toes preserve the silhouette.
+	for side in [-1, 1]:
+		var sgn := float(side)
+		var leg_x := sgn * (23.0 + flight * 6.0 + impact * 3.0)
+		var leg_y := 16.0 - flight * 8.0 + limb_swing * sgn
+		ellipse(c, Vector2(leg_x, leg_y), Vector2(13.5, 17.5), dark)
+		ellipse(c, Vector2(leg_x, leg_y - 1), Vector2(11.0, 15.0), fur)
+		var foot := Vector2(leg_x + sgn * (5.0 + flight * 4.0), 27.0 - flight * 10.0 + limb_swing * sgn)
+		ellipse(c, foot, Vector2(10.0, 5.8), dark)
+		for toe in range(3):
+			c.draw_circle(foot + Vector2(sgn * (float(toe - 1) * 5.0), 4.0), 3.5, warm)
 	ellipse(c, Vector2(0, 3), Vector2(30, 41), dark)
 	ellipse(c, Vector2(0, 1), Vector2(28, 39), fur)
 	ellipse(c, Vector2(-7, 11), Vector2(18, 24), fur.lightened(0.13))
 	ellipse(c, Vector2(12, -3), Vector2(11, 25), fur.darkened(0.08))
+	# Raised frog-eye domes replace generic animal ears. Both catch
+	# moonlit highlights and move with the springy character body.
 	for side in [-1, 1]:
-		var ear_pos := Vector2(18.0 * side, -29.0 + sin(t * 5.2 + side) * 1.1)
-		c.draw_circle(ear_pos, 9.4, dark)
-		c.draw_circle(ear_pos, 6.0, warm)
-	# Fluffy head, face and readable muzzle.
+		var dome := Vector2(15.5 * float(side), -39.0 + sin(t * 4.4 + side) * (0.6 + flight * 1.3))
+		c.draw_circle(dome, 11.3, dark)
+		c.draw_circle(dome + Vector2(0, -1), 9.0, fur.lightened(0.10))
+		c.draw_circle(dome + Vector2(-2, -3), 2.4, Color(1, 1, 0.91, 0.32))
+	# Distinctive frog face and readable muzzle.
 	ellipse(c, Vector2(0, -23), Vector2(26, 23), dark)
 	ellipse(c, Vector2(0, -23), Vector2(24, 21), fur.lightened(0.06))
 	ellipse(c, Vector2(0, -14), Vector2(18, 12), warm)
@@ -532,7 +587,8 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 			line(c, eye + Vector2(-3, 0), eye + Vector2(3, 0), dark, 2.2)
 		else:
 			ellipse(c, eye, Vector2(3.6, 3.9), Color("#352f36"))
-			c.draw_circle(eye + Vector2(-0.8, -1.1), 1.25, Color.WHITE)
+			var gaze := Vector2(clampf(tilt * 4.0, -1.5, 1.5), -0.7 - flight * 0.6)
+			c.draw_circle(eye + gaze, 1.25, Color.WHITE)
 		ellipse(c, Vector2(17.0 * side, -17), Vector2(4.4, 2.9), Color("#d58979"))
 	ellipse(c, Vector2(0, -14), Vector2(7, 4), Color("#70544c"))
 	line(c, Vector2(0, -11), Vector2(0, -7), Color("#70544c"), 1.5)
@@ -540,6 +596,11 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 	c.draw_arc(Vector2(0, -8), 4.1, 0.2, PI - 0.2, 14, Color("#81574c"), 1.2, true)
 	line(c, Vector2(-17, 5), Vector2(-14, 11), Color("#d7a885"), 1.1)
 	line(c, Vector2(-13, 4), Vector2(-10, 9), Color("#d7a885"), 1.1)
+	# Small forearms reach forward in flight; palms spread when landing.
+	for side in [-1, 1]:
+		var arm := Vector2(float(side) * 25.0, 0.0 - flight * 11.0 - impact * 4.0)
+		ellipse(c, arm, Vector2(7.0, 13.0), dark)
+		ellipse(c, arm + Vector2(0, 2), Vector2(5.0, 10.0), fur.lightened(0.14))
 	c.draw_set_transform(Vector2.ZERO)
 	# Different phases and amplified inertia per passenger maintain an organic chain.
 	var stack_top := body + Vector2(0, -52.0 * scale_y)
