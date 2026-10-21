@@ -917,4 +917,16 @@ static func _chapter_clear_overlay(c: CanvasItem, index: int, stars: int, reward
 	text(c, "CHAPTER %d / 6" % (index + 1), Vector2(270, 497), 21, Color("#717078"))
 	text(c, "+%d LEAVES" % reward if reward > 0 else "MEDAL RECORDED", Vector2(270, 548), 23, Color("#668957"))
 	rr(c, Rect2(72, 633, 195, 66), 24, Color("#9fcf8b"), Color("#638761"), 2.0)
-	
+	text(c, "NEXT" if chapters.can_play(index + 1) else "HOME", Vector2(169, 663), 25, Color("#435c49"))
+	rr(c, Rect2(285, 633, 190, 66), 24, Color("#e8d8b8"), Color("#938573"), 2.0)
+	text(c, "HOME", Vector2(380, 663), 25, Color("#6a5d54"))
+
+
+static func _commas(value: int) -> String:
+	var s := str(value)
+	var result := ""
+	for i in range(s.length()):
+		if i > 0 and (s.length() - i) % 3 == 0:
+			result += ","
+		result += s[i]
+	return result
