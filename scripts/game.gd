@@ -99,6 +99,8 @@ var stack_sway := 0.0
 var blink_clock := 2.2
 var blink_amount := 0.0
 var landing_impact := 0.0
+# Short-lived, purely visual pulse for centered landings.
+var precision_pulse := 0.0
 var horizontal_velocity := 0.0
 var previous_x := 270.0
 var pad_impacts: Dictionary = {}
@@ -256,6 +258,7 @@ func _reset_game() -> void:
 	blink_clock = rng.randf_range(1.4, 3.3)
 	blink_amount = 0.0
 	landing_impact = 0.0
+	precision_pulse = 0.0
 	horizontal_velocity = 0.0
 	previous_x = player_x
 	pads.append({"id":0, "x":270.0, "m":0.0, "r":55.0, "kind":0, "coin":false, "pet":false})
@@ -290,6 +293,12 @@ func _generate_pads() -> void:
 		var kind: int = (rng.randi_range(0, 3) + biome) % 4
 		var radius_scale := float(modifier["radius"]) - progression * 0.08
 		var motion := PLATFORM_MOTION.create_fields(biome, ident)
+		# Harmony lilies are optional precision objectives. Keep the standard
+		# landing collision exactly as before; no forced perfect aim or paywall.
+		# Exclude moving / fragile / Guardian pads to keep the objective readable.
+		var harmony := ident >= 6 and ident % 8 == 6 and ident % 13 != 0
+		harmony = harmony and not bool(motion["moving"])
+		harmony = harmony and not (biome in [2, 5] and ident % 7 == 5)
 		pads.append({
 			"id": ident,
 			"x": last_pad_x,
@@ -300,6 +309,7 @@ func _generate_pads() -> void:
 			"pet": ident % 3 == 0,
 			"boost": ident % 7 == 0 and biome >= 1,
 			"guardian": ident % 13 == 0,
+			"harmony": harmony,
 			"moving": bool(motion["moving"]),
 			"motion_speed": float(motion["motion_speed"]),
 			"motion_amplitude": float(motion["motion_amplitude"]),
@@ -408,6 +418,7 @@ func _process(delta: float) -> void:
 	body_tilt = lerpf(body_tilt, target_tilt, damping)
 	stack_sway = lerpf(stack_sway, -body_tilt * 1.8, 1.0 - exp(-delta * 4.1))
 	landing_impact = maxf(0.0, landing_impact - delta * 3.4)
+	precision_pulse = maxf(0.0, precision_pulse - delta * 2.3)
 	celebration = maxf(0.0, celebration - delta * 1.8)
 	for pad_id in pad_impacts.keys():
 		pad_impacts[pad_id] = maxf(0.0, float(pad_impacts[pad_id]) - delta * 2.8)
@@ -465,7 +476,7 @@ func _draw() -> void:
 			preview = Vector2(_predicted_pad_x(pad), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -831,6 +842,7 @@ func _finish_jump() -> void:
 				sound.play_event("warning")
 			var gain := maxi(12, int((float(pad["m"]) - highest_m) * 13.0))
 			if jump_is_perfect:
+				precision_pulse = 1.0
 				perfect_streak += 1
 				gain += 35 + mini(perfect_streak, 12) * 4
 				_add_float_text("PERFECT x%d!" % perfect_streak, _player_screen() + Vector2(0, -120), Color("#fff3ac"))
@@ -848,6 +860,19 @@ func _finish_jump() -> void:
 					sound.play_event("combo")
 			else:
 				perfect_streak = 0
+			# A Harmony blossom is resolved exactly once, even when a player
+			# lands off-center or revisits an already used lily.
+			if bool(pad.get("harmony", false)):
+				pad["harmony"] = false
+				if jump_is_perfect:
+					gain += 160
+					leaves += 1
+					run_leaves += 1
+					celebration = 1.0
+					precision_pulse = 1.25
+					_add_float_text("HARMONY BLOOM! +1 LEAF", _player_screen() + Vector2(0, -170), Color("#fff0ba"))
+					_burst(_player_screen() + Vector2(0, -16), 15, "spark")
+					sound.play_event("victory")
 			var collected_leaf: bool = bool(pad["coin"])
 			var rescued_pet: bool = bool(pad["pet"])
 			if bool(pad["coin"]):
