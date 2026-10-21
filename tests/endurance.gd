@@ -65,7 +65,17 @@ func _play_hops(game: Node2D, count: int) -> void:
 		if pad_target.is_empty():
 			_check(false, "generated course always provides a next lily")
 			return
-		game.aim_x = pad_target["x"]
+		# The bot respects temporary danger warnings just like a player:
+		# wait briefly for the red landing ring to become safe. Holding the
+		# starting lily is safe, and no artificial collision bypass is used.
+		var waits := 0
+		while game._landing_target(game._predicted_pad_x(pad_target), float(pad_target["m"])).is_empty() and waits < 100:
+			game._process(0.02)
+			waits += 1
+			if game.mode != 1:
+				return
+		_check(waits < 100, "temporary crab clears within its announced hazard cycle")
+		game.aim_x = game._predicted_pad_x(pad_target)
 		game.aim_m = pad_target["m"]
 		game._start_jump()
 		_check(game.jump_pad_id == int(pad_target["id"]), "hop lands on predictable target")
