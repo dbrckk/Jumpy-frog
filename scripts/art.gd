@@ -1,5 +1,6 @@
 extends RefCounted
 const PLATFORM_MOTION = preload("res://scripts/platform_motion.gd")
+const PAD_DANGER = preload("res://scripts/pad_danger.gd")
 ## Hand-drawn, resolution-independent vector renderer. All illustrations are original.
 const W := 540.0
 const H := 960.0
@@ -31,12 +32,27 @@ static func rr(c: CanvasItem, rect: Rect2, r: float, fill: Color, stroke: Color 
 		for y in [rect.position.y + r, rect.end.y - r]:
 			c.draw_circle(Vector2(x, y), r, fill)
 
-static func text(c: CanvasItem, value: String, center: Vector2, size: int, color: Color = INK, shadow: bool = false) -> void:
+static func fitted_font_size(value: String, proposed: int, max_width: float) -> int:
+	# Measure the fallback font, not the number of characters. Text previously
+	# used CENTER with width=-1, which did not center the actual glyph bounds.
 	var font: Font = ThemeDB.fallback_font
-	var origin := center - Vector2(0, -float(size) * 0.36)
+	var size := proposed
+	while size > 10 and font.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > max_width:
+		size -= 1
+	return size
+
+
+static func text(c: CanvasItem, value: String, center: Vector2, size: int, color: Color = INK, shadow: bool = false, max_width: float = 0.0) -> void:
+	var font: Font = ThemeDB.fallback_font
+	# Without an explicit button width, stay within the viewport margins.
+	var allowed_width := max_width if max_width > 0.0 else 2.0 * maxf(10.0, minf(center.x - 16.0, W - center.x - 16.0))
+	var actual_size := fitted_font_size(value, size, allowed_width)
+	var measured := font.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1, actual_size)
+	var origin := Vector2(center.x - measured.x * 0.5, center.y + float(actual_size) * 0.36)
 	if shadow:
-		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
-	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
+		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_LEFT, -1, actual_size, Color("#655d6b"))
+	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_LEFT, -1, actual_size, color)
+
 
 static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
@@ -61,6 +77,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		_lily(c, screen, float(pad["r"]), int(pad["kind"]), time, int(pad["id"]), float(pad_impacts.get(int(pad["id"]), 0.0)), chapters.biome_at(float(pad["m"]), campaign_stage), graphics_quality)
 		if bool(pad.get("moving", false)):
 			_moving_lily_cue(c, screen, float(pad["r"]), time, graphics_quality)
+		if bool(pad.get("danger", false)):
+			_danger_lily(c, screen, float(pad["r"]), time, PAD_DANGER.is_active(pad, time), graphics_quality)
 		if bool(pad.get("fragile", false)):
 			_fragile_lily(c, screen, float(pad["r"]), time, int(pad["id"]) == fragile_pad_id, fragile_seconds, graphics_quality)
 		if bool(pad.get("harmony", false)):
@@ -316,6 +334,26 @@ static func _flow_hud(c: CanvasItem, remaining: float) -> void:
 	rr(c, Rect2(377, 96, 137, 3), 1.5, Color("#a5d5d5"))
 	if progress > 0.001:
 		rr(c, Rect2(377, 96, 137.0 * progress, 3), 1.5, Color("#3abdc2"))
+
+
+static func _danger_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, active: bool, quality: int) -> void:
+	# Readable at even the lowest quality tier, with no extra materials.
+	# The red double ring means 'do not land while glowing'; inactive is
+	# amber and the crab's harmless wait animation never damages a rider.
+	var ink := Color("#f46c62") if active else Color("#d6b483")
+	c.draw_arc(pos, radius + 7.0, 0.0, TAU, 32, ink, 4.0 if active else 2.0, true)
+	var at := pos + Vector2(0, -14)
+	c.draw_circle(at, 11.0, Color("#c65b52") if active else Color("#9d8c80"))
+	for side in [-1, 1]:
+		var x := float(side)
+		line(c, at + Vector2(x * 8, 3), at + Vector2(x * 17, 9), Color("#b45750"), 2.8)
+		c.draw_circle(at + Vector2(x * 5, -5), 4.0, Color("#fff6e1"))
+		c.draw_circle(at + Vector2(x * 5, -5), 1.8, INK)
+	if active:
+		text(c, "!", at + Vector2(0, 16), 17, Color("#fff5de"), true, 24.0)
+		if quality > 0:
+			c.draw_arc(pos, radius + 12.0 + sin(time * 6.0) * 2.0, 0.0, TAU,
+				34 if quality == 1 else 48, Color(1.0, 0.43, 0.38, 0.47), 2.0, true)
 
 
 static func _moving_lily_cue(c: CanvasItem, position: Vector2, radius: float, time: float, quality: int) -> void:
@@ -739,7 +777,7 @@ static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int,
 
 static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, daily: RefCounted, monetization: Node, chapters: RefCounted) -> void:
 	rr(c, Rect2(62, 128, 416, 179), 34, Color("#fbedd6"), Color("#ae977d"), 3)
-	text(c, "JUMPY FROG", Vector2(270, 186), 49, Color("#5b5868"), true)
+	text(c, "JUMPY FROG", Vector2(270, 186), 43, Color("#5b5868"), true, 365.0)
 	text(c, "A RIVER ADVENTURE", Vector2(270, 244), 19, Color("#a17f74"))
 	rr(c, Rect2(169, 321, 202, 44), 18, CREAM, Color("#a28f72"), 1.5)
 	text(c, "LEAVES  %d" % leaves, Vector2(270, 341), 21, Color("#5c815c"))
@@ -750,19 +788,19 @@ static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, d
 		var label: String = "REMOVE ADS " + (monetization.price_label if not monetization.price_label.is_empty() else "• PLAY STORE")
 		text(c, label, Vector2(270, 429), 18, Color("#755d4f"))
 	rr(c, Rect2(139, 549, 262, 67), 23, Color("#f2d79d"), Color("#92734d"), 2.1)
-	text(c, "CHAPTERS  %d / 6" % chapters.completed_count(), Vector2(270, 579), 23, Color("#60533f"))
+	text(c, "CHAPTERS  %d / 6" % chapters.completed_count(), Vector2(270, 579), 22, Color("#60533f"), false, 238.0)
 	rr(c, Rect2(62, 470, 197, 62), 22, Color("#8fbc94"), Color("#658b75"), 2)
 	text(c, "ENDLESS", Vector2(160, 499), 22, Color("#f7f6df"), true)
 	rr(c, Rect2(281, 470, 197, 62), 22, Color("#aabedc"), Color("#717e9b"), 2)
-	text(c, "DAILY RIVER", Vector2(379, 494), 19, Color("#fff5db"), true)
+	text(c, "DAILY RIVER", Vector2(379, 494), 19, Color("#fff5db"), true, 178.0)
 	var today_status := "DONE" if daily.river_complete_today() else "+25 LEAVES"
 	text(c, today_status, Vector2(379, 517), 13, Color("#506277"))
 	rr(c, Rect2(139, 634, 262, 58), 23, Color("#c6e2ba"), Color("#748b6b"), 2.2)
-	text(c, "MISSIONS %d/3  •  WEEK %d/3" % [daily.completion_count(), daily.weekly_completion_count()], Vector2(270, 660), 16, Color("#4b654b"))
+	text(c, "MISSIONS %d/3  •  WEEK %d/3" % [daily.completion_count(), daily.weekly_completion_count()], Vector2(270, 660), 16, Color("#4b654b"), false, 238.0)
 	rr(c, Rect2(139, 710, 262, 58), 23, Color("#a8d2aa"), Color("#668569"), 2.2)
-	text(c, "CUSTOMIZE", Vector2(270, 736), 24, Color("#3c5543"))
+	text(c, "CUSTOMIZE", Vector2(270, 736), 24, Color("#3c5543"), false, 230.0)
 	rr(c, Rect2(64, 783, 412, 112), 29, Color("#fcf0d9"), Color("#907b69"), 2.0)
-	text(c, "PULL BACK · RELEASE", Vector2(270, 816), 24, INK)
+	text(c, "PULL BACK · RELEASE", Vector2(270, 816), 22, INK, false, 375.0)
 	text(c, "Hop from lily to lily!", Vector2(270, 863), 19, Color("#947b6b"))
 	c.draw_circle(Vector2(270 + sin(time * 3) * 16, 907), 5, Color("#fff6d0"))
 
@@ -774,19 +812,19 @@ static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int,
 	text(c, _commas(score), Vector2(270, 343), 50, INK, true)
 	text(c, "BEST SCORE  %s" % _commas(best), Vector2(270, 374), 16, Color("#8c756c"))
 	rr(c, Rect2(94, 394, 352, 37), 17, Color("#e3eccf"), Color("#93a485"), 1.2)
-	text(c, run_grade, Vector2(270, 412), 19, Color("#526d5c"), true)
+	text(c, run_grade, Vector2(270, 412), 19, Color("#526d5c"), false, 314.0)
 	# All run stats are read from real landings, not displayed estimates.
 	var captions := ["HOPS", "PERFECT", "BEST COMBO", "FRIENDS"]
 	var values := [run_hops, run_perfects, run_peak_combo, run_friends]
 	for i in range(4):
 		var x := 75.0 + float(i) * 100.0
 		rr(c, Rect2(x, 448, 91, 61), 13, Color("#f3e6ce"), Color("#bdab94"), 1.2)
-		text(c, str(values[i]), Vector2(x + 45, 466), 22, INK, true)
-		text(c, captions[i], Vector2(x + 45, 491), 11, Color("#866e61"))
+		text(c, str(values[i]), Vector2(x + 45, 466), 22, INK, false, 78.0)
+		text(c, captions[i], Vector2(x + 45, 491), 11, Color("#866e61"), false, 79.0)
 	text(c, "LEAVES EARNED  +%d" % run_leaves, Vector2(270, 529), 17, Color("#5b865e"))
 	if not next_weekly.is_empty():
-		text(c, "NEXT WEEKLY GOAL", Vector2(270, 729), 14, Color("#8b7969"))
-		text(c, "%s  %d/%d" % [String(next_weekly["title"]), int(next_weekly["progress"]), int(next_weekly["target"])], Vector2(270, 748), 15, Color("#516f57"))
+		text(c, "NEXT WEEKLY GOAL", Vector2(270, 729), 14, Color("#8b7969"), false, 350.0)
+		text(c, "%s  %d/%d" % [String(next_weekly["title"]), int(next_weekly["progress"]), int(next_weekly["target"])], Vector2(270, 748), 15, Color("#516f57"), false, 350.0)
 	else:
 		text(c, "ALL WEEKLY GOALS COMPLETED", Vector2(270, 742), 15, Color("#516f57"))
 	# Preserve exact touch hitboxes used by the existing retry / home actions.
