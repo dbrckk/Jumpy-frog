@@ -1,0 +1,101 @@
+name: Android 15 runtime emulator smoke
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/android-emulator-smoke.yml
+      - tools/emulator_smoke.sh
+      - project.godot
+      - export_presets.cfg
+      - scripts/game.gd
+      - scripts/audio.gd
+
+permissions:
+  contents: read
+
+jobs:
+  android15-emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+      - name: Install Android 35 build tools
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.5.1
+          use-dotnet: false
+          include-templates: true
+      - name: Configure Godot Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/.android/sdk}}"
+          JAVA="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.5.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/java_sdk_path = "$JAVA"
+          export/android/android_sdk_path = "$SDK"
+          EOF
+      - name: Build emulator-only x86_64 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('export_presets.cfg')
+          content=p.read_text()
+          head, rest=content.split('[preset.1]', 1)
+          assert 'architectures/arm64-v8a=true' in head
+          assert 'architectures/x86_64=false' in head
+          head=head.replace('architectures/arm64-v8a=true','architectures/arm64-v8a=false',1)
+          head=head.replace('architectures/x86_64=false','architectures/x86_64=true',1)
+          p.write_text(head+'[preset.1]'+rest)
+          PY
+          godot --headless --editor --path . --quit
+          godot --headless --path . --script res://tools/generate_icons.gd
+          keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/emulator-debug.jks" -alias androiddebugkey -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US" -validity 20 -keyalg RSA -keysize 2048
+          export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$RUNNER_TEMP/emulator-debug.jks"
+          export GODOT_ANDROID_KEYSTORE_DEBUG_USER="androiddebugkey"
+          export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD="android"
+          mkdir -p build
+          timeout --kill-after=10s 240s godot --headless --path . --export-debug "Android" build/JumpyFrog-emulator.apk
+          test -s build/JumpyFrog-emulator.apk
+          unzip -tq build/JumpyFrog-emulator.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose build/JumpyFrog-emulator.apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 15 app runtime smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          ram-size: 2048M
+          cores: 2
+          disable-animations: true
+          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash tools/emulator_smoke.sh
+      - name: Upload device evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: JumpyFrog-Android15-Emulator-evidence
+          path: build/emulator-qa/
+          if-no-files-found: warn
+          retention-days: 14
