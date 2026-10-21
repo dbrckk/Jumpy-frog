@@ -1,4 +1,5 @@
 extends RefCounted
+const PLATFORM_MOTION = preload("res://scripts/platform_motion.gd")
 ## Hand-drawn, resolution-independent vector renderer. All illustrations are original.
 const W := 540.0
 const H := 960.0
@@ -54,10 +55,12 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 			c.draw_line(Vector2(x - 3.0, y + 5.0), Vector2(x + 3.0, y + 5.0), Color(0.95, 1.0, 0.91, shine * 0.55), 1.0, true)
 	c.draw_set_transform(Vector2.ZERO)
 	for pad in pads:
-		var screen := Vector2(float(pad["x"]), ANCHOR - (float(pad["m"]) - cam) * SCALE) + shake
+		var screen := Vector2(PLATFORM_MOTION.x_at(pad, time), ANCHOR - (float(pad["m"]) - cam) * SCALE) + shake
 		if screen.y < -125.0 or screen.y > H + 125.0:
 			continue
 		_lily(c, screen, float(pad["r"]), int(pad["kind"]), time, int(pad["id"]), float(pad_impacts.get(int(pad["id"]), 0.0)), chapters.biome_at(float(pad["m"]), campaign_stage), graphics_quality)
+		if bool(pad.get("moving", false)):
+			_moving_lily_cue(c, screen, float(pad["r"]), time, graphics_quality)
 		if bool(pad.get("fragile", false)):
 			_fragile_lily(c, screen, float(pad["r"]), time, int(pad["id"]) == fragile_pad_id, fragile_seconds, graphics_quality)
 		if bool(pad.get("guardian", false)):
@@ -262,6 +265,21 @@ static func _flow_hud(c: CanvasItem, remaining: float) -> void:
 	rr(c, Rect2(377, 96, 137, 3), 1.5, Color("#a5d5d5"))
 	if progress > 0.001:
 		rr(c, Rect2(377, 96, 137.0 * progress, 3), 1.5, Color("#3abdc2"))
+
+
+static func _moving_lily_cue(c: CanvasItem, position: Vector2, radius: float, time: float, quality: int) -> void:
+	# Cyan cross-current arrows signal sideways motion even at graphics tier 0.
+	var left := position + Vector2(-radius - 14.0, 0)
+	var right := position + Vector2(radius + 14.0, 0)
+	var ink := Color("#bff3ff")
+	line(c, left + Vector2(8, -7), left, ink, 2.2)
+	line(c, left, left + Vector2(8, 7), ink, 2.2)
+	line(c, right + Vector2(-8, -7), right, ink, 2.2)
+	line(c, right, right + Vector2(-8, 7), ink, 2.2)
+	if quality >= 1:
+		var shimmer := 3.0 + sin(time * 3.0) * 1.5
+		c.draw_arc(position, radius + 6, 0.0, TAU, 28,
+			Color(0.52, 0.92, 1.0, 0.30), shimmer, true)
 
 
 static func _fragile_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, active: bool, remaining: float, quality: int) -> void:
