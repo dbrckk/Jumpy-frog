@@ -18,6 +18,12 @@ class TestAdBridge extends Node:
 		return allow_rewarded
 
 
+class TestBilling extends Node:
+	var acknowledged_tokens: Array[String] = []
+	func acknowledge_purchase(token: String) -> void:
+		acknowledged_tokens.append(token)
+
+
 func _initialize() -> void:
 	call_deferred("_check_all")
 
@@ -176,7 +182,41 @@ func _check_all() -> void:
 	game.monetization.ads = null
 	game.queue_free()
 	await process_frame
+	# Exercise the purchase schema emitted by Godot Google Play Billing 3.3.0.
+	# In particular product_ids arrives as PackedStringArray, not a JSON Array.
 	monet.ads = null
+	monet.premium = false
+	var test_billing := TestBilling.new()
+	root.add_child(test_billing)
+	monet.billing = test_billing
+	monet._on_purchases({"response_code": 0, "purchases": [{
+		"product_ids": PackedStringArray(["remove_ads"]),
+		"purchase_state": 2,
+		"is_acknowledged": false,
+		"purchase_token": "pending-token"
+	}]})
+	_expect(not monet.premium and test_billing.acknowledged_tokens.is_empty(),
+		"pending transaction does not unlock or acknowledge premium")
+	monet._on_purchases({"response_code": 0, "purchases": [{
+		"product_ids": PackedStringArray(["different_product"]),
+		"purchase_state": 1,
+		"purchase_token": "unrelated-token"
+	}]})
+	_expect(not monet.premium, "unrelated Play product cannot unlock premium")
+	var paid := {"product_ids": PackedStringArray(["remove_ads"]),
+		"purchase_state": 1, "is_acknowledged": false, "purchase_token": "verified-token"}
+	monet._on_purchases({"response_code": 0, "purchases": [paid]})
+	_expect(monet.premium, "completed Play purchase grants permanent remove-ads entitlement")
+	_expect(test_billing.acknowledged_tokens == ["verified-token"],
+		"completed unacknowledged purchase is acknowledged once")
+	monet._on_restore({"response_code": 2, "purchases": []})
+	_expect(monet.premium, "billing service error cannot revoke existing offline entitlement")
+	monet._on_restore({"response_code": 0, "purchases": [paid]})
+	_expect(monet.premium, "successful restore keeps an owned non-consumable")
+	monet._on_restore({"response_code": 0, "purchases": []})
+	_expect(not monet.premium, "authoritative empty Play ownership query revokes refunded purchase")
+	monet.billing = null
+	test_billing.queue_free()
 	test_ads.queue_free()
 	monet.queue_free()
 	await process_frame
