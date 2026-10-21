@@ -75,6 +75,12 @@ var perfect_streak := 0
 var jump_is_perfect := false
 # Rare, free safety pickup. A charge saves one missed landing per collection.
 var guardian_charge := false
+# Crumbling pads appear only in the Golden Reeds and Stormy Rapids biomes.
+# The clock runs while standing/aiming, not in midair or while paused.
+const FRAGILE_LILY_DURATION := 5.5
+const FRAGILE_GUARDIAN_GRACE := 3.0
+var fragile_pad_id := -1
+var fragile_seconds := 0.0
 # Earned skill bonus: four precise landings trigger a brief FLOW window.
 # Never purchases, never stacks indefinitely, and freezes on pause.
 const FLOW_DURATION := 7.0
@@ -229,6 +235,8 @@ func _reset_game() -> void:
 	perfect_streak = 0
 	jump_is_perfect = false
 	guardian_charge = false
+	fragile_pad_id = -1
+	fragile_seconds = 0.0
 	flow_seconds = 0.0
 	flow_triggers = 0
 	flight_trail.clear()
@@ -287,7 +295,10 @@ func _generate_pads() -> void:
 			"coin": ident % 2 == 0,
 			"pet": ident % 3 == 0,
 			"boost": ident % 7 == 0 and biome >= 1,
-			"guardian": ident % 13 == 0
+			"guardian": ident % 13 == 0,
+			# A timed hazard is always clearly marked; it never changes
+			# generated collision size, and never coincides with a Guardian.
+			"fragile": biome in [2, 5] and ident > 4 and ident % 9 == 0 and ident % 13 != 0
 		})
 
 func _process(delta: float) -> void:
@@ -321,6 +332,24 @@ func _process(delta: float) -> void:
 		if mode in [MODE_PLAY, MODE_AIM, MODE_FLY]:
 			sound.play_event("combo")
 	shake_strength = maxf(0.0, shake_strength - delta * 21.0)
+	# The platform cracks only while the player can choose to jump.
+	# Menus, app interruptions and an already launched jump are safe.
+	if mode in [MODE_PLAY, MODE_AIM] and fragile_pad_id >= 0:
+		fragile_seconds = maxf(0.0, fragile_seconds - delta)
+		if fragile_seconds <= 0.0:
+			if guardian_charge:
+				guardian_charge = false
+				fragile_seconds = FRAGILE_GUARDIAN_GRACE
+				impact_flash = 0.24
+				shake_strength = maxf(shake_strength, 6.0)
+				_add_float_text("GUARDIAN SAVED YOU!", _player_screen() + Vector2(0, -116), Color("#fff4b9"))
+				_burst(_player_screen(), 14, "spark")
+				sound.play_event("boost")
+			else:
+				_add_ripple(_player_screen(), 1.6)
+				_burst(_player_screen(), 19, "water")
+				sound.play_event("splash")
+				_die()
 	impact_flash = maxf(0.0, impact_flash - delta * 1.6)
 	if mode in [MODE_PLAY, MODE_AIM, MODE_FLY]:
 		var biome_modifier: Dictionary = chapters.chapter(chapters.biome_at(player_m, campaign_stage))
@@ -421,7 +450,7 @@ func _draw() -> void:
 			preview = Vector2(float(pad["x"]), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -770,6 +799,11 @@ func _finish_jump() -> void:
 		return
 	for pad in pads:
 		if int(pad["id"]) == jump_pad_id:
+			fragile_pad_id = int(pad["id"]) if bool(pad.get("fragile", false)) else -1
+			fragile_seconds = FRAGILE_LILY_DURATION if fragile_pad_id >= 0 else 0.0
+			if fragile_pad_id >= 0:
+				_add_float_text("FRAGILE LILY - KEEP MOVING!", _player_screen() + Vector2(0, -157), Color("#ffdda2"))
+				sound.play_event("warning")
 			var gain := maxi(12, int((float(pad["m"]) - highest_m) * 13.0))
 			if jump_is_perfect:
 				perfect_streak += 1
@@ -864,6 +898,10 @@ func _rescue_from_splash() -> void:
 	perfect_streak = 0
 	combo = 0
 	flow_seconds = 0.0
+	# A Guardian rescue on a missed jump returns to the previously
+	# confirmed lily. Preserve at least three seconds to make the next hop.
+	if fragile_pad_id >= 0:
+		fragile_seconds = maxf(fragile_seconds, FRAGILE_GUARDIAN_GRACE)
 	player_x = jump_start.x
 	player_m = jump_start.y
 	previous_x = player_x
@@ -886,6 +924,8 @@ func _die() -> void:
 	if mode == MODE_LOST:
 		return
 	flow_seconds = 0.0
+	fragile_seconds = 0.0
+	fragile_pad_id = -1
 	mode = MODE_LOST
 	# Keep the result visible; do not interrupt the end screen with a timer ad.
 	monetization.on_run_finished()
@@ -948,7 +988,7 @@ func _burst(pos: Vector2, amount: int, kind: String = "spark") -> void:
 		particles.append({
 			"pos": pos + Vector2(rng.randf_range(-8, 8), rng.randf_range(-6, 6)),
 			"velocity": Vector2(cos(angle) * speed, sin(angle) * speed),
-			"life": rng.randf_range(0.58, 0.96),
+			"life": rng.randf_range(0.58, 0.96),
 			"kind": kind
 		})
 
