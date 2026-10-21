@@ -79,6 +79,24 @@ jobs:
           export/android/java_sdk_path = "$JAVA"
           export/android/android_sdk_path = "$SDK"
           EOF
+      - name: Reject invalid source control characters
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          for ext in ('*.gd', '*.gdshader', '*.tscn', '*.cfg'):
+              for source in Path('.').rglob(ext):
+                  if '.godot' in source.parts or 'build' in source.parts:
+                      continue
+                  data = source.read_bytes()
+                  try:
+                      data.decode('utf-8')
+                  except UnicodeDecodeError as exc:
+                      raise AssertionError(f'Invalid UTF-8: {source}') from exc
+                  illegal = [i for i, byte in enumerate(data) if byte < 32 and byte not in (9, 10, 13)]
+                  if illegal:
+                      raise AssertionError(f'Illegal source control byte in {source} at byte {illegal[0]}')
+          print('PASS: valid UTF-8 and no illegal source control bytes')
+          PY
       - name: Import and validate Godot project
         run: |
           set -euo pipefail
@@ -109,6 +127,7 @@ jobs:
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/touch_and_fairness.gd
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/guardian_flow.gd
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/flow_rush.gd
+          timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/fragile_lilies.gd
       - name: Create ephemeral debug signing key
         run: |
           keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/jumpy-debug.jks" \
