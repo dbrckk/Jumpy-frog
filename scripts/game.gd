@@ -351,6 +351,33 @@ func _generate_pads() -> void:
 			# generated collision size, and never coincides with a Guardian.
 			"fragile": biome in [2, 5] and ident > 4 and ident % 7 == 5 and ident % 13 != 0
 		})
+		# An optional second route, with a smaller golden lily and a better
+		# reward. Always keep the ordinary primary lily at the same m.
+		# The next primary landing remains reachable even from the gold lane.
+		var split_path := campaign_stage == -1 and ident >= 9 and ident % 12 == 9
+		split_path = split_path and not dangerous and not bool(motion["moving"])
+		split_path = split_path and not harmony and ident % 13 != 0
+		split_path = split_path and not (biome in [2, 5] and ident % 7 == 5)
+		if split_path:
+			var direction := -1.0 if last_pad_x > 270.0 else 1.0
+			var optional_x := clampf(last_pad_x + direction * rng.randf_range(88.0, 104.0), 95.0, 445.0)
+			if absf(optional_x - last_pad_x) >= 82.0:
+				pads.append({
+					"id": 1000000 + ident,
+					"x": optional_x,
+					"m": last_generated_m,
+					"r": 37.0,
+					"kind": 1,
+					"coin": false,
+					"pet": false,
+					"boost": false,
+					"guardian": false,
+					"harmony": false,
+					"moving": false,
+					"fragile": false,
+					"danger": false,
+					"branch_bonus": true
+				})
 
 func _process(delta: float) -> void:
 	performance_sampler.record(delta, mode in [MODE_PLAY, MODE_AIM, MODE_FLY])
@@ -505,13 +532,21 @@ func _draw() -> void:
 	var at := _player_screen()
 	var preview := Vector2(aim_x, PLAYER_ANCHOR - (aim_m - cam_m) * PX_PER_M)
 	var aim_valid := false
+	var aim_danger_seconds := 0.0
 	if mode == MODE_AIM:
 		var pad := _landing_target(aim_x, aim_m)
 		if not pad.is_empty():
 			preview = Vector2(_predicted_pad_x(pad), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
+		else:
+			var warning := _danger_aim_warning(aim_x, aim_m)
+			if not warning.is_empty():
+				var candidate: Dictionary = warning["pad"]
+				preview = Vector2(_predicted_pad_x(candidate), PLAYER_ANCHOR - (float(candidate["m"]) - cam_m) * PX_PER_M)
+				aim_danger_seconds = float(warning["wait"])
+
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {})
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {}, aim_danger_seconds)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -821,6 +856,24 @@ func _duration_to(target_m: float) -> float:
 func _predicted_pad_x(pad: Dictionary) -> float:
 	return PLATFORM_MOTION.x_at(pad, clock + _duration_to(float(pad["m"])))
 
+func _danger_aim_warning(desired_x: float, desired_m: float) -> Dictionary:
+	# The label uses the same future-time and elliptical collision calculation
+	# as _landing_target(), so the player is never shown a stale safe cue.
+	for candidate in pads:
+		if not bool(candidate.get("danger", false)) or float(candidate["m"]) <= player_m + 3.0:
+			continue
+		var duration := _duration_to(float(candidate["m"]))
+		if not PAD_DANGER.is_active(candidate, clock + duration):
+			continue
+		var dx: float = _predicted_pad_x(candidate) - desired_x
+		var dy: float = (float(candidate["m"]) - desired_m) * PX_PER_M
+		var rx: float = float(candidate["r"]) + 14.0
+		var ry: float = float(candidate["r"]) * 0.78 + 14.0
+		if Vector2(dx / rx, dy / ry).length_squared() <= 1.0:
+			return {"pad": candidate, "wait": PAD_DANGER.seconds_until_safe(candidate, clock + duration)}
+	return {}
+
+
 ## Preview and flight share this exact landing rule, so a green guide cannot miss.
 func _landing_target(desired_x: float, desired_m: float) -> Dictionary:
 	var winner: Dictionary = {}
@@ -948,6 +1001,16 @@ func _finish_jump() -> void:
 				_add_float_text("GUARDIAN READY!", _player_screen() + Vector2(0, -153), Color("#fff3b9"))
 				_burst(_player_screen() + Vector2(0, -16), 15, "spark")
 				sound.play_event("victory")
+			if bool(pad.get("branch_bonus", false)):
+				pad["branch_bonus"] = false
+				leaves += 2
+				run_leaves += 2
+				gain += 225
+				celebration = 1.0
+				precision_pulse = 1.25
+				_add_float_text("GOLD ROUTE! +2 LEAVES", _player_screen() + Vector2(0, -152), Color("#fff6b0"))
+				_burst(_player_screen() + Vector2(0, -12), 20, "spark")
+				sound.play_event("victory")
 			if bool(pad["pet"]):
 				run_friends += 1
 				pets = mini(pets + 1, 8)
@@ -964,7 +1027,6 @@ func _finish_jump() -> void:
 				leaves += daily_bonus
 				_add_float_text("GOAL +%d" % daily_bonus, _player_screen() + Vector2(0, -138), Color("#e6ffc5"))
 				celebration = 1.0
-			_save_progress()
 			combo += 1
 			run_peak_combo = maxi(run_peak_combo, combo)
 			if combo >= 3 and combo % 3 == 0:
@@ -974,6 +1036,7 @@ func _finish_jump() -> void:
 				landing_points = roundi(float(landing_points) * FLOW_SCORE_MULTIPLIER)
 			score += landing_points
 			highest_m = maxf(highest_m, player_m)
+			_save_progress()
 			_add_ripple(_player_screen() + Vector2(0, 10), 1.0)
 			pad_impacts[jump_pad_id] = 1.0
 			landing_impact = 1.0
