@@ -54,7 +54,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_LEFT, -1, actual_size, color)
 
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
@@ -75,6 +75,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		if screen.y < -125.0 or screen.y > H + 125.0:
 			continue
 		_lily(c, screen, float(pad["r"]), int(pad["kind"]), time, int(pad["id"]), float(pad_impacts.get(int(pad["id"]), 0.0)), chapters.biome_at(float(pad["m"]), campaign_stage), graphics_quality)
+		if int(pad.get("festival_step", -1)) >= 0:
+			_festival_lily(c, screen, float(pad["r"]), time, int(pad["festival_step"]), bool(pad.get("festival_collected", false)), graphics_quality)
 		if bool(pad.get("branch_bonus", false)):
 			_bonus_branch_lily(c, screen, float(pad["r"]), time, graphics_quality)
 		if bool(pad.get("moving", false)):
@@ -139,6 +141,10 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		_flow_hud(c, flow_seconds)
 	if fragile_pad_id >= 0 and mode in [1, 2, 5]:
 		_fragile_hud(c, fragile_seconds)
+	if festival_progress > 0 and mode in [1, 2, 3]:
+		_festival_hud(c, festival_progress)
+	if festival_banner_seconds > 0.0 and mode in [1, 2, 3]:
+		_festival_banner(c, festival_banner_seconds)
 	if mode == 0:
 		_start_overlay(c, time, leaves, skin, daily, monetization, chapters)
 	if mode == 4:
@@ -336,6 +342,38 @@ static func _flow_hud(c: CanvasItem, remaining: float) -> void:
 	rr(c, Rect2(377, 96, 137, 3), 1.5, Color("#a5d5d5"))
 	if progress > 0.001:
 		rr(c, Rect2(377, 96, 137.0 * progress, 3), 1.5, Color("#3abdc2"))
+
+
+static func _festival_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, step: int, claimed: bool, quality: int) -> void:
+	# Three lavender halos are readable even without optional particles.
+	var base_alpha := 0.32 if claimed else 0.62
+	var glow := 0.10 * sin(time * 3.8 + float(step))
+	c.draw_arc(pos, radius + 8.0, 0.0, TAU, 32 if quality == 0 else 48, Color(0.87, 0.69, 1.0, base_alpha + glow), 3.5, true)
+	var center := pos + Vector2(0, -17)
+	c.draw_circle(center, 13.0, Color("#66567f"))
+	c.draw_circle(center, 10.0, Color("#dbc1f8"))
+	text(c, str(step + 1), center + Vector2(0, -2), 16, Color("#514c70"), true, 22.0)
+	if quality >= 1 and not claimed:
+		for i in range(4 if quality == 1 else 6):
+			var angle := float(i) * TAU / (4.0 if quality == 1 else 6.0) + time * 0.8
+			var at := pos + Vector2(cos(angle) * (radius + 17.0), sin(angle) * (radius + 10.0))
+			c.draw_circle(at, 2.0, Color(0.96, 0.91, 1.0, 0.45))
+
+
+static func _festival_hud(c: CanvasItem, progress: int) -> void:
+	rr(c, Rect2(170, 108, 200, 34), 14, Color("#f4e6ff"), Color("#9b7db1"), 1.5)
+	text(c, "FIREFLY FESTIVAL  %d/3" % progress, Vector2(270, 125), 15, Color("#685884"), false, 181.0)
+
+
+static func _festival_banner(c: CanvasItem, seconds: float) -> void:
+	var alpha := clampf(seconds * 1.35, 0.0, 1.0)
+	var fill := Color("#f6e4ff")
+	fill.a = alpha * 0.97
+	rr(c, Rect2(128, 168, 284, 62), 22, fill)
+	var ink := Color("#6b5788")
+	ink.a = alpha
+	text(c, "FESTIVAL COMPLETE!", Vector2(270, 187), 20, ink, true, 260.0)
+	text(c, "+3 LEAVES  •  +320 PTS", Vector2(270, 213), 16, ink, false, 260.0)
 
 
 static func _bonus_branch_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, quality: int) -> void:
