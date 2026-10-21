@@ -38,7 +38,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
@@ -63,6 +63,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 			_moving_lily_cue(c, screen, float(pad["r"]), time, graphics_quality)
 		if bool(pad.get("fragile", false)):
 			_fragile_lily(c, screen, float(pad["r"]), time, int(pad["id"]) == fragile_pad_id, fragile_seconds, graphics_quality)
+		if bool(pad.get("harmony", false)):
+			_harmony_lily(c, screen, float(pad["r"]), time, graphics_quality)
 		if bool(pad.get("guardian", false)):
 			_guardian_lily(c, screen, float(pad["r"]), time)
 		if bool(pad.get("boost", false)):
@@ -83,6 +85,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		_aim_guide(c, player_at + shake, aim_at + shake, time, aim_valid)
 	if flow_seconds > 0.0:
 		_flow_aura(c, player_at + shake, jump_z, time, flow_seconds, graphics_quality)
+	if precision_pulse > 0.0:
+		_precision_feedback(c, player_at + shake, jump_z, precision_pulse, graphics_quality)
 	_character(c, player_at + shake, jump_z, pets, time, mode == 3, tilt, squash, sway, blink, impact, celebration, skin)
 	if guardian_charge:
 		c.draw_arc(player_at + shake + Vector2(0, -jump_z - 20), 43.0 + sin(time * 4.0) * 2.0, 0, TAU, 40, Color(1.0, 0.88, 0.43, 0.40), 2.5, true)
@@ -325,6 +329,41 @@ static func _moving_lily_cue(c: CanvasItem, position: Vector2, radius: float, ti
 		var shimmer := 3.0 + sin(time * 3.0) * 1.5
 		c.draw_arc(position, radius + 6, 0.0, TAU, 28,
 			Color(0.52, 0.92, 1.0, 0.30), shimmer, true)
+
+
+static func _harmony_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, quality: int) -> void:
+	# Gold/cyan bloom clearly marks a centered-landing challenge, with no
+	# change to collision radius or aim-assist behavior.
+	var pulse := 0.5 + 0.5 * sin(time * 3.1)
+	c.draw_arc(pos, radius + 7.0, 0.0, TAU, 30 if quality == 0 else 48,
+		Color(1.0, 0.88, 0.55, 0.35 + pulse * 0.28), 2.8, true)
+	var center := pos + Vector2(0, -8.0)
+	c.draw_circle(center, 9.0, Color("#6d988a"))
+	c.draw_circle(center, 6.0, Color("#fff2b1"))
+	if quality >= 1:
+		for i in range(4):
+			var angle := float(i) * TAU / 4.0 + time * 0.2
+			var point := center + Vector2(cos(angle) * 13.0, sin(angle) * 10.0)
+			c.draw_circle(point, 2.6, Color("#fce8a0"))
+	if quality >= 2:
+		c.draw_arc(center, 15.0, -1.1, 2.1, 15, Color(1, 1, 0.9, 0.55), 1.5, true)
+
+
+static func _precision_feedback(c: CanvasItem, player_at: Vector2, jump_height: float, pulse: float, quality: int) -> void:
+	# Short, screen-space spring ring; its draw complexity is capped and does
+	# not alter game state, score, trajectory or collision.
+	var p := clampf(pulse, 0.0, 1.25)
+	var center := player_at + Vector2(0, -jump_height - 17.0)
+	var fade := clampf(p / 0.7, 0.0, 1.0)
+	var radius := 26.0 + (1.25 - p) * 32.0
+	c.draw_arc(center, radius, 0.10, TAU + 0.10,
+		24 if quality == 0 else (36 if quality == 1 else 48),
+		Color(1.0, 0.95, 0.67, fade * 0.55), 2.6 * fade + 0.6, true)
+	if quality >= 2:
+		for i in range(6):
+			var angle := float(i) * TAU / 6.0
+			c.draw_circle(center + Vector2(cos(angle), sin(angle)) * radius,
+				2.0 + 1.2 * fade, Color(0.83, 1.0, 0.88, 0.40 * fade))
 
 
 static func _fragile_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, active: bool, remaining: float, quality: int) -> void:
@@ -878,16 +917,4 @@ static func _chapter_clear_overlay(c: CanvasItem, index: int, stars: int, reward
 	text(c, "CHAPTER %d / 6" % (index + 1), Vector2(270, 497), 21, Color("#717078"))
 	text(c, "+%d LEAVES" % reward if reward > 0 else "MEDAL RECORDED", Vector2(270, 548), 23, Color("#668957"))
 	rr(c, Rect2(72, 633, 195, 66), 24, Color("#9fcf8b"), Color("#638761"), 2.0)
-	text(c, "NEXT" if chapters.can_play(index + 1) else "HOME", Vector2(169, 663), 25, Color("#435c49"))
-	rr(c, Rect2(285, 633, 190, 66), 24, Color("#e8d8b8"), Color("#938573"), 2.0)
-	text(c, "HOME", Vector2(380, 663), 25, Color("#6a5d54"))
-
-
-static func _commas(value: int) -> String:
-	var s := str(value)
-	var result := ""
-	for i in range(s.length()):
-		if i > 0 and (s.length() - i) % 3 == 0:
-			result += ","
-		result += s[i]
-	return result
+	
