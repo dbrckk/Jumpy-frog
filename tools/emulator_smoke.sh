@@ -42,26 +42,47 @@ launch() {
   return 1
 }
 
-launch
-sleep 4
-# The Android immersive-mode onboarding overlay intercepts all input and
-# creates a false-positive "successful" runtime test until Got it is tapped.
-# The emulator runs at 540x960; this is the overlay's actual button center.
-adb shell input tap 377 746
-sleep 4
-assert_running
-adb exec-out screencap -p > "$OUT/title.png"
-python3 - <<'PY'
+# Unlike a real GPU, software Vulkan can take 20+ seconds to compile
+# its first pipeline. pidof() alone does not prove Godot has drawn a frame.
+wait_for_game_frame() {
+  local target="$1"
+  local frame_state
+  for attempt in $(seq 1 35); do
+    adb exec-out screencap -p > "$target"
+    frame_state="$(python3 - "$target" <<'PYIMG'
 from PIL import Image
-image = Image.open("build/emulator-qa/title.png").convert("RGB")
-# Android's immersive onboarding page is mostly the exact flat lavender
-# #eeedf4 background. Game art uses a varied illustrated river palette.
-samples = [image.getpixel((x, y)) for y in range(160, 820, 15)
-           for x in range(40, 500, 15)]
-overlay_fraction = sum(rgb == (238, 237, 244) for rgb in samples) / len(samples)
-assert overlay_fraction < 0.20, f"Immersive OS overlay still obscures gameplay: {overlay_fraction:.1%}"
-print("PASS: Android fullscreen system overlay dismissed; game screenshot visible")
-PY
+import sys
+im=Image.open(sys.argv[1]).convert('RGB')
+if im.size != (540, 960):
+    print('bad_size')
+    raise SystemExit
+samples=[im.getpixel((x,y)) for y in range(160,820,15) for x in range(40,500,15)]
+overlay=sum(rgb==(238,237,244) for rgb in samples)/len(samples)
+spread=max(hi-lo for lo,hi in im.getextrema())
+if overlay>0.20:
+    print('overlay')
+elif spread<55 or len(open(sys.argv[1],'rb').read())<10000:
+    print('flat')
+else:
+    print('ready')
+PYIMG
+)"
+    if [[ "$frame_state" == "ready" ]]; then
+      echo "PASS: live illustrated game frame detected after attempt $attempt"
+      return 0
+    elif [[ "$frame_state" == "overlay" ]]; then
+      # Dismiss the Android immersive onboarding once, not the game's UI.
+      adb shell input tap 377 746
+    fi
+    sleep 2
+  done
+  echo "FAIL: no rendered game frame after bounded emulator startup wait"
+  return 1
+}
+
+launch
+wait_for_game_frame "$OUT/title.png"
+assert_running
 # Tap start (not one of the title's smaller navigation buttons), then aim.
 adb shell input tap 250 780
 sleep 1
@@ -90,6 +111,7 @@ for pass in 1 2; do
   assert_running
 done
 
+wait_for_game_frame "$OUT/final-screen.png"
 collect_evidence
 python3 - <<'PY'
 from pathlib import Path
