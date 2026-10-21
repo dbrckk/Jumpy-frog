@@ -90,13 +90,21 @@ func restore_purchase() -> bool:
 	billing.query_purchases(0)
 	return true
 
+func _is_owned_purchase(purchase: Dictionary) -> bool:
+	# Billing 3.3.0 emits PackedStringArray product IDs, but tolerate
+	# ordinary arrays and ignore malformed callbacks without granting access.
+	var ids: Variant = purchase.get("product_ids", null)
+	if not (ids is Array or ids is PackedStringArray):
+		return false
+	return ids.has(PRODUCT_ID) and int(purchase.get("purchase_state", 0)) == 1
+
+
 func _on_restore(result: Dictionary) -> void:
 	if int(result.get("response_code", -1)) != 0:
 		return # retain locally verified offline ownership during network failures
 	var is_owned := false
 	for candidate in result.get("purchases", []):
-		var p: Dictionary = candidate
-		if p.get("product_ids", []).has(PRODUCT_ID) and int(p.get("purchase_state", 0)) == 1:
+		if candidate is Dictionary and _is_owned_purchase(candidate):
 			is_owned = true
 			break
 	if not is_owned and premium:
@@ -112,12 +120,9 @@ func _on_purchases(result: Dictionary) -> void:
 	if int(result.get("response_code", -1)) != 0:
 		return
 	for item in result.get("purchases", []):
+		if not (item is Dictionary and _is_owned_purchase(item)):
+			continue # Pending, invalid and unrelated purchases are not owned.
 		var purchase: Dictionary = item
-		var ids: Array = purchase.get("product_ids", [])
-		if not ids.has(PRODUCT_ID):
-			continue
-		if int(purchase.get("purchase_state", 0)) != 1:
-			continue # pending is NOT owned
 		if not premium:
 			premium = true
 			_save_cache()
