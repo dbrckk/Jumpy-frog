@@ -3,6 +3,7 @@ extends Node2D
 const ART = preload("res://scripts/art.gd")
 const AUDIO = preload("res://scripts/audio.gd")
 const DAILY = preload("res://scripts/daily.gd")
+const SAVE_STORE = preload("res://scripts/save_store.gd")
 const RUN_REPORT = preload("res://scripts/run_report.gd")
 const MONETIZATION = preload("res://scripts/monetization.gd")
 const CHAPTERS = preload("res://scripts/chapters.gd")
@@ -144,7 +145,7 @@ func _ready() -> void:
 	add_child(monetization)
 	monetization.rewarded_leaves_granted.connect(_on_rewarded_leaves)
 	var save := ConfigFile.new()
-	if save.load("user://jumpy_frog.cfg") == OK:
+	if SAVE_STORE.read_into(save) == OK:
 		best_score = int(save.get_value("progress", "best_score", 0))
 		saved_muted = bool(save.get_value("progress", "muted", false))
 		android_tones_enabled = bool(save.get_value("progress", "android_system_tones", false))
@@ -894,7 +895,7 @@ func _finish_jump() -> void:
 			if bool(pad["coin"]):
 				leaves += 1
 				run_leaves += 1
-				_save_progress()
+				# Persist once with the completed landing and all mission payouts.
 				_add_float_text("+1 LEAF", _player_screen() + Vector2(-25, -79), Color("#e8fbb8"))
 				sound.play_event("coin")
 				_add_float_text("+75", _player_screen() + Vector2(28, -55), Color("#fff3ad"))
@@ -1032,7 +1033,7 @@ func _is_unlocked(index: int) -> bool:
 
 func _save_progress() -> void:
 	var save := ConfigFile.new()
-	save.load("user://jumpy_frog.cfg")
+	SAVE_STORE.read_into(save)
 	save.set_value("progress", "best_score", best_score)
 	save.set_value("progress", "muted", saved_muted)
 	save.set_value("progress", "android_system_tones", android_tones_enabled)
@@ -1046,7 +1047,9 @@ func _save_progress() -> void:
 	save.set_value("records", "friends", best_run_friends)
 	daily.write_to(save)
 	chapters.write_to(save)
-	save.save("user://jumpy_frog.cfg")
+	var error: Error = SAVE_STORE.write(save)
+	if error != OK:
+		push_warning("Progress save failed: %s" % error_string(error))
 
 func _add_float_text(value: String, pos: Vector2, color: Color) -> void:
 	if float_texts.size() >= 8:
