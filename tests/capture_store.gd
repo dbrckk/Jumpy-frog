@@ -40,9 +40,17 @@ func _capture() -> void:
 	await _save(scene, "03-wardrobe.png")
 	# End screen: actual overlay and earned-leaf feedback.
 	scene.mode = 4
-	scene.score = 2760
-	scene.best_score = 3150
+	scene.score = 3550
+	scene.best_score = 3550
 	scene.run_leaves = 10
+	# Render truthful, mutually consistent result stats instead of a
+	# high score paired with a first-splash (zero-hop) badge.
+	scene.run_hops = 24
+	scene.run_perfects = 9
+	scene.run_peak_combo = 13
+	scene.run_friends = 3
+	scene.flow_triggers = 2
+	scene.run_new_record = true
 	await _save(scene, "04-game-over.png")
 	# A real rendering of the daily goals board, not an invented menu image.
 	scene.mode = 7
