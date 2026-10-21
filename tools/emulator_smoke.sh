@@ -43,9 +43,25 @@ launch() {
 }
 
 launch
-sleep 7
+sleep 4
+# The Android immersive-mode onboarding overlay intercepts all input and
+# creates a false-positive "successful" runtime test until Got it is tapped.
+# The emulator runs at 540x960; this is the overlay's actual button center.
+adb shell input tap 377 746
+sleep 4
 assert_running
 adb exec-out screencap -p > "$OUT/title.png"
+python3 - <<'PY'
+from PIL import Image
+image = Image.open("build/emulator-qa/title.png").convert("RGB")
+# Android's immersive onboarding page is mostly the exact flat lavender
+# #eeedf4 background. Game art uses a varied illustrated river palette.
+samples = [image.getpixel((x, y)) for y in range(160, 820, 15)
+           for x in range(40, 500, 15)]
+overlay_fraction = sum(rgb == (238, 237, 244) for rgb in samples) / len(samples)
+assert overlay_fraction < 0.20, f"Immersive OS overlay still obscures gameplay: {overlay_fraction:.1%}"
+print("PASS: Android fullscreen system overlay dismissed; game screenshot visible")
+PY
 # Tap start (not one of the title's smaller navigation buttons), then aim.
 adb shell input tap 250 780
 sleep 1
@@ -85,9 +101,18 @@ for i, line in enumerate(lines):
         surrounding = "\n".join(lines[max(0, i-12):i+36])
         if re.search(r"org\.dbrckk\.jumpyfrog|GodotAndroidThread|libwilhelm\.so", surrounding, re.I):
             raise SystemExit("FAIL: Godot/app-related Android crash marker in emulator logcat")
+from PIL import Image, ImageChops
 for name in ("title.png", "first-run.png", "final-screen.png"):
     p = Path("build/emulator-qa") / name
     data = p.read_bytes()
     assert data.startswith(b"\x89PNG\r\n\x1a\n") and len(data) > 10000, name
-print("PASS: Android 15 app launch, touch, background/resume, cold starts, screenshots and crash-log scan")
+    im = Image.open(p).convert("RGB")
+    assert im.size == (540, 960), (name, im.size)
+before = Image.open("build/emulator-qa/title.png").convert("RGB")
+after = Image.open("build/emulator-qa/first-run.png").convert("RGB")
+diff = ImageChops.difference(before, after).convert("L")
+changed = sum(count for index, count in enumerate(diff.histogram()) if index > 30)
+assert changed > 0.03 * before.width * before.height, (
+    f"Touch did not visibly change game screen: only {changed} altered pixels")
+print("PASS: Android 15 app launch, visible gameplay, touch, lifecycle, screenshots and crash-log scan")
 PY
