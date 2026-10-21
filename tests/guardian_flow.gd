@@ -19,7 +19,7 @@ func _run() -> void:
 	var x: float = g.player_x
 	var m: float = g.player_m
 	g.aim_x = 270
-	g.aim_m = m + 3000
+	g.aim_m = m + 4.2
 	g._start_jump()
 	for i in range(65):
 		g._process(0.02)
@@ -27,7 +27,7 @@ func _run() -> void:
 	_check(g.mode == 1 and not g.guardian_charge, "one life saved")
 	_check(is_equal_approx(g.player_x, x) and is_equal_approx(g.player_m, m), "landed back on safe pad")
 	g.aim_x = 270
-	g.aim_m = m + 3000
+	g.aim_m = m + 4.2
 	g._start_jump()
 	for i in range(65):
 		g._process(0.02)
