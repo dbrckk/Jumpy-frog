@@ -10,6 +10,7 @@ const CHAPTERS = preload("res://scripts/chapters.gd")
 const RIVER_SHADER = preload("res://shaders/river_surface.gdshader")
 const PLATFORM_MOTION = preload("res://scripts/platform_motion.gd")
 const PAD_DANGER = preload("res://scripts/pad_danger.gd")
+const ROUTE_DIRECTOR = preload("res://scripts/route_director.gd")
 const RIVER_FESTIVAL = preload("res://scripts/river_festival.gd")
 const DEVICE_DIAGNOSTICS = preload("res://scripts/device_diagnostics.gd")
 const W := 540.0
@@ -43,6 +44,9 @@ var last_generated_m: float = 0.0
 var last_pad_x: float = 270.0
 var next_pad_id: int = 1
 var last_danger_id := -99
+var route_director := ROUTE_DIRECTOR.new()
+var best_endless_m := 0
+var run_new_distance_record := false
 var festival := RIVER_FESTIVAL.new()
 var festival_banner_seconds := 0.0
 var standing_pad_id := 0
@@ -167,6 +171,7 @@ func _ready() -> void:
 		best_run_perfects = maxi(0, int(save.get_value("records", "perfects", 0)))
 		best_run_combo = maxi(0, int(save.get_value("records", "combo", 0)))
 		best_run_friends = maxi(0, int(save.get_value("records", "friends", 0)))
+		best_endless_m = maxi(0, int(save.get_value("records", "best_endless_m", 0)))
 	daily.load_from(save)
 	chapters.load_from(save)
 	muted = saved_muted or OS.has_feature("android")
@@ -252,6 +257,7 @@ func _reset_game() -> void:
 	last_pad_x = 270.0
 	next_pad_id = 1
 	last_danger_id = -99
+	route_director.reset()
 	festival.reset()
 	festival_banner_seconds = 0.0
 	standing_pad_id = 0
@@ -264,6 +270,7 @@ func _reset_game() -> void:
 	run_peak_combo = 0
 	run_friends = 0
 	run_new_record = false
+	run_new_distance_record = false
 	perfect_streak = 0
 	jump_is_perfect = false
 	guardian_charge = false
@@ -309,18 +316,18 @@ func _generate_pads() -> void:
 		last_generated_m += gap
 		var lateral: float = float(modifier["drift"])
 		var dx := rng.randf_range(-lateral, lateral)
-		if festival_step >= 0:
-			dx *= 0.38
-		if festival_step < 0 and biome in [3, 5] and next_pad_id % 4 == 0:
-			dx = (lateral * 0.85) * (-1.0 if next_pad_id % 8 == 0 else 1.0)
-		# Readable 16-hop phrases: two easy recovery hops, a short alternating
-		# slalom, then the biome's organic random rhythm. Every adjustment
-		# remains within the existing reachable lateral gap limits.
-		var phrase_step := (next_pad_id - 1) % 16
-		if phrase_step in [0, 1]:
-			dx *= 0.28
-		elif festival_step < 0 and phrase_step in [5, 6, 7]:
-			dx = lateral * (0.67 if phrase_step % 2 == 1 else -0.67)
+		# Four shuffled motifs in Endless, while campaign and daily keep
+		# their proven layouts, reachability and seeded daily generation.
+		if campaign_stage == -1:
+			dx = route_director.lateral_delta(next_pad_id, dx, lateral, rng, festival_step >= 0)
+		else:
+			if biome in [3, 5] and next_pad_id % 4 == 0:
+				dx = (lateral * 0.85) * (-1.0 if next_pad_id % 8 == 0 else 1.0)
+			var phrase_step := (next_pad_id - 1) % 16
+			if phrase_step in [0, 1]:
+				dx *= 0.28
+			elif phrase_step in [5, 6, 7]:
+				dx = lateral * (0.67 if phrase_step % 2 == 1 else -0.67)
 		last_pad_x = clampf(last_pad_x + dx, 116.0, 421.0)
 		var ident := next_pad_id
 		next_pad_id += 1
@@ -568,7 +575,7 @@ func _draw() -> void:
 				aim_danger_seconds = float(warning["wait"])
 
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {}, aim_danger_seconds, festival.progress, festival_banner_seconds)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {}, aim_danger_seconds, festival.progress, festival_banner_seconds, perfect_streak, best_endless_m)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -1074,6 +1081,9 @@ func _finish_jump() -> void:
 				landing_points = roundi(float(landing_points) * FLOW_SCORE_MULTIPLIER)
 			score += landing_points
 			highest_m = maxf(highest_m, player_m)
+			if campaign_stage == -1 and int(player_m) > best_endless_m:
+				best_endless_m = int(player_m)
+				run_new_distance_record = true
 			_save_progress()
 			_add_ripple(_player_screen() + Vector2(0, 10), 1.0)
 			pad_impacts[jump_pad_id] = 1.0
@@ -1138,7 +1148,7 @@ func _die() -> void:
 	shake_strength = maxf(shake_strength, 7.0)
 	jump_z = 0.0
 	sound.play_event("lose")
-	run_new_record = score > best_score or run_perfects > best_run_perfects or run_peak_combo > best_run_combo or run_friends > best_run_friends
+	run_new_record = run_new_distance_record or score > best_score or run_perfects > best_run_perfects or run_peak_combo > best_run_combo or run_friends > best_run_friends
 	best_score = maxi(best_score, score)
 	best_run_perfects = maxi(best_run_perfects, run_perfects)
 	best_run_combo = maxi(best_run_combo, run_peak_combo)
@@ -1178,6 +1188,7 @@ func _save_progress() -> void:
 	save.set_value("records", "perfects", best_run_perfects)
 	save.set_value("records", "combo", best_run_combo)
 	save.set_value("records", "friends", best_run_friends)
+	save.set_value("records", "best_endless_m", best_endless_m)
 	daily.write_to(save)
 	chapters.write_to(save)
 	var error: Error = SAVE_STORE.write(save)
