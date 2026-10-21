@@ -54,7 +54,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_LEFT, -1, actual_size, color)
 
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0, perfect_streak: int = 0, best_endless_m: int = 0) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
@@ -145,10 +145,12 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		_festival_hud(c, festival_progress)
 	if festival_banner_seconds > 0.0 and mode in [1, 2, 3]:
 		_festival_banner(c, festival_banner_seconds)
+	if mode in [1, 2, 3]:
+		_streak_progress(c, perfect_streak, flow_seconds)
 	if mode == 0:
-		_start_overlay(c, time, leaves, skin, daily, monetization, chapters)
+		_start_overlay(c, time, leaves, skin, daily, monetization, chapters, best_endless_m)
 	if mode == 4:
-		_lost_overlay(c, score, best, run_leaves, monetization, rewarded_this_run, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, run_grade, next_weekly)
+		_lost_overlay(c, score, best, run_leaves, monetization, rewarded_this_run, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, run_grade, next_weekly, distance, best_endless_m, campaign_stage)
 	if mode == 5:
 		_pause_overlay(c, muted, monetization, haptics_enabled, android_tones_enabled)
 	if mode == 6:
@@ -334,6 +336,23 @@ static func _flow_aura(c: CanvasItem, pos: Vector2, height: float, t: float, rem
 			var angle := t * 2.1 + float(i) * TAU / 6.0
 			var at := center + Vector2(cos(angle) * 49.0, sin(angle) * 31.0)
 			c.draw_circle(at, 2.0 + sin(angle) * 0.6, Color(0.93, 1.0, 0.89, 0.62))
+
+static func _streak_progress(c: CanvasItem, streak: int, flow_remaining: float) -> void:
+	# Four large, clear ticks for the next FLOW; fifth perfect awards a leaf.
+	# Draw at the bottom edge, away from the top-biome/festival overlays and
+	# always outside the frog's central playing area.
+	var flow_count := streak % 4
+	var leaf_count := streak % 5
+	rr(c, Rect2(151, 897, 238, 55), 19, Color(0.18, 0.31, 0.36, 0.84), Color("#9dbab1"), 1.4)
+	var description := "FLOW ACTIVE" if flow_remaining > 0.0 else "NEXT FLOW  %d/4" % flow_count
+	text(c, description, Vector2(270, 913), 14, Color("#f0f7d5"), true, 205.0)
+	for i in range(4):
+		var x := 170.0 + float(i) * 34.0
+		rr(c, Rect2(x, 928, 31, 7), 3.5, Color("#879ca1"))
+		if flow_remaining > 0.0 or i < flow_count:
+			rr(c, Rect2(x, 928, 31, 7), 3.5, Color("#b9f6e4"))
+	text(c, "LEAF %d/5" % leaf_count, Vector2(351, 939), 11, Color("#fff0bc"), false, 69.0)
+
 
 static func _flow_hud(c: CanvasItem, remaining: float) -> void:
 	var progress := clampf(remaining / 7.0, 0.0, 1.0)
@@ -834,12 +853,14 @@ static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int,
 	elif combo >= 3 and mode in [1, 2, 3]:
 		text(c, "COMBO x%d!" % combo, Vector2(270, 84), 19, Color("#f7f1b2"), true)
 
-static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, daily: RefCounted, monetization: Node, chapters: RefCounted) -> void:
+static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, daily: RefCounted, monetization: Node, chapters: RefCounted, best_endless_m: int = 0) -> void:
 	rr(c, Rect2(62, 128, 416, 179), 34, Color("#fbedd6"), Color("#ae977d"), 3)
 	text(c, "JUMPY FROG", Vector2(270, 186), 43, Color("#5b5868"), true, 365.0)
 	text(c, "A RIVER ADVENTURE", Vector2(270, 244), 19, Color("#a17f74"))
 	rr(c, Rect2(169, 321, 202, 44), 18, CREAM, Color("#a28f72"), 1.5)
 	text(c, "LEAVES  %d" % leaves, Vector2(270, 341), 21, Color("#5c815c"))
+	if best_endless_m > 0:
+		text(c, "BEST ENDLESS   %d m" % best_endless_m, Vector2(270, 382), 16, Color("#f8f1ce"), true, 360.0)
 	if monetization.premium:
 		text(c, "AD-FREE FOREVER", Vector2(270, 416), 20, Color("#5a9462"))
 	elif monetization.purchase_ready:
@@ -863,7 +884,7 @@ static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, d
 	text(c, "Hop from lily to lily!", Vector2(270, 863), 19, Color("#947b6b"))
 	c.draw_circle(Vector2(270 + sin(time * 3) * 16, 907), 5, Color("#fff6d0"))
 
-static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int, monetization: Node, rewarded_this_run: bool, run_hops: int, run_perfects: int, run_peak_combo: int, run_friends: int, run_new_record: bool, run_grade: String, next_weekly: Dictionary) -> void:
+static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int, monetization: Node, rewarded_this_run: bool, run_hops: int, run_perfects: int, run_peak_combo: int, run_friends: int, run_new_record: bool, run_grade: String, next_weekly: Dictionary, distance: int = 0, best_endless_m: int = 0, campaign_stage: int = -1) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.16, 0.21, 0.32, 0.55))
 	rr(c, Rect2(42, 197, 456, 581), 32, Color("#fff0d9"), Color("#8a716a"), 4)
 	text(c, "SPLASH!", Vector2(270, 246), 42, Color("#5c668a"), true)
@@ -880,7 +901,9 @@ static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int,
 		rr(c, Rect2(x, 448, 91, 61), 13, Color("#f3e6ce"), Color("#bdab94"), 1.2)
 		text(c, str(values[i]), Vector2(x + 45, 466), 22, INK, false, 78.0)
 		text(c, captions[i], Vector2(x + 45, 491), 11, Color("#866e61"), false, 79.0)
-	text(c, "LEAVES EARNED  +%d" % run_leaves, Vector2(270, 529), 17, Color("#5b865e"))
+	text(c, "LEAVES EARNED  +%d" % run_leaves, Vector2(270, 527), 17, Color("#5b865e"))
+	if campaign_stage == -1:
+		text(c, "RUN %d m   •   BEST %d m" % [distance, best_endless_m], Vector2(270, 550), 14, Color("#877467"), false, 360.0)
 	if not next_weekly.is_empty():
 		text(c, "NEXT WEEKLY GOAL", Vector2(270, 729), 14, Color("#8b7969"), false, 350.0)
 		text(c, "%s  %d/%d" % [String(next_weekly["title"]), int(next_weekly["progress"]), int(next_weekly["target"])], Vector2(270, 748), 15, Color("#516f57"), false, 350.0)
