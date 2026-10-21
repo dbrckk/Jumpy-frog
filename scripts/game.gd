@@ -6,6 +6,7 @@ const DAILY = preload("res://scripts/daily.gd")
 const MONETIZATION = preload("res://scripts/monetization.gd")
 const CHAPTERS = preload("res://scripts/chapters.gd")
 const RIVER_SHADER = preload("res://shaders/river_surface.gdshader")
+const PLATFORM_MOTION = preload("res://scripts/platform_motion.gd")
 const W := 540.0
 const H := 960.0
 const PX_PER_M := 8.0
@@ -35,6 +36,7 @@ var highest_m: float = 0.0
 var last_generated_m: float = 0.0
 var last_pad_x: float = 270.0
 var next_pad_id: int = 1
+var standing_pad_id := 0
 var pets: int = 0
 var score: int = 0
 var best_score: int = 0
@@ -227,6 +229,7 @@ func _reset_game() -> void:
 	last_generated_m = 0.0
 	last_pad_x = 270.0
 	next_pad_id = 1
+	standing_pad_id = 0
 	pets = 0
 	score = 0
 	combo = 0
@@ -286,6 +289,7 @@ func _generate_pads() -> void:
 		# Biome-specific lily silhouettes make each stage visually recognizable.
 		var kind: int = (rng.randi_range(0, 3) + biome) % 4
 		var radius_scale := float(modifier["radius"]) - progression * 0.08
+		var motion := PLATFORM_MOTION.create_fields(biome, ident)
 		pads.append({
 			"id": ident,
 			"x": last_pad_x,
@@ -296,6 +300,9 @@ func _generate_pads() -> void:
 			"pet": ident % 3 == 0,
 			"boost": ident % 7 == 0 and biome >= 1,
 			"guardian": ident % 13 == 0,
+			"moving": bool(motion["moving"]),
+			"motion_speed": float(motion["motion_speed"]),
+			"motion_amplitude": float(motion["motion_amplitude"]),
 			# A timed hazard is always clearly marked; it never changes
 			# generated collision size, and never coincides with a Guardian.
 			"fragile": biome in [2, 5] and ident > 4 and ident % 7 == 5 and ident % 13 != 0
@@ -323,6 +330,14 @@ func _process(delta: float) -> void:
 		queue_redraw()
 		return
 	clock += delta
+	# Stay attached to a shifting pad until takeoff. This shared world-time
+	# position also powers the drawn platform and the landing prediction.
+	if mode in [MODE_PLAY, MODE_AIM]:
+		for standing in pads:
+			if int(standing["id"]) == standing_pad_id:
+				if bool(standing.get("moving", false)):
+					player_x = PLATFORM_MOTION.x_at(standing, clock)
+				break
 	biome_banner = maxf(0.0, biome_banner - delta)
 	var current_biome := chapters.biome_at(player_m, campaign_stage)
 	if current_biome != last_biome:
@@ -447,7 +462,7 @@ func _draw() -> void:
 	if mode == MODE_AIM:
 		var pad := _landing_target(aim_x, aim_m)
 		if not pad.is_empty():
-			preview = Vector2(float(pad["x"]), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
+			preview = Vector2(_predicted_pad_x(pad), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
 	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds)
@@ -745,6 +760,12 @@ func _update_aim() -> void:
 	aim_x = clampf(player_x - drag.x * 1.2, 83.0, 457.0)
 	aim_m = player_m + maxf(drag.y, 0.0) * 1.35 / PX_PER_M
 
+func _duration_to(target_m: float) -> float:
+	return clampf(0.40 + (target_m - player_m) * 0.012, 0.48, 0.87)
+
+func _predicted_pad_x(pad: Dictionary) -> float:
+	return PLATFORM_MOTION.x_at(pad, clock + _duration_to(float(pad["m"])))
+
 ## Preview and flight share this exact landing rule, so a green guide cannot miss.
 func _landing_target(desired_x: float, desired_m: float) -> Dictionary:
 	var winner: Dictionary = {}
@@ -755,7 +776,7 @@ func _landing_target(desired_x: float, desired_m: float) -> Dictionary:
 		if float(pad["m"]) <= player_m + 3.0:
 			continue
 		var radius: float = float(pad["r"])
-		var delta := Vector2(float(pad["x"]) - desired_x, (float(pad["m"]) - desired_m) * PX_PER_M)
+		var delta := Vector2(_predicted_pad_x(pad) - desired_x, (float(pad["m"]) - desired_m) * PX_PER_M)
 		var normalized := Vector2(delta.x / (radius + 14.0), delta.y / (radius * 0.78 + 14.0))
 		var d := normalized.length()
 		if d <= 1.0 and d < closest:
@@ -768,17 +789,17 @@ func _start_jump() -> void:
 	jump_pad_id = -1 if target.is_empty() else int(target["id"])
 	jump_is_perfect = false
 	if not target.is_empty():
-		var diff := Vector2(float(target["x"]) - aim_x, (float(target["m"]) - aim_m) * PX_PER_M)
+		var diff := Vector2(_predicted_pad_x(target) - aim_x, (float(target["m"]) - aim_m) * PX_PER_M)
 		jump_is_perfect = (diff.length_squared() < pow(float(target["r"]) * 0.28, 2))
 	jump_start = Vector2(player_x, player_m)
 	jump_end = Vector2(aim_x, aim_m)
 	if not target.is_empty():
 		# Subtle magnetism produces consistent, legible landings on touchscreens.
-		jump_end = Vector2(float(target["x"]), float(target["m"]))
+		jump_end = Vector2(_predicted_pad_x(target), float(target["m"]))
 	jump_elapsed = 0.0
 	_trail_clock = 0.0
 	flight_trail.clear()
-	jump_duration = clampf(0.40 + (jump_end.y - jump_start.y) * 0.012, 0.48, 0.87)
+	jump_duration = _duration_to(jump_end.y)
 	body_squash = 0.23
 	mode = MODE_FLY
 	sound.play_event("jump")
@@ -799,6 +820,10 @@ func _finish_jump() -> void:
 		return
 	for pad in pads:
 		if int(pad["id"]) == jump_pad_id:
+			standing_pad_id = jump_pad_id
+			# Align with actual moving-pad position at touchdown. At 60 FPS
+			# the predicted and actual centers differ by well under one pixel.
+			player_x = PLATFORM_MOTION.x_at(pad, clock)
 			fragile_pad_id = int(pad["id"]) if bool(pad.get("fragile", false)) else -1
 			fragile_seconds = FRAGILE_LILY_DURATION if fragile_pad_id >= 0 else 0.0
 			if fragile_pad_id >= 0:
@@ -904,6 +929,10 @@ func _rescue_from_splash() -> void:
 		fragile_seconds = maxf(fragile_seconds, FRAGILE_GUARDIAN_GRACE)
 	player_x = jump_start.x
 	player_m = jump_start.y
+	for standing in pads:
+		if int(standing["id"]) == standing_pad_id:
+			player_x = PLATFORM_MOTION.x_at(standing, clock)
+			break
 	previous_x = player_x
 	jump_z = 0.0
 	jump_pad_id = -1
