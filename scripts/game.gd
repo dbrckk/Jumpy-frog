@@ -9,6 +9,7 @@ const MONETIZATION = preload("res://scripts/monetization.gd")
 const CHAPTERS = preload("res://scripts/chapters.gd")
 const RIVER_SHADER = preload("res://shaders/river_surface.gdshader")
 const PLATFORM_MOTION = preload("res://scripts/platform_motion.gd")
+const DEVICE_DIAGNOSTICS = preload("res://scripts/device_diagnostics.gd")
 const W := 540.0
 const H := 960.0
 const PX_PER_M := 8.0
@@ -23,6 +24,7 @@ const MODE_WARDROBE := 6
 const MODE_GOALS := 7
 const MODE_CHAPTERS := 8
 const MODE_CLEAR := 9
+const MODE_DIAGNOSTICS := 10
 const SKIN_COSTS := [0, 12, 30, 65, 110, 175, 260, 380]
 
 var mode: int = MODE_TITLE
@@ -121,6 +123,7 @@ var impact_flash := 0.0
 var wave_warned := false
 ## Adaptive rendering quality never alters simulation or collision rules.
 var graphics_quality := 2
+var performance_sampler := DEVICE_DIAGNOSTICS.new()
 var _frame_budget_accum := 0.0
 var _frame_budget_sum := 0.0
 var _frame_budget_samples := 0
@@ -335,6 +338,7 @@ func _generate_pads() -> void:
 		})
 
 func _process(delta: float) -> void:
+	performance_sampler.record(delta, mode in [MODE_PLAY, MODE_AIM, MODE_FLY])
 	_update_graphics_quality(delta)
 	delta = minf(delta, 0.08)
 	if river_shader_rect != null:
@@ -352,7 +356,7 @@ func _process(delta: float) -> void:
 			river_shader_material.set_shader_parameter("highlight_color", water_colors[shader_biome])
 			river_shader_material.set_shader_parameter("current_speed", 0.82 + float(shader_biome) * 0.11)
 			_last_shader_biome = shader_biome
-	if mode == MODE_PAUSED:
+	if mode in [MODE_PAUSED, MODE_DIAGNOSTICS]:
 		queue_redraw()
 		return
 	clock += delta
@@ -492,7 +496,7 @@ func _draw() -> void:
 			preview = Vector2(_predicted_pad_x(pad), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {})
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {})
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -517,7 +521,9 @@ func _input(event: InputEvent) -> void:
 		if event.keycode in [KEY_R, KEY_SPACE, KEY_ENTER] and mode == MODE_LOST:
 			_reset_game()
 		elif event.keycode == KEY_ESCAPE:
-			if mode in [MODE_WARDROBE, MODE_GOALS, MODE_CHAPTERS, MODE_CLEAR]:
+			if mode == MODE_DIAGNOSTICS:
+				mode = MODE_PAUSED
+			elif mode in [MODE_WARDROBE, MODE_GOALS, MODE_CHAPTERS, MODE_CLEAR]:
 				mode = MODE_TITLE
 			elif mode == MODE_PAUSED:
 				_resume_game()
@@ -549,6 +555,10 @@ func _notification(what: int) -> void:
 			_save_progress()
 
 func _down(pos: Vector2) -> void:
+	if mode == MODE_DIAGNOSTICS:
+		if Rect2(100, 716, 340, 74).has_point(pos):
+			mode = MODE_PAUSED
+		return
 	if mode == MODE_CHAPTERS:
 		if Rect2(105, 790, 330, 75).has_point(pos):
 			mode = MODE_TITLE
@@ -608,6 +618,9 @@ func _down(pos: Vector2) -> void:
 				return
 		return
 	if mode == MODE_PAUSED:
+		if Rect2(108, 374, 324, 60).has_point(pos):
+			mode = MODE_DIAGNOSTICS
+			return
 		if Rect2(108, 781, 324, 54).has_point(pos) and monetization.billing != null and not monetization.premium:
 			monetization.restore_purchase()
 			return
