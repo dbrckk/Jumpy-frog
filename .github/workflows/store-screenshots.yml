@@ -6,6 +6,8 @@ on:
     paths:
       - tests/capture_store.gd
       - tests/capture_diagnostics.gd
+      - tests/capture_gold_routes.gd
+      - scripts/pad_danger.gd
       - scripts/device_diagnostics.gd
       - scripts/game.gd
       - scripts/art.gd
@@ -43,6 +45,10 @@ jobs:
           set -euo pipefail
           mkdir -p build/qa
           timeout --kill-after=10s 100s xvfb-run -a -s '-screen 0 540x960x24' godot --path . --rendering-driver opengl3 --script res://tests/capture_diagnostics.gd
+      - name: Capture branching route and crab warning
+        run: |
+          set -euo pipefail
+          timeout --kill-after=10s 100s xvfb-run -a -s '-screen 0 540x960x24' godot --path . --rendering-driver opengl3 --script res://tests/capture_gold_routes.gd
       - name: Validate Play screenshots
         run: |
           python -m pip install Pillow==11.3.0
@@ -52,7 +58,7 @@ jobs:
           files=sorted(Path('build/store').glob('0*.png'))
           assert len(files)==9, files
           diagnostics=sorted(Path('build/qa').glob('*.png'))
-          assert len(diagnostics)==2, diagnostics
+          assert len(diagnostics)==4, diagnostics
           for d in diagnostics:
               with Image.open(d) as im:
                   assert im.size==(1080,1920), (d, im.size)
