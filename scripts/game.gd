@@ -298,7 +298,7 @@ func _generate_pads() -> void:
 			"guardian": ident % 13 == 0,
 			# A timed hazard is always clearly marked; it never changes
 			# generated collision size, and never coincides with a Guardian.
-			"fragile": biome in [2, 5] and ident > 4 and ident % 9 == 0 and ident % 13 != 0
+			"fragile": biome in [2, 5] and ident > 4 and ident % 7 == 5 and ident % 13 != 0
 		})
 
 func _process(delta: float) -> void:
