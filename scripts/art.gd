@@ -37,7 +37,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
@@ -58,6 +58,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		if screen.y < -125.0 or screen.y > H + 125.0:
 			continue
 		_lily(c, screen, float(pad["r"]), int(pad["kind"]), time, int(pad["id"]), float(pad_impacts.get(int(pad["id"]), 0.0)), chapters.biome_at(float(pad["m"]), campaign_stage), graphics_quality)
+		if bool(pad.get("fragile", false)):
+			_fragile_lily(c, screen, float(pad["r"]), time, int(pad["id"]) == fragile_pad_id, fragile_seconds, graphics_quality)
 		if bool(pad.get("guardian", false)):
 			_guardian_lily(c, screen, float(pad["r"]), time)
 		if bool(pad.get("boost", false)):
@@ -108,6 +110,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		text(c, "GUARDIAN READY", Vector2(85, 87), 14, Color("#76572c"))
 	if flow_seconds > 0.0 and mode in [1, 2, 3, 5]:
 		_flow_hud(c, flow_seconds)
+	if fragile_pad_id >= 0 and mode in [1, 2, 5]:
+		_fragile_hud(c, fragile_seconds)
 	if mode == 0:
 		_start_overlay(c, time, leaves, skin, daily, monetization, chapters)
 	if mode == 4:
@@ -258,6 +262,44 @@ static func _flow_hud(c: CanvasItem, remaining: float) -> void:
 	rr(c, Rect2(377, 96, 137, 3), 1.5, Color("#a5d5d5"))
 	if progress > 0.001:
 		rr(c, Rect2(377, 96, 137.0 * progress, 3), 1.5, Color("#3abdc2"))
+
+
+static func _fragile_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, active: bool, remaining: float, quality: int) -> void:
+	# Cracks remain legible even at quality zero: gameplay warnings are never
+	# removed by adaptive graphics settings.
+	var ink := Color("#a05e48")
+	var cracks := 3 if quality == 0 else 5
+	for i in range(cracks):
+		var angle := float(i) * TAU / float(cracks) + 0.32
+		var origin := pos + Vector2(cos(angle), sin(angle) * 0.76) * 7.0
+		var split := pos + Vector2(cos(angle + 0.15), sin(angle + 0.15) * 0.76) * (radius * 0.65)
+		line(c, origin, split, ink, 2.3 if active else 1.8)
+		if quality > 0:
+			var branch := origin.lerp(split, 0.70)
+			line(c, branch, branch + Vector2(7.0, 5.0), ink.lightened(0.17), 1.4)
+	if active:
+		var portion := clampf(remaining / 5.5, 0.0, 1.0)
+		c.draw_arc(pos, radius + 10.0, -PI * 0.5, PI * 1.5, 38, Color(0.47, 0.24, 0.17, 0.40), 4.0, true)
+		if portion > 0.002:
+			c.draw_arc(pos, radius + 10.0, -PI * 0.5, -PI * 0.5 + portion * TAU, 38,
+				Color("#ffdb86") if portion > 0.35 else Color("#f77c6f"), 4.0, true)
+	else:
+		# The amber diamond explicitly signals a timed platform before landing.
+		var marker := pos + Vector2(0, -19.0)
+		c.draw_colored_polygon(PackedVector2Array([
+			marker + Vector2(0, -8), marker + Vector2(6, 0),
+			marker + Vector2(0, 8), marker + Vector2(-6, 0)]), Color("#ffe2a0"))
+		line(c, marker + Vector2(0, -4), marker + Vector2(0, 2), Color("#985e3b"), 2.0)
+
+
+static func _fragile_hud(c: CanvasItem, remaining: float) -> void:
+	# Placed below chapter/biome notices and above the action area.
+	rr(c, Rect2(153, 237, 234, 42), 17, Color("#fff0d6"), Color("#b97858"), 1.8)
+	text(c, "FRAGILE LILY  %.1fs" % remaining, Vector2(270, 252), 16, Color("#925044"))
+	rr(c, Rect2(173, 267, 194, 5), 2.5, Color("#eac5ac"))
+	if remaining > 0.0:
+		rr(c, Rect2(173, 267, 194.0 * clampf(remaining / 5.5, 0, 1), 5), 2.5,
+			Color("#e5b254") if remaining >= 2.0 else Color("#e57563"))
 
 
 static func _guardian_lily(c: CanvasItem, pos: Vector2, radius: float, time: float) -> void:
@@ -571,7 +613,7 @@ static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int,
 		text(c, names[clampi(biome, 0, 5)], Vector2(270, 195), 20, ink)
 	if mode in [1, 2, 3] and wave_m > cam - 32:
 		rr(c, Rect2(180, 67, 180, 31), 14, Color("#fff0d9"), Color("#c57e6e"), 1.5)
-		text(c, "WAVE APPROACHING!", Vector2(270, 83), 13, Color("#a15c53"))
+		text(c, "WAVE APPROACHING!", Vector2(270, 83), 13, Color("#a15c53"))
 	elif combo >= 3 and mode in [1, 2, 3]:
 		text(c, "COMBO x%d!" % combo, Vector2(270, 84), 19, Color("#f7f1b2"), true)
 
