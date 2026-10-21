@@ -9,6 +9,7 @@ const MONETIZATION = preload("res://scripts/monetization.gd")
 const CHAPTERS = preload("res://scripts/chapters.gd")
 const RIVER_SHADER = preload("res://shaders/river_surface.gdshader")
 const PLATFORM_MOTION = preload("res://scripts/platform_motion.gd")
+const PAD_DANGER = preload("res://scripts/pad_danger.gd")
 const DEVICE_DIAGNOSTICS = preload("res://scripts/device_diagnostics.gd")
 const W := 540.0
 const H := 960.0
@@ -40,6 +41,7 @@ var highest_m: float = 0.0
 var last_generated_m: float = 0.0
 var last_pad_x: float = 270.0
 var next_pad_id: int = 1
+var last_danger_id := -99
 var standing_pad_id := 0
 var pets: int = 0
 var score: int = 0
@@ -246,6 +248,7 @@ func _reset_game() -> void:
 	last_generated_m = 0.0
 	last_pad_x = 270.0
 	next_pad_id = 1
+	last_danger_id = -99
 	standing_pad_id = 0
 	pets = 0
 	score = 0
@@ -318,6 +321,16 @@ func _generate_pads() -> void:
 		var harmony := ident >= 6 and ident % 8 == 6 and ident % 13 != 0
 		harmony = harmony and not bool(motion["moving"])
 		harmony = harmony and not (biome in [2, 5] and ident % 7 == 5)
+		# Rare red water sprites make some landings temporarily dangerous.
+		# Never put two close together, overlap a timed/moving collectible, or
+		# force a hazard in the tutorial. Other reachable pads remain safe.
+		var dangerous := campaign_stage == -1 and ident >= 8 and ident - last_danger_id >= 3
+		dangerous = dangerous and not bool(motion["moving"]) and not harmony
+		dangerous = dangerous and ident % 13 != 0 and not (biome in [2, 5] and ident % 7 == 5)
+		dangerous = dangerous and rng.randf() < 0.20
+		var danger_phase := rng.randf_range(0.0, PAD_DANGER.CYCLE_SECONDS) if dangerous else 0.0
+		if dangerous:
+			last_danger_id = ident
 		pads.append({
 			"id": ident,
 			"x": last_pad_x,
@@ -329,6 +342,8 @@ func _generate_pads() -> void:
 			"boost": ident % 7 == 0 and biome >= 1,
 			"guardian": ident % 13 == 0,
 			"harmony": harmony,
+			"danger": dangerous,
+			"danger_phase": danger_phase,
 			"moving": bool(motion["moving"]),
 			"motion_speed": float(motion["motion_speed"]),
 			"motion_amplitude": float(motion["motion_amplitude"]),
@@ -814,6 +829,10 @@ func _landing_target(desired_x: float, desired_m: float) -> Dictionary:
 	var closest := INF
 	for pad in pads:
 		if float(pad["m"]) <= player_m + 3.0:
+			continue
+		# Shared future-time warning and collision rule: a red landing guide
+		# cannot incorrectly promise safety at the predicted landing time.
+		if PAD_DANGER.is_active(pad, clock + _duration_to(float(pad["m"]))):
 			continue
 		var radius: float = float(pad["r"])
 		var delta := Vector2(_predicted_pad_x(pad) - desired_x, (float(pad["m"]) - desired_m) * PX_PER_M)
