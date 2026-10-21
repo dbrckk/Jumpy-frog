@@ -75,6 +75,13 @@ var perfect_streak := 0
 var jump_is_perfect := false
 # Rare, free safety pickup. A charge saves one missed landing per collection.
 var guardian_charge := false
+# Earned skill bonus: four precise landings trigger a brief FLOW window.
+# Never purchases, never stacks indefinitely, and freezes on pause.
+const FLOW_DURATION := 7.0
+const FLOW_SCORE_MULTIPLIER := 1.35
+const FLOW_WAVE_SCALE := 0.68
+var flow_seconds := 0.0
+var flow_triggers := 0
 var flight_trail: Array[Dictionary] = []
 var _trail_clock := 0.0
 var run_leaves: int = 0
@@ -222,6 +229,8 @@ func _reset_game() -> void:
 	perfect_streak = 0
 	jump_is_perfect = false
 	guardian_charge = false
+	flow_seconds = 0.0
+	flow_triggers = 0
 	flight_trail.clear()
 	_trail_clock = 0.0
 	rewarded_this_run = false
@@ -255,6 +264,14 @@ func _generate_pads() -> void:
 		var dx := rng.randf_range(-lateral, lateral)
 		if biome in [3, 5] and next_pad_id % 4 == 0:
 			dx = (lateral * 0.85) * (-1.0 if next_pad_id % 8 == 0 else 1.0)
+		# Readable 16-hop phrases: two easy recovery hops, a short alternating
+		# slalom, then the biome's organic random rhythm. Every adjustment
+		# remains within the existing reachable lateral gap limits.
+		var phrase_step := (next_pad_id - 1) % 16
+		if phrase_step in [0, 1]:
+			dx *= 0.28
+		elif phrase_step in [5, 6, 7]:
+			dx = lateral * (0.67 if phrase_step % 2 == 1 else -0.67)
 		last_pad_x = clampf(last_pad_x + dx, 116.0, 421.0)
 		var ident := next_pad_id
 		next_pad_id += 1
@@ -308,6 +325,10 @@ func _process(delta: float) -> void:
 	if mode in [MODE_PLAY, MODE_AIM, MODE_FLY]:
 		var biome_modifier: Dictionary = chapters.chapter(chapters.biome_at(player_m, campaign_stage))
 		var pressure := 2.4 + minf(highest_m * 0.013, 4.5) + float(biome_modifier["wave"])
+		# Skill reward gives breathing room but never freezes the danger.
+		if flow_seconds > 0.0:
+			pressure *= FLOW_WAVE_SCALE
+			flow_seconds = maxf(flow_seconds - delta, 0.0)
 		wave_m += delta * pressure
 		if wave_m > player_m - 14.0 and not wave_warned:
 			wave_warned = true
@@ -400,7 +421,7 @@ func _draw() -> void:
 			preview = Vector2(float(pad["x"]), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -754,6 +775,13 @@ func _finish_jump() -> void:
 				perfect_streak += 1
 				gain += 35 + mini(perfect_streak, 12) * 4
 				_add_float_text("PERFECT x%d!" % perfect_streak, _player_screen() + Vector2(0, -120), Color("#fff3ac"))
+				if perfect_streak % 4 == 0:
+					flow_seconds = FLOW_DURATION
+					flow_triggers += 1
+					celebration = 1.0
+					_add_float_text("FLOW RUSH!", _player_screen() + Vector2(0, -174), Color("#b5faff"))
+					_burst(_player_screen() + Vector2(0, -10), 17, "spark")
+					sound.play_event("combo")
 				if perfect_streak % 5 == 0:
 					leaves += 1
 					run_leaves += 1
@@ -806,7 +834,10 @@ func _finish_jump() -> void:
 			combo += 1
 			if combo >= 3 and combo % 3 == 0:
 				sound.play_event("combo")
-			score += maxi(gain, 0) + maxi(combo - 2, 0) * 10
+			var landing_points := maxi(gain, 0) + maxi(combo - 2, 0) * 10
+			if flow_seconds > 0.0:
+				landing_points = roundi(float(landing_points) * FLOW_SCORE_MULTIPLIER)
+			score += landing_points
 			highest_m = maxf(highest_m, player_m)
 			_add_ripple(_player_screen() + Vector2(0, 10), 1.0)
 			pad_impacts[jump_pad_id] = 1.0
@@ -832,6 +863,7 @@ func _rescue_from_splash() -> void:
 	guardian_charge = false
 	perfect_streak = 0
 	combo = 0
+	flow_seconds = 0.0
 	player_x = jump_start.x
 	player_m = jump_start.y
 	previous_x = player_x
@@ -853,6 +885,7 @@ func _rescue_from_splash() -> void:
 func _die() -> void:
 	if mode == MODE_LOST:
 		return
+	flow_seconds = 0.0
 	mode = MODE_LOST
 	# Keep the result visible; do not interrupt the end screen with a timer ad.
 	monetization.on_run_finished()
@@ -915,7 +948,7 @@ func _burst(pos: Vector2, amount: int, kind: String = "spark") -> void:
 		particles.append({
 			"pos": pos + Vector2(rng.randf_range(-8, 8), rng.randf_range(-6, 6)),
 			"velocity": Vector2(cos(angle) * speed, sin(angle) * speed),
-			"life": rng.randf_range(0.58, 0.96),
+			"life": rng.randf_range(0.58, 0.96),
 			"kind": kind
 		})
 
