@@ -3,6 +3,7 @@ extends Node2D
 const ART = preload("res://scripts/art.gd")
 const AUDIO = preload("res://scripts/audio.gd")
 const DAILY = preload("res://scripts/daily.gd")
+const RUN_REPORT = preload("res://scripts/run_report.gd")
 const MONETIZATION = preload("res://scripts/monetization.gd")
 const CHAPTERS = preload("res://scripts/chapters.gd")
 const RIVER_SHADER = preload("res://shaders/river_surface.gdshader")
@@ -73,6 +74,13 @@ var biome_banner := 0.0
 var monetization: Node
 var rewarded_this_run := false
 var run_hops := 0
+var run_perfects := 0
+var run_peak_combo := 0
+var run_friends := 0
+var run_new_record := false
+var best_run_perfects := 0
+var best_run_combo := 0
+var best_run_friends := 0
 var perfect_streak := 0
 var jump_is_perfect := false
 # Rare, free safety pickup. A charge saves one missed landing per collection.
@@ -147,6 +155,9 @@ func _ready() -> void:
 		if not _is_unlocked(selected_skin):
 			selected_skin = 0
 		total_runs = maxi(0, int(save.get_value("progress", "total_runs", 0)))
+		best_run_perfects = maxi(0, int(save.get_value("records", "perfects", 0)))
+		best_run_combo = maxi(0, int(save.get_value("records", "combo", 0)))
+		best_run_friends = maxi(0, int(save.get_value("records", "friends", 0)))
 	daily.load_from(save)
 	chapters.load_from(save)
 	muted = saved_muted or OS.has_feature("android")
@@ -237,6 +248,10 @@ func _reset_game() -> void:
 	combo = 0
 	run_leaves = 0
 	run_hops = 0
+	run_perfects = 0
+	run_peak_combo = 0
+	run_friends = 0
+	run_new_record = false
 	perfect_streak = 0
 	jump_is_perfect = false
 	guardian_charge = false
@@ -476,7 +491,7 @@ func _draw() -> void:
 			preview = Vector2(_predicted_pad_x(pad), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {})
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -842,6 +857,7 @@ func _finish_jump() -> void:
 				sound.play_event("warning")
 			var gain := maxi(12, int((float(pad["m"]) - highest_m) * 13.0))
 			if jump_is_perfect:
+				run_perfects += 1
 				precision_pulse = 1.0
 				perfect_streak += 1
 				gain += 35 + mini(perfect_streak, 12) * 4
@@ -900,7 +916,8 @@ func _finish_jump() -> void:
 				_burst(_player_screen() + Vector2(0, -16), 15, "spark")
 				sound.play_event("victory")
 			if bool(pad["pet"]):
-				pets = mini(pets + 1, 8)
+				run_friends += 1
+				pets = mini(pets + 1, 8)
 				celebration = 1.0
 				_add_float_text("FRIEND +1", _player_screen() + Vector2(0, -99), Color("#fff1cc"))
 				gain += 55
@@ -916,6 +933,7 @@ func _finish_jump() -> void:
 				celebration = 1.0
 			_save_progress()
 			combo += 1
+			run_peak_combo = maxi(run_peak_combo, combo)
 			if combo >= 3 and combo % 3 == 0:
 				sound.play_event("combo")
 			var landing_points := maxi(gain, 0) + maxi(combo - 2, 0) * 10
@@ -986,8 +1004,11 @@ func _die() -> void:
 	shake_strength = maxf(shake_strength, 7.0)
 	jump_z = 0.0
 	sound.play_event("lose")
-	if score > best_score:
-		best_score = score
+	run_new_record = score > best_score or run_perfects > best_run_perfects or run_peak_combo > best_run_combo or run_friends > best_run_friends
+	best_score = maxi(best_score, score)
+	best_run_perfects = maxi(best_run_perfects, run_perfects)
+	best_run_combo = maxi(best_run_combo, run_peak_combo)
+	best_run_friends = maxi(best_run_friends, run_friends)
 	daily.on_finish(score)
 	_save_progress()
 
@@ -1020,6 +1041,9 @@ func _save_progress() -> void:
 	save.set_value("progress", "unlocked_skins", unlocked_skins)
 	save.set_value("progress", "selected_skin", selected_skin)
 	save.set_value("progress", "total_runs", total_runs)
+	save.set_value("records", "perfects", best_run_perfects)
+	save.set_value("records", "combo", best_run_combo)
+	save.set_value("records", "friends", best_run_friends)
 	daily.write_to(save)
 	chapters.write_to(save)
 	save.save("user://jumpy_frog.cfg")
