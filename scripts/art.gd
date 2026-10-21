@@ -37,7 +37,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = []) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
@@ -76,6 +76,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		_flight_ribbon(c, flight_trail, cam, shake, graphics_quality)
 	if aiming:
 		_aim_guide(c, player_at + shake, aim_at + shake, time, aim_valid)
+	if flow_seconds > 0.0:
+		_flow_aura(c, player_at + shake, jump_z, time, flow_seconds, graphics_quality)
 	_character(c, player_at + shake, jump_z, pets, time, mode == 3, tilt, squash, sway, blink, impact, celebration, skin)
 	if guardian_charge:
 		c.draw_arc(player_at + shake + Vector2(0, -jump_z - 20), 43.0 + sin(time * 4.0) * 2.0, 0, TAU, 40, Color(1.0, 0.88, 0.43, 0.40), 2.5, true)
@@ -104,6 +106,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	if guardian_charge and mode in [1, 2, 3, 5]:
 		rr(c, Rect2(12, 72, 146, 30), 13, Color("#fff1ba"), Color("#a6894a"), 1.5)
 		text(c, "GUARDIAN READY", Vector2(85, 87), 14, Color("#76572c"))
+	if flow_seconds > 0.0 and mode in [1, 2, 3, 5]:
+		_flow_hud(c, flow_seconds)
 	if mode == 0:
 		_start_overlay(c, time, leaves, skin, daily, monetization, chapters)
 	if mode == 4:
@@ -230,6 +234,30 @@ static func _river(c: CanvasItem, t: float, cam: float, biome: int, graphics_qua
 		elif b == 1:
 			c.draw_circle(Vector2(x, y), 3.6, Color("#eedfa9"))
 			c.draw_circle(Vector2(x, y), 1.5, Color("#fff7d8"))
+
+
+static func _flow_aura(c: CanvasItem, pos: Vector2, height: float, t: float, remaining: float, quality: int) -> void:
+	# Soft skill-feedback aura; never overlaps the lily collision indicator.
+	# At tier zero only the status HUD remains.
+	if quality <= 0:
+		return
+	var center := pos + Vector2(0, -height - 23.0)
+	var pulse := 2.0 + sin(t * 7.0) * 2.0
+	c.draw_arc(center, 41.0 + pulse, 0.20, TAU - 0.20, 28 if quality == 1 else 42,
+		Color(0.50, 0.94, 1.0, 0.34), 2.4, true)
+	if quality >= 2:
+		for i in range(6):
+			var angle := t * 2.1 + float(i) * TAU / 6.0
+			var at := center + Vector2(cos(angle) * 49.0, sin(angle) * 31.0)
+			c.draw_circle(at, 2.0 + sin(angle) * 0.6, Color(0.93, 1.0, 0.89, 0.62))
+
+static func _flow_hud(c: CanvasItem, remaining: float) -> void:
+	var progress := clampf(remaining / 7.0, 0.0, 1.0)
+	rr(c, Rect2(365, 73, 161, 33), 13, Color("#d8fcf7"), Color("#68a6aa"), 1.4)
+	text(c, "FLOW +35%", Vector2(445, 86), 15, Color("#3e737b"))
+	rr(c, Rect2(377, 96, 137, 3), 1.5, Color("#a5d5d5"))
+	if progress > 0.001:
+		rr(c, Rect2(377, 96, 137.0 * progress, 3), 1.5, Color("#3abdc2"))
 
 
 static func _guardian_lily(c: CanvasItem, pos: Vector2, radius: float, time: float) -> void:
@@ -543,7 +571,7 @@ static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int,
 		text(c, names[clampi(biome, 0, 5)], Vector2(270, 195), 20, ink)
 	if mode in [1, 2, 3] and wave_m > cam - 32:
 		rr(c, Rect2(180, 67, 180, 31), 14, Color("#fff0d9"), Color("#c57e6e"), 1.5)
-		text(c, "WAVE APPROACHING!", Vector2(270, 83), 13, Color("#a15c53"))
+		text(c, "WAVE APPROACHING!", Vector2(270, 83), 13, Color("#a15c53"))
 	elif combo >= 3 and mode in [1, 2, 3]:
 		text(c, "COMBO x%d!" % combo, Vector2(270, 84), 19, Color("#f7f1b2"), true)
 
