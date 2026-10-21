@@ -38,7 +38,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
@@ -131,6 +131,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		_goals_overlay(c, daily)
 	if mode == 8:
 		_chapter_select_overlay(c, chapters)
+	if mode == 10:
+		_device_diagnostics_overlay(c, performance_stats, graphics_quality, android_tones_enabled, haptics_enabled)
 	if mode == 9:
 		if campaign_stage == -2:
 			_daily_clear_overlay(c, clear_reward, daily, score)
@@ -801,9 +803,11 @@ static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int,
 
 static func _pause_overlay(c: CanvasItem, muted: bool, monetization: Node, haptics_enabled: bool, android_tones_enabled: bool) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.15, 0.22, 0.29, 0.60))
-	rr(c, Rect2(55, 295, 430, 565 if (monetization.billing != null or monetization.ads != null) else 360), 32, Color("#fff0d9"), Color("#887b72"), 3)
-	text(c, "PAUSED", Vector2(270, 360), 48, Color("#5a6474"), true)
-	text(c, "The river can wait.", Vector2(270, 418), 21, Color("#897871"))
+	rr(c, Rect2(55, 226, 430, 639 if (monetization.billing != null or monetization.ads != null) else 449), 32, Color("#fff0d9"), Color("#887b72"), 3)
+	text(c, "PAUSED", Vector2(270, 290), 43, Color("#5a6474"), true)
+	text(c, "The river can wait.", Vector2(270, 343), 18, Color("#897871"))
+	rr(c, Rect2(108, 374, 324, 60), 22, Color("#d5e9e5"), Color("#799e9b"), 1.8)
+	text(c, "DEVICE DIAGNOSTICS", Vector2(270, 403), 20, Color("#456d70"))
 	rr(c, Rect2(108, 460, 324, 66), 27, Color("#b3d185"), Color("#5e7e60"), 2)
 	text(c, "RESUME", Vector2(270, 494), 26, Color("#49564b"))
 	if OS.has_feature("android"):
@@ -825,6 +829,37 @@ static func _pause_overlay(c: CanvasItem, muted: bool, monetization: Node, hapti
 	if monetization.billing != null and not monetization.premium:
 		rr(c, Rect2(108, 781, 324, 54), 22, Color("#e5d6bb"), Color("#968b80"), 1.5)
 		text(c, "RESTORE PURCHASE", Vector2(270, 806), 19, INK)
+
+static func _device_diagnostics_overlay(c: CanvasItem, stats: Dictionary, graphics_quality: int, android_tones_enabled: bool, haptics_enabled: bool) -> void:
+	c.draw_rect(Rect2(0, 0, W, H), Color(0.12, 0.19, 0.25, 0.70))
+	rr(c, Rect2(40, 191, 460, 638), 32, Color("#fff3e2"), Color("#7f9a92"), 3.0)
+	text(c, "DEVICE DIAGNOSTICS", Vector2(270, 250), 29, Color("#456c71"), true)
+	text(c, "LIVE PERFORMANCE SAMPLE", Vector2(270, 296), 16, Color("#75867e"))
+	var recorded: int = int(stats.get("frames", 0))
+	if recorded == 0:
+		text(c, "PLAY FOR 30 SECONDS FIRST", Vector2(270, 387), 20, INK)
+	else:
+		var fps: float = float(stats.get("fps", 0.0))
+		var p95: float = float(stats.get("p95_ms", 0.0))
+		var slow_pct: float = float(stats.get("slow_pct", 0.0))
+		for i in range(3):
+			var labels := ["AVERAGE FPS", "95% FRAME TIME", "SLOW FRAMES"]
+			var values := ["%.1f" % fps, "%.1f ms" % p95, "%.1f%%" % slow_pct]
+			var y := 334.0 + float(i) * 80.0
+			rr(c, Rect2(83, y, 374, 66), 16, Color("#eaf2e3"), Color("#9aafa2"), 1.2)
+			text(c, labels[i], Vector2(195, y + 25), 15, Color("#617b71"))
+			text(c, values[i], Vector2(380, y + 26), 19, INK, true)
+		text(c, "%d frames sampled (recent ~4 sec)" % recorded, Vector2(270, 603), 15, Color("#65766d"))
+	var tier_names := ["LOW", "BALANCED", "HIGH"]
+	text(c, "GRAPHICS: " + tier_names[clampi(graphics_quality, 0, 2)], Vector2(270, 638), 19, Color("#567560"), true)
+	if OS.has_feature("android"):
+		text(c, "AUDIO: SAFE DRIVER / " + ("SYSTEM TONES ON" if android_tones_enabled else "SILENT"), Vector2(270, 666), 14, Color("#8e705b"))
+	else:
+		text(c, "AUDIO: DESKTOP DRIVER", Vector2(270, 666), 15, Color("#8e705b"))
+	text(c, "HAPTICS: " + ("ON" if haptics_enabled else "OFF"), Vector2(270, 691), 14, Color("#677a6c"))
+	rr(c, Rect2(100, 716, 340, 74), 22, Color("#a8ceb0"), Color("#6d9783"), 2)
+	text(c, "BACK TO PAUSE", Vector2(270, 751), 22, Color("#43634f"))
+
 
 static func _wardrobe_overlay(c: CanvasItem, time: float, leaves: int, selected: int, unlocked: int, prices: Array, page: int) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.15, 0.22, 0.29, 0.67))
