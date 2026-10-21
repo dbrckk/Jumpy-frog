@@ -1,15 +1,8 @@
 name: Android 15 runtime emulator smoke
 
 on:
+  # Manual diagnosis until the software emulator can render actual gameplay.
   workflow_dispatch:
-  push:
-    paths:
-      - .github/workflows/android-emulator-smoke.yml
-      - tools/emulator_smoke.sh
-      - project.godot
-      - export_presets.cfg
-      - scripts/game.gd
-      - scripts/audio.gd
 
 permissions:
   contents: read
