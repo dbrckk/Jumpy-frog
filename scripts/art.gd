@@ -756,7 +756,7 @@ static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, d
 	var today_status := "DONE" if daily.river_complete_today() else "+25 LEAVES"
 	text(c, today_status, Vector2(379, 517), 13, Color("#506277"))
 	rr(c, Rect2(139, 634, 262, 58), 23, Color("#c6e2ba"), Color("#748b6b"), 2.2)
-	text(c, "DAILY GOALS  %d/3" % daily.completion_count(), Vector2(270, 660), 21, Color("#4b654b"))
+	text(c, "MISSIONS %d/3  •  WEEK %d/3" % [daily.completion_count(), daily.weekly_completion_count()], Vector2(270, 660), 16, Color("#4b654b"))
 	rr(c, Rect2(139, 710, 262, 58), 23, Color("#a8d2aa"), Color("#668569"), 2.2)
 	text(c, "CUSTOMIZE", Vector2(270, 736), 24, Color("#3c5543"))
 	rr(c, Rect2(64, 783, 412, 112), 29, Color("#fcf0d9"), Color("#907b69"), 2.0)
@@ -838,30 +838,42 @@ static func _wardrobe_overlay(c: CanvasItem, time: float, leaves: int, selected:
 static func _goals_overlay(c: CanvasItem, daily: RefCounted) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.15, 0.22, 0.29, 0.68))
 	rr(c, Rect2(31, 235, 478, 663), 34, Color("#fff1db"), Color("#93806e"), 3)
-	text(c, "TODAY'S MISSIONS", Vector2(270, 294), 32, Color("#595669"), true)
-	text(c, "STREAK  %d DAY(S)" % daily.streak_days, Vector2(270, 337), 20, Color("#6a835a"))
+	text(c, "RIVER MISSIONS", Vector2(270, 284), 33, Color("#595669"), true)
+	text(c, "DAILY STREAK  %d DAY(S)" % daily.streak_days, Vector2(270, 321), 18, Color("#6a835a"))
 	for i in range(3):
 		var goal: Dictionary = daily.goal_at(i)
-		var y := 382.0 + float(i) * 124.0
+		var y := 351.0 + float(i) * 101.0
 		var progress: int = daily.progress(i)
 		var target: int = int(goal["target"])
 		var completed: bool = (daily.goals_claimed & (1 << i)) != 0
-		rr(c, Rect2(66, y, 408, 99), 19, Color("#f5f1dc") if completed else Color("#fae4d0"), Color("#a7a090"), 1)
-		text(c, String(goal["title"]), Vector2(270, y + 23), 20, INK)
-		text(c, "%d / %d     •     +%d LEAVES" % [mini(progress, target), target, int(goal["reward"])], Vector2(270, y + 51), 17, Color("#548263"))
-		rr(c, Rect2(111, y + 76, 318, 8), 4, Color("#dbcbb2"))
+		rr(c, Rect2(66, y, 408, 88), 19, Color("#f5f1dc") if completed else Color("#fae4d0"), Color("#a7a090"), 1)
+		text(c, String(goal["title"]), Vector2(270, y + 20), 19, INK)
+		text(c, "%d / %d     •     +%d LEAVES" % [mini(progress, target), target, int(goal["reward"])], Vector2(270, y + 48), 16, Color("#548263"))
+		rr(c, Rect2(111, y + 70, 318, 7), 3.5, Color("#dbcbb2"))
 		var ratio: float = minf(1.0, float(progress) / float(target))
 		if ratio > 0.001:
-			rr(c, Rect2(111, y + 76, 318.0 * ratio, 8), 4, Color("#89b874"))
+			rr(c, Rect2(111, y + 70, 318.0 * ratio, 7), 3.5, Color("#89b874"))
+	# Weekly expedition rewards are automatic. Each checked goal has a
+	# separate counter persisted across launches until Monday 00:00 UTC.
+	rr(c, Rect2(62, 657, 416, 110), 17, Color("#e9f0da"), Color("#8b9c80"), 1.4)
+	text(c, "WEEKLY EXPEDITION  %d/3" % daily.weekly_completion_count(), Vector2(270, 677), 17, Color("#547456"))
+	for i in range(3):
+		var goal: Dictionary = daily.WEEKLY_GOALS[i]
+		var progress: int = mini(daily.weekly_progress(i), int(goal["target"]))
+		var finished: bool = (daily.weekly_claimed & (1 << i)) != 0
+		var y := 696.0 + float(i) * 21.0
+		var status := "✓" if finished else "·"
+		text(c, "%s %s" % [status, String(goal["title"])], Vector2(188, y), 13, Color("#45694e") if finished else INK)
+		text(c, "%d/%d  +%d" % [progress, int(goal["target"]), int(goal["reward"])], Vector2(402, y), 13, Color("#547456"))
 	var milestone: Dictionary = daily.next_milestone()
-	var milestone_caption := "ALL MILESTONES COMPLETED" if milestone.is_empty() else ("NEXT: %s" % String(milestone["title"]))
-	var milestone_progress := "" if milestone.is_empty() else ("%d / %d   +%d LEAVES" % [mini(int(milestone["progress"]), int(milestone["target"])), int(milestone["target"]), int(milestone["reward"])])
-	text(c, "LIFETIME MILESTONES  %d / %d" % [daily.milestone_count(), daily.milestone_total()], Vector2(270, 748), 16, Color("#6a815e"))
-	text(c, milestone_caption, Vector2(270, 772), 15, INK)
-	if not milestone_progress.is_empty():
-		text(c, milestone_progress, Vector2(270, 792), 14, Color("#548263"))
-	rr(c, Rect2(100, 815, 340, 67), 23, Color("#accd85"), Color("#5e7e59"), 2)
-	text(c, "BACK", Vector2(270, 848), 24, Color("#3f5847"))
+	text(c, "CAREER MILESTONES  %d/%d" % [daily.milestone_count(), daily.milestone_total()], Vector2(270, 786), 15, Color("#6a815e"))
+	if milestone.is_empty():
+		text(c, "ALL CAREER MILESTONES COMPLETED", Vector2(270, 807), 13, INK)
+	else:
+		text(c, "%s  %d/%d  +%d" % [String(milestone["title"]), mini(int(milestone["progress"]), int(milestone["target"])), int(milestone["target"]), int(milestone["reward"])], Vector2(270, 807), 13, INK)
+	rr(c, Rect2(100, 831, 340, 55), 23, Color("#accd85"), Color("#5e7e59"), 2)
+	text(c, "BACK", Vector2(270, 859), 23, Color("#3f5847"))
+
 
 static func _chapter_select_overlay(c: CanvasItem, chapters: RefCounted) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.12, 0.18, 0.28, 0.76))
