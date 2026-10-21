@@ -38,7 +38,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 		c.draw_string(font, origin + Vector2(1.4, 2.2), value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, Color("#655d6b"))
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
@@ -122,7 +122,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	if mode == 0:
 		_start_overlay(c, time, leaves, skin, daily, monetization, chapters)
 	if mode == 4:
-		_lost_overlay(c, score, best, run_leaves, monetization, rewarded_this_run)
+		_lost_overlay(c, score, best, run_leaves, monetization, rewarded_this_run, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, run_grade, next_weekly)
 	if mode == 5:
 		_pause_overlay(c, muted, monetization, haptics_enabled, android_tones_enabled)
 	if mode == 6:
@@ -580,7 +580,7 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 	var breathing := sin(t * 2.5) * (0.8 if not airborne else 0.0)
 	var bounce := -sin(impact * PI) * 7.0
 	ellipse(c, at + Vector2(2, 13), Vector2(29.0 - flight * 8.0, 12.0 - flight * 3.0), Color(0.20, 0.39, 0.45, 0.29 - flight * 0.11))
-	if not airborne:
+	if not airborne:
 		for i in range(2):
 			c.draw_arc(at + Vector2(0, 8), 34.0 + float(i) * 10.0 + fposmod(t * 12, 12), 0.15, 3.0, 34, Color(1, 1, 1, 0.17 - i * 0.05), 1.5, true)
 	var body := at + Vector2(tilt * 8.0, -18.0 - height + breathing + bounce)
@@ -764,13 +764,30 @@ static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, d
 	text(c, "Hop from lily to lily!", Vector2(270, 863), 19, Color("#947b6b"))
 	c.draw_circle(Vector2(270 + sin(time * 3) * 16, 907), 5, Color("#fff6d0"))
 
-static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int, monetization: Node, rewarded_this_run: bool) -> void:
+static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int, monetization: Node, rewarded_this_run: bool, run_hops: int, run_perfects: int, run_peak_combo: int, run_friends: int, run_new_record: bool, run_grade: String, next_weekly: Dictionary) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.16, 0.21, 0.32, 0.55))
-	rr(c, Rect2(49, 285, 442, 446), 32, Color("#fff0d9"), Color("#8a716a"), 4)
-	text(c, "SPLASH!", Vector2(270, 354), 56, Color("#5c668a"))
-	text(c, "Your score", Vector2(270, 432), 22, Color("#917769"))
-	text(c, _commas(score), Vector2(270, 478), 43, INK)
-	text(c, "Best: %s   •   Leaves +%d" % [_commas(best), run_leaves], Vector2(270, 538), 19, Color("#8c756c"))
+	rr(c, Rect2(42, 197, 456, 581), 32, Color("#fff0d9"), Color("#8a716a"), 4)
+	text(c, "SPLASH!", Vector2(270, 246), 42, Color("#5c668a"), true)
+	text(c, "NEW PERSONAL RECORD!" if run_new_record else "YOUR RIVER JOURNEY", Vector2(270, 281), 17, Color("#548561") if run_new_record else Color("#927b70"))
+	text(c, _commas(score), Vector2(270, 343), 50, INK, true)
+	text(c, "BEST SCORE  %s" % _commas(best), Vector2(270, 374), 16, Color("#8c756c"))
+	rr(c, Rect2(94, 394, 352, 37), 17, Color("#e3eccf"), Color("#93a485"), 1.2)
+	text(c, run_grade, Vector2(270, 412), 19, Color("#526d5c"), true)
+	# All run stats are read from real landings, not displayed estimates.
+	var captions := ["HOPS", "PERFECT", "BEST COMBO", "FRIENDS"]
+	var values := [run_hops, run_perfects, run_peak_combo, run_friends]
+	for i in range(4):
+		var x := 75.0 + float(i) * 100.0
+		rr(c, Rect2(x, 448, 91, 61), 13, Color("#f3e6ce"), Color("#bdab94"), 1.2)
+		text(c, str(values[i]), Vector2(x + 45, 466), 22, INK, true)
+		text(c, captions[i], Vector2(x + 45, 491), 11, Color("#866e61"))
+	text(c, "LEAVES EARNED  +%d" % run_leaves, Vector2(270, 529), 17, Color("#5b865e"))
+	if not next_weekly.is_empty():
+		text(c, "NEXT WEEKLY GOAL", Vector2(270, 729), 14, Color("#8b7969"))
+		text(c, "%s  %d/%d" % [String(next_weekly["title"]), int(next_weekly["progress"]), int(next_weekly["target"])], Vector2(270, 748), 15, Color("#516f57"))
+	else:
+		text(c, "ALL WEEKLY GOALS COMPLETED", Vector2(270, 742), 15, Color("#516f57"))
+	# Preserve exact touch hitboxes used by the existing retry / home actions.
 	rr(c, Rect2(70, 565, 213, 59), 23, Color("#a5ce7c"), Color("#5b7a59"), 2)
 	text(c, "RETRY", Vector2(175, 593), 24, Color("#435443"))
 	rr(c, Rect2(294, 565, 178, 59), 23, Color("#eee0c2"), Color("#92836d"), 2)
@@ -779,7 +796,8 @@ static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int,
 		rr(c, Rect2(80, 651, 390, 62), 23, Color("#d9e6ad"), Color("#7f9a64"), 2)
 		text(c, "WATCH AD  •  +5 LEAVES", Vector2(275, 680), 21, Color("#56634c"))
 	elif rewarded_this_run:
-		text(c, "BONUS CLAIMED", Vector2(270, 683), 21, Color("#548463"))
+		text(c, "BONUS CLAIMED", Vector2(270, 664), 17, Color("#548463"))
+
 
 static func _pause_overlay(c: CanvasItem, muted: bool, monetization: Node, haptics_enabled: bool, android_tones_enabled: bool) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.15, 0.22, 0.29, 0.60))
