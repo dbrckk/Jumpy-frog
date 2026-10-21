@@ -580,7 +580,7 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 	var breathing := sin(t * 2.5) * (0.8 if not airborne else 0.0)
 	var bounce := -sin(impact * PI) * 7.0
 	ellipse(c, at + Vector2(2, 13), Vector2(29.0 - flight * 8.0, 12.0 - flight * 3.0), Color(0.20, 0.39, 0.45, 0.29 - flight * 0.11))
-	if not airborne:
+	if not airborne:
 		for i in range(2):
 			c.draw_arc(at + Vector2(0, 8), 34.0 + float(i) * 10.0 + fposmod(t * 12, 12), 0.15, 3.0, 34, Color(1, 1, 1, 0.17 - i * 0.05), 1.5, true)
 	var body := at + Vector2(tilt * 8.0, -18.0 - height + breathing + bounce)
