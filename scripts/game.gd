@@ -563,7 +563,7 @@ func _down(pos: Vector2) -> void:
 			return
 		return
 	if mode == MODE_GOALS:
-		if Rect2(100, 815, 340, 67).has_point(pos):
+		if Rect2(100, 831, 340, 55).has_point(pos):
 			mode = MODE_TITLE
 		return
 	if mode == MODE_WARDROBE:
@@ -909,7 +909,7 @@ func _finish_jump() -> void:
 			else:
 				sound.play_event("land")
 			run_hops += 1
-			var daily_bonus: int = daily.on_landing(int(float(pad["m"])), collected_leaf, rescued_pet, combo + 1, absf(jump_end.x - jump_start.x) >= 80.0)
+			var daily_bonus: int = daily.on_landing(int(float(pad["m"])), collected_leaf, rescued_pet, combo + 1, absf(jump_end.x - jump_start.x) >= 80.0, jump_is_perfect)
 			if daily_bonus > 0:
 				leaves += daily_bonus
 				_add_float_text("GOAL +%d" % daily_bonus, _player_screen() + Vector2(0, -138), Color("#e6ffc5"))
