@@ -917,7 +917,7 @@ func _finish_jump() -> void:
 				sound.play_event("victory")
 			if bool(pad["pet"]):
 				run_friends += 1
-				pets = mini(pets + 1, 8)
+				pets = mini(pets + 1, 8)
 				celebration = 1.0
 				_add_float_text("FRIEND +1", _player_screen() + Vector2(0, -99), Color("#fff1cc"))
 				gain += 55
