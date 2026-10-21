@@ -203,6 +203,11 @@ func _check_all() -> void:
 		"purchase_token": "unrelated-token"
 	}]})
 	_expect(not monet.premium, "unrelated Play product cannot unlock premium")
+	monet._on_purchases({"response_code": 0, "purchases": [
+		{"product_ids": null, "purchase_state": 1},
+		{"purchase_state": 1}, "invalid-record"
+	]})
+	_expect(not monet.premium, "malformed Play callbacks cannot unlock premium")
 	var paid := {"product_ids": PackedStringArray(["remove_ads"]),
 		"purchase_state": 1, "is_acknowledged": false, "purchase_token": "verified-token"}
 	monet._on_purchases({"response_code": 0, "purchases": [paid]})
