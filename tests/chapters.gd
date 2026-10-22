@@ -96,7 +96,8 @@ func _run() -> void:
 			second_route.append([pad["id"], pad["x"], pad["m"], pad["r"], pad["kind"], bool(pad.get("moving", false))])
 		_test(first_count > 20 and first_route == second_route,
 			"chapter %d course survives replay, chunking and unrelated randomness" % index)
-	game.chapters.unlocked_count = 1
+	# Discard rehearsal attempts; the interaction test starts on a fresh profile.
+	game.chapters = Chapters.new()
 	game._reset_game()
 	game.mode = 0
 	game._down(Vector2(270, 581))
