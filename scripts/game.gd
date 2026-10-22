@@ -36,6 +36,8 @@ const SKIN_COSTS := [0, 12, 30, 65, 110, 175, 260, 380]
 
 var mode: int = MODE_TITLE
 var rng := RandomNumberGenerator.new()
+# Isolated course generator: animation, particles and sfx RNG cannot alter races.
+var chapter_rng := RandomNumberGenerator.new()
 var pads: Array[Dictionary] = []
 var particles: Array[Dictionary] = []
 var clock: float = 0.0
@@ -97,6 +99,8 @@ var clear_reward := 0
 # The chapter clock counts live gameplay only, not pause or menu time.
 var chapter_elapsed := 0.0
 var clear_new_time_record := false
+var chapter_split_seconds := 0.0
+var chapter_split_banner_seconds := 0.0
 var last_biome := 0
 var biome_banner := 0.0
 var monetization: Node
@@ -258,6 +262,8 @@ func _reset_game() -> void:
 	clear_reward = 0
 	chapter_elapsed = 0.0
 	clear_new_time_record = false
+	chapter_split_seconds = 0.0
+	chapter_split_banner_seconds = 0.0
 	last_biome = 0
 	biome_banner = 0.0
 	sound.set_biome(0)
@@ -329,6 +335,8 @@ func _reset_game() -> void:
 	_generate_pads()
 
 func _generate_pads() -> void:
+	# Dedicated PRNG for campaign: drawing/restarts cannot shift unrevealed pads.
+	var layout_rng: RandomNumberGenerator = chapter_rng if campaign_stage >= 0 else rng
 	while last_generated_m < player_m + 190.0:
 		var biome := chapters.biome_at(last_generated_m, campaign_stage)
 		var modifier: Dictionary = chapters.chapter(biome)
@@ -336,20 +344,20 @@ func _generate_pads() -> void:
 		# Each chapter has its own rhythmic hop spacing, not just a recolored river.
 		var gap_min: float = [14.6, 15.4, 16.0, 16.8, 17.4, 18.0][biome]
 		var gap_max: float = [19.3, 20.3, 21.0, 21.6, 22.1, 22.6][biome]
-		var festival_info: Dictionary = festival.decorate_primary(next_pad_id, rng) if campaign_stage == -1 else {"festival_group": -1, "festival_step": -1}
+		var festival_info: Dictionary = festival.decorate_primary(next_pad_id, layout_rng) if campaign_stage == -1 else {"festival_group": -1, "festival_step": -1}
 		var festival_step: int = int(festival_info["festival_step"])
-		var gap := rng.randf_range(gap_min, gap_max)
+		var gap := layout_rng.randf_range(gap_min, gap_max)
 		# The three rare celebration hops are a gentler, visually distinct
 		# breathing space, not a surprise difficulty spike.
 		if festival_step >= 0:
 			gap *= 0.91
 		last_generated_m += gap
 		var lateral: float = float(modifier["drift"])
-		var dx := rng.randf_range(-lateral, lateral)
+		var dx := layout_rng.randf_range(-lateral, lateral)
 		# Four shuffled motifs in Endless, while campaign and daily keep
 		# their proven layouts, reachability and seeded daily generation.
 		if campaign_stage == -1:
-			dx = route_director.lateral_delta(next_pad_id, dx, lateral, rng, festival_step >= 0)
+			dx = route_director.lateral_delta(next_pad_id, dx, lateral, layout_rng, festival_step >= 0)
 		else:
 			if biome in [3, 5] and next_pad_id % 4 == 0:
 				dx = (lateral * 0.85) * (-1.0 if next_pad_id % 8 == 0 else 1.0)
@@ -362,7 +370,7 @@ func _generate_pads() -> void:
 		var ident := next_pad_id
 		next_pad_id += 1
 		# Biome-specific lily silhouettes make each stage visually recognizable.
-		var kind: int = (rng.randi_range(0, 3) + biome) % 4
+		var kind: int = (layout_rng.randi_range(0, 3) + biome) % 4
 		var radius_scale := float(modifier["radius"]) - progression * 0.08
 		var motion := PLATFORM_MOTION.create_fields(biome, ident)
 		if festival_step >= 0:
@@ -379,15 +387,15 @@ func _generate_pads() -> void:
 		var dangerous := campaign_stage == -1 and ident >= 8 and ident - last_danger_id >= 3
 		dangerous = dangerous and festival_step < 0 and not bool(motion["moving"]) and not harmony
 		dangerous = dangerous and ident % 13 != 0 and not (biome in [2, 5] and ident % 7 == 5)
-		dangerous = dangerous and rng.randf() < ENDLESS_PACING.hazard_probability(last_generated_m)
-		var danger_phase := rng.randf_range(0.0, PAD_DANGER.CYCLE_SECONDS) if dangerous else 0.0
+		dangerous = dangerous and layout_rng.randf() < ENDLESS_PACING.hazard_probability(last_generated_m)
+		var danger_phase := layout_rng.randf_range(0.0, PAD_DANGER.CYCLE_SECONDS) if dangerous else 0.0
 		if dangerous:
 			last_danger_id = ident
 		pads.append({
 			"id": ident,
 			"x": last_pad_x,
 			"m": last_generated_m,
-			"r": 57.0 if festival_step >= 0 else clampf(rng.randf_range(43.0, 53.0) * radius_scale, 37.0, 62.0),
+			"r": 57.0 if festival_step >= 0 else clampf(layout_rng.randf_range(43.0, 53.0) * radius_scale, 37.0, 62.0),
 			"kind": kind,
 			"coin": festival_step < 0 and ident % 2 == 0,
 			"pet": festival_step < 0 and ident % 3 == 0,
@@ -418,8 +426,8 @@ func _generate_pads() -> void:
 			dangerous, bool(motion["moving"]), harmony,
 			bool(pads.back().get("fragile", false)), ident % 13 == 0)
 		if split_path or tide_path:
-			var optional_x := TIDE_REFUGE.branch_x(last_pad_x, rng) if tide_path else clampf(
-				last_pad_x + (-1.0 if last_pad_x > 270.0 else 1.0) * rng.randf_range(88.0, 104.0),
+			var optional_x := TIDE_REFUGE.branch_x(last_pad_x, layout_rng) if tide_path else clampf(
+				last_pad_x + (-1.0 if last_pad_x > 270.0 else 1.0) * layout_rng.randf_range(88.0, 104.0),
 				95.0, 445.0)
 			if TIDE_REFUGE.is_clear_fork(last_pad_x, optional_x):
 				pads.append({
@@ -476,6 +484,7 @@ func _process(delta: float) -> void:
 				break
 	biome_banner = maxf(0.0, biome_banner - delta)
 	festival_banner_seconds = maxf(0.0, festival_banner_seconds - delta)
+	chapter_split_banner_seconds = maxf(0.0, chapter_split_banner_seconds - delta)
 	distance_banner_seconds = maxf(0.0, distance_banner_seconds - delta)
 	challenge_banner_seconds = maxf(0.0, challenge_banner_seconds - delta)
 	var current_biome := chapters.biome_at(player_m, campaign_stage)
@@ -620,7 +629,7 @@ func _draw() -> void:
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
 	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash + JUMP_FEEDBACK.windup(aim_m, player_m) * 0.16 if mode == MODE_AIM else body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {}, aim_danger_seconds, festival.progress, festival_banner_seconds, perfect_streak, best_endless_m, distance_banner_mark, distance_banner_seconds, aim_perfect,
 		precision_sprint.snapshot(run_hops + 1), challenge_banner, challenge_banner_seconds, lifetime_challenge_wins, lifetime_best_challenge_streak,
-		chapter_elapsed, clear_new_time_record)
+		chapter_elapsed, clear_new_time_record, chapter_split_seconds, chapter_split_banner_seconds)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -867,6 +876,10 @@ func _start_chapter(index: int) -> void:
 	_reset_game()
 	campaign_stage = index
 	last_biome = index
+	# Identical pads and moving-lily starting phase on every attempt.
+	# The river's daily seed and endless RNG are intentionally untouched.
+	chapter_rng.seed = chapters.course_seed(index)
+	clock = 0.0
 	sound.set_biome(index)
 	biome_banner = 2.5
 	chapters.record_attempt(index)
@@ -887,6 +900,9 @@ func _finish_chapter() -> void:
 		return
 	var completion: Dictionary = chapters.complete(campaign_stage, score, run_leaves)
 	clear_new_time_record = chapters.record_time(campaign_stage, chapter_elapsed)
+	# Split records are committed only on successful chapter completion.
+	if chapter_split_seconds > 0.0:
+		chapters.record_split(campaign_stage, chapter_split_seconds)
 	clear_medal = int(completion["stars"])
 	clear_reward = int(completion["reward"])
 	leaves += clear_reward
@@ -1195,6 +1211,12 @@ func _finish_jump() -> void:
 				landing_points = roundi(float(landing_points) * FLOW_SCORE_MULTIPLIER)
 			score += landing_points
 			highest_m = maxf(highest_m, player_m)
+			if campaign_stage >= 0 and chapter_split_seconds <= 0.0:
+				var halfway: float = float(chapters.chapter(campaign_stage)["target"]) * 0.5
+				if player_m >= halfway:
+					chapter_split_seconds = chapter_elapsed
+					chapter_split_banner_seconds = 2.8
+					sound.play_event("combo")
 			if campaign_stage == -1 and int(player_m) > best_endless_m:
 				best_endless_m = int(player_m)
 				run_new_distance_record = true

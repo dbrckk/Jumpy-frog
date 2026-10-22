@@ -20,6 +20,8 @@ func _run() -> void:
 		_test(int(level["target"]) > 100, "chapters have real distance goals")
 		_test(int(level["reward"]) > 0, "each chapter awards leaves")
 		_test(records.biome_at(20.0, i) == i, "level uses its distinct biome")
+		_test(records.course_seed(i) > 0, "each chapter has a fixed nonzero course seed")
+	_test(records.COURSE_SEEDS.size() == 6, "all chapter course versions are defined")
 	_test(records.biome_at(145.0, -1) == 1, "endless biome changes at 140 meters")
 	_test(records.biome_at(850.0, -1) == 0, "endless biomes cycle for infinite replayability")
 	var invalid: Dictionary = records.complete(3, 10000, 100)
@@ -39,12 +41,17 @@ func _run() -> void:
 	_test(not records.record_time(0, 30.0), "slower attempt cannot replace faster record")
 	_test(records.record_time(0, 24.12), "faster attempt sets new record")
 	_test(records.format_time(24120) == "00:24.1", "PB formatted consistently")
+	_test(not records.record_split(1, 10.0), "an unfinished chapter cannot claim a split")
+	_test(records.record_split(0, 12.48), "completed chapter accepts half-time record")
+	_test(not records.record_split(0, 14.12), "slower half-time cannot replace best")
+	_test(records.record_split(0, 11.71), "faster halfway split improves best")
 	var saved := ConfigFile.new()
 	records.write_to(saved)
 	var loaded: RefCounted = Chapters.new()
 	loaded.load_from(saved)
 	_test(loaded.can_play(1) and int(loaded.medals[0]) == 3, "chapter medal persists")
 	_test(int(loaded.best_times_ms[0]) == 24120, "PB survives save/load")
+	_test(int(loaded.best_splits_ms[0]) == 11710, "half-time PB survives save/load")
 	_test(not loaded.record_time(0, 24.12), "replayed identical time is not new PB")
 	_test(int(loaded.complete(0, 1500, 10)["reward"]) == 0, "reloading cannot duplicate rewards")
 	for index in range(1, 6):
@@ -55,11 +62,41 @@ func _run() -> void:
 	var restored: RefCounted = Chapters.new()
 	restored.load_from(full)
 	_test(restored.completed_count() == 6, "completed campaign survives save/load")
+	var legacy := ConfigFile.new()
+	legacy.set_value("chapters", "medal_0", 1)
+	var migrated: RefCounted = Chapters.new()
+	migrated.load_from(legacy)
+	_test(int(migrated.best_splits_ms[0]) == 0 and int(migrated.best_times_ms[0]) == 0,
+		"older saves without split fields remain compatible")
 
 	var game: Node2D = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
 	game.chapters = Chapters.new()
+	game._reset_game()
+	# Real 6-chapter route determinism beyond streaming horizon, even when
+	# live rendering/particle RNG has consumed a different number of draws.
+	game.chapters.unlocked_count = 6
+	for index in range(6):
+		game._start_chapter(index)
+		game.player_m = 500.0
+		game._generate_pads()
+		var first_route: Array = []
+		for pad in game.pads:
+			first_route.append([pad["id"], pad["x"], pad["m"], pad["r"], pad["kind"], pad["moving"]])
+		var first_count: int = first_route.size()
+		game._start_chapter(index)
+		for n in range(175):
+			game.rng.randf()
+		game.clock = 37.0
+		game.player_m = 500.0
+		game._generate_pads()
+		var second_route: Array = []
+		for pad in game.pads:
+			second_route.append([pad["id"], pad["x"], pad["m"], pad["r"], pad["kind"], pad["moving"]])
+		_test(first_count > 20 and first_route == second_route,
+			"chapter %d course survives replay, chunking and unrelated randomness" % index)
+	game.chapters.unlocked_count = 1
 	game._reset_game()
 	game.mode = 0
 	game._down(Vector2(270, 581))
@@ -97,6 +134,10 @@ func _run() -> void:
 	_test(game.chapters.can_play(1), "game unlocks chapter two after success")
 	_test(game.clear_medal >= 1, "game awards at least one star on success")
 	_test(game.clear_new_time_record and game.chapter_elapsed > 0.0, "real completed race sets PB")
+	_test(game.chapter_split_seconds > 0.0 and game.chapter_split_seconds < game.chapter_elapsed,
+		"halfway checkpoint follows real landed jumps exactly once")
+	_test(int(game.chapters.best_splits_ms[0]) == roundi(game.chapter_split_seconds * 1000.0),
+		"completed run persists true halfway time")
 	_test(int(game.chapters.best_times_ms[0]) == roundi(game.chapter_elapsed * 1000.0), "PB uses the actual finish duration")
 	_test(game.best_score >= game.score, "chapter victories update personal best")
 	var hard_earned: int = game.leaves
@@ -111,6 +152,7 @@ func _run() -> void:
 	_test(cfg.load("user://jumpy_frog.cfg") == OK, "chapter progress stored locally")
 	_test(int(cfg.get_value("chapters", "unlocked", 1)) >= 2, "unlocked chapters survive app restart")
 	_test(int(cfg.get_value("chapters", "best_time_ms_0", 0)) > 0, "PB written to durable on-device save")
+	_test(int(cfg.get_value("chapters", "best_split_ms_0", 0)) > 0, "real halfway record saved only on finish")
 	game.queue_free()
 	await process_frame
 	if errors == 0:
