@@ -94,6 +94,9 @@ var chapters := CHAPTERS.new()
 var campaign_stage := -1
 var clear_medal := 0
 var clear_reward := 0
+# The chapter clock counts live gameplay only, not pause or menu time.
+var chapter_elapsed := 0.0
+var clear_new_time_record := false
 var last_biome := 0
 var biome_banner := 0.0
 var monetization: Node
@@ -253,6 +256,8 @@ func _reset_game() -> void:
 	campaign_stage = -1
 	clear_medal = 0
 	clear_reward = 0
+	chapter_elapsed = 0.0
+	clear_new_time_record = false
 	last_biome = 0
 	biome_banner = 0.0
 	sound.set_biome(0)
@@ -438,6 +443,9 @@ func _generate_pads() -> void:
 func _process(delta: float) -> void:
 	performance_sampler.record(delta, mode in [MODE_PLAY, MODE_AIM, MODE_FLY])
 	_update_graphics_quality(delta)
+	# Raw frame delta preserves an honest time trial even when physics caps stalls.
+	if campaign_stage >= 0 and mode in [MODE_PLAY, MODE_AIM, MODE_FLY]:
+		chapter_elapsed += maxf(0.0, delta)
 	delta = minf(delta, 0.08)
 	if river_shader_rect != null:
 		river_shader_rect.visible = mode in [MODE_PLAY, MODE_AIM, MODE_FLY] and graphics_quality > 0
@@ -611,7 +619,8 @@ func _draw() -> void:
 
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
 	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash + JUMP_FEEDBACK.windup(aim_m, player_m) * 0.16 if mode == MODE_AIM else body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {}, aim_danger_seconds, festival.progress, festival_banner_seconds, perfect_streak, best_endless_m, distance_banner_mark, distance_banner_seconds, aim_perfect,
-		precision_sprint.snapshot(run_hops + 1), challenge_banner, challenge_banner_seconds, lifetime_challenge_wins, lifetime_best_challenge_streak)
+		precision_sprint.snapshot(run_hops + 1), challenge_banner, challenge_banner_seconds, lifetime_challenge_wins, lifetime_best_challenge_streak,
+		chapter_elapsed, clear_new_time_record)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -877,6 +886,7 @@ func _finish_chapter() -> void:
 	if campaign_stage < 0 or mode != MODE_PLAY:
 		return
 	var completion: Dictionary = chapters.complete(campaign_stage, score, run_leaves)
+	clear_new_time_record = chapters.record_time(campaign_stage, chapter_elapsed)
 	clear_medal = int(completion["stars"])
 	clear_reward = int(completion["reward"])
 	leaves += clear_reward

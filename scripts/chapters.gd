@@ -14,12 +14,15 @@ const SECTOR_METERS := 140.0
 var unlocked_count := 1
 var medals := [0, 0, 0, 0, 0, 0]
 var attempts := [0, 0, 0, 0, 0, 0]
+# Persistent best completed time in milliseconds, zero before first finish.
+var best_times_ms := [0, 0, 0, 0, 0, 0]
 
 func load_from(save: ConfigFile) -> void:
 	unlocked_count = clampi(int(save.get_value("chapters", "unlocked", 1)), 1, LEVELS.size())
 	for i in range(LEVELS.size()):
 		medals[i] = clampi(int(save.get_value("chapters", "medal_%d" % i, 0)), 0, 3)
 		attempts[i] = maxi(0, int(save.get_value("chapters", "attempts_%d" % i, 0)))
+		best_times_ms[i] = clampi(int(save.get_value("chapters", "best_time_ms_%d" % i, 0)), 0, 86400000)
 		if medals[i] > 0:
 			unlocked_count = maxi(unlocked_count, mini(i + 2, LEVELS.size()))
 
@@ -28,6 +31,7 @@ func write_to(save: ConfigFile) -> void:
 	for i in range(LEVELS.size()):
 		save.set_value("chapters", "medal_%d" % i, medals[i])
 		save.set_value("chapters", "attempts_%d" % i, attempts[i])
+		save.set_value("chapters", "best_time_ms_%d" % i, best_times_ms[i])
 
 func can_play(index: int) -> bool:
 	return index >= 0 and index < unlocked_count and index < LEVELS.size()
@@ -64,6 +68,28 @@ func complete(index: int, score: int, found_leaves: int) -> Dictionary:
 		prize = int(level["reward"]) if previous == 0 else 0
 		prize += 3 * (stars - maxi(previous, 1))
 	return {"stars": stars, "reward": prize, "new_best": stars > previous}
+
+# Only legitimately completed, unlocked chapters may set a personal record.
+# Timing has no bearing on medal or currency payouts.
+func record_time(index: int, elapsed_seconds: float) -> bool:
+	if not can_play(index) or medals[index] <= 0:
+		return false
+	if elapsed_seconds <= 0.0 or elapsed_seconds > 86400.0 or elapsed_seconds != elapsed_seconds:
+		return false
+	var milliseconds := maxi(1, roundi(elapsed_seconds * 1000.0))
+	var previous: int = int(best_times_ms[index])
+	if previous != 0 and milliseconds >= previous:
+		return false
+	best_times_ms[index] = milliseconds
+	return true
+
+static func format_time(milliseconds: int) -> String:
+	if milliseconds <= 0:
+		return "--:--.-"
+	var minutes: int = int(milliseconds / 60000)
+	var seconds: int = int(milliseconds / 1000) % 60
+	var tenths: int = int(milliseconds / 100) % 10
+	return "%02d:%02d.%d" % [minutes, seconds, tenths]
 
 func completed_count() -> int:
 	var result := 0
