@@ -53,6 +53,8 @@ var distance_banner_seconds := 0.0
 var distance_banner_mark := 0
 var run_landmarks := 0
 var precision_sprint := PRECISION_SPRINT.new()
+# Lifetime challenge victories persist across new runs (no bonus currency).
+var lifetime_challenge_wins := [0, 0, 0, 0]
 var challenge_banner: Dictionary = {}
 var challenge_banner_seconds := 0.0
 var run_new_distance_record := false
@@ -181,6 +183,11 @@ func _ready() -> void:
 		best_run_combo = maxi(0, int(save.get_value("records", "combo", 0)))
 		best_run_friends = maxi(0, int(save.get_value("records", "friends", 0)))
 		best_endless_m = maxi(0, int(save.get_value("records", "best_endless_m", 0)))
+		# Safely upgrade old saves; reject corrupt and negative counters.
+		var raw_mastery = save.get_value("records", "challenge_wins", [0, 0, 0, 0])
+		if raw_mastery is Array and raw_mastery.size() == 4:
+			for i in range(4):
+				lifetime_challenge_wins[i] = clampi(int(raw_mastery[i]), 0, 100000000)
 	daily.load_from(save)
 	chapters.load_from(save)
 	muted = saved_muted or OS.has_feature("android")
@@ -595,7 +602,7 @@ func _draw() -> void:
 
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
 	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash + JUMP_FEEDBACK.windup(aim_m, player_m) * 0.16 if mode == MODE_AIM else body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {}, aim_danger_seconds, festival.progress, festival_banner_seconds, perfect_streak, best_endless_m, distance_banner_mark, distance_banner_seconds, aim_perfect,
-		precision_sprint.snapshot(run_hops + 1), challenge_banner, challenge_banner_seconds)
+		precision_sprint.snapshot(run_hops + 1), challenge_banner, challenge_banner_seconds, lifetime_challenge_wins)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -1115,6 +1122,9 @@ func _finish_jump() -> void:
 					float(pad["m"]) - jump_start.y, rescued_pet,
 					int(pad.get("festival_step", -1)) < 0)
 				if bool(challenge.get("won", false)):
+					var mastered_kind := int(challenge.get("type", -1))
+					if mastered_kind >= 0 and mastered_kind < 4:
+						lifetime_challenge_wins[mastered_kind] = mini(100000000, lifetime_challenge_wins[mastered_kind] + 1)
 					leaves += int(challenge["leaves"])
 					run_leaves += int(challenge["leaves"])
 					gain += int(challenge["score"])
@@ -1257,6 +1267,7 @@ func _save_progress() -> void:
 	save.set_value("records", "combo", best_run_combo)
 	save.set_value("records", "friends", best_run_friends)
 	save.set_value("records", "best_endless_m", best_endless_m)
+	save.set_value("records", "challenge_wins", lifetime_challenge_wins.duplicate())
 	daily.write_to(save)
 	chapters.write_to(save)
 	var error: Error = SAVE_STORE.write(save)
