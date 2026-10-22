@@ -1,6 +1,7 @@
 extends RefCounted
 const PLATFORM_MOTION = preload("res://scripts/platform_motion.gd")
 const PAD_DANGER = preload("res://scripts/pad_danger.gd")
+const VISUAL_MOTION = preload("res://scripts/visual_motion.gd")
 ## Hand-drawn, resolution-independent vector renderer. All illustrations are original.
 const W := 540.0
 const H := 960.0
@@ -59,6 +60,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
 	_river(c, time, cam, biome, graphics_quality, campaign_stage)
+	_bank_landmarks(c, biome, time, cam, graphics_quality)
 	# Sparse animated surface glints: stable world-space placement, zero textures.
 	# Limited to 15 strokes so older Android GPUs are not overloaded.
 	for i in range(15 if graphics_quality >= 2 else (6 if graphics_quality == 1 else 0)):
@@ -109,7 +111,9 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		_flow_aura(c, player_at + shake, jump_z, time, flow_seconds, graphics_quality)
 	if precision_pulse > 0.0:
 		_precision_feedback(c, player_at + shake, jump_z, precision_pulse, graphics_quality)
-	_character(c, player_at + shake, jump_z, pets, time, mode == 3, tilt, squash, sway, blink, impact, celebration, skin)
+	var gaze := VISUAL_MOTION.gaze(mode, player_at, aim_at, tilt)
+	var expression := VISUAL_MOTION.mood(mode, aim_valid, aim_perfect, aim_danger_seconds > 0.0)
+	_character(c, player_at + shake, jump_z, pets, time, mode == 3, tilt, squash, sway, blink, impact, celebration, skin, gaze, expression)
 	if guardian_charge:
 		c.draw_arc(player_at + shake + Vector2(0, -jump_z - 20), 43.0 + sin(time * 4.0) * 2.0, 0, TAU, 40, Color(1.0, 0.88, 0.43, 0.40), 2.5, true)
 	for particle in particles:
@@ -582,6 +586,54 @@ static func _biome_accents(c: CanvasItem, biome: int, time: float, cam: float, q
 				line(c, Vector2(x, y - 20), Vector2(x - 10, y + 14), Color(0.86, 0.93, 1.0, 0.43), 2.0)
 
 
+static func _bank_landmarks(c: CanvasItem, biome: int, time: float, cam: float, quality: int) -> void:
+	# Original hand-drawn roadside silhouettes, world-locked (do not pop
+	# when the camera pans); density scales with graphics quality.
+	# All geometry is within x=0..36 or x=504..540, outside lily landings.
+	for i in range(VISUAL_MOTION.bank_prop_count(quality)):
+		var side := -1.0 if i % 2 == 0 else 1.0
+		var x := 21.0 if side < 0 else 519.0
+		var y := fposmod(float(i * 171 + biome * 41) + cam * SCALE, 1320.0) - 145.0
+		if y < -95.0 or y > H + 70.0:
+			continue
+		var drift := VISUAL_MOTION.environmental_drift(time, i, biome)
+		var root := Vector2(x, y)
+		match biome:
+			0: # Wildflower banks, stalks and pale yellow blossoms.
+				line(c, root + Vector2(0, 22), root + Vector2(drift, -23), Color("#547a58"), 3.2)
+				for p in range(5):
+					var a := float(p) * TAU / 5.0
+					c.draw_circle(root + Vector2(drift, -24) + Vector2(cos(a) * 7.0, sin(a) * 7.0), 5.0, Color("#f4e5b9"))
+				c.draw_circle(root + Vector2(drift, -24), 4.0, Color("#d6a763"))
+			1: # Tall garden cattails with simple alternating leaves.
+				for stalk in range(2):
+					var tip := root + Vector2(float(stalk * 11 - 7) + drift, -31 - float(stalk) * 11)
+					line(c, root + Vector2(0, 20), tip, Color("#4e8060"), 3.0)
+					ellipse(c, tip, Vector2(4.5, 11.0), Color("#8d7361"), 20)
+			2: # Autumn reeds swaying around seed heads.
+				for reed in range(3):
+					var reach := root + Vector2(float(reed - 1) * 8.0 + drift, -25 - float(reed % 2) * 16.0)
+					line(c, root + Vector2(0, 18), reach, Color("#97834b"), 2.6)
+					c.draw_circle(reach, 3.4, Color("#dfb56e"))
+			3: # Moon mushrooms with phosphorescent caps.
+				line(c, root + Vector2(-5, 20), root + Vector2(drift, -5), Color("#a1acc7"), 5.2)
+				ellipse(c, root + Vector2(drift, -8), Vector2(16.0, 8.5), Color("#dfc5ee"), 24)
+				c.draw_circle(root + Vector2(drift - 5.0, -11.0), 2.0, Color("#f9f1db"))
+				c.draw_circle(root + Vector2(drift + 5.0, -11.0), 2.0, Color("#f9f1db"))
+			4: # Translucent shard clusters.
+				for shard in range(3):
+					var pos := root + Vector2(float(shard - 1) * 11.0, 0)
+					var tip := pos + Vector2(drift * 0.45, -34.0 - float(shard % 2) * 11.0)
+					c.draw_colored_polygon(PackedVector2Array([pos + Vector2(-6, 16), tip, pos + Vector2(7, 16)]),
+						Color("#c8f1f1") if shard == 1 else Color("#7bbfc9"))
+			5: # Wind-bent stormgrass; thinner when adaptive quality drops.
+				for blade in range(4 if quality > 0 else 2):
+					var sway := drift - 8.0 + float(blade) * 4.0
+					line(c, root + Vector2(float(blade - 2) * 5.0, 17),
+						root + Vector2(sway, -22.0 - float(blade % 2) * 14.0),
+						Color(0.68, 0.81, 0.82, 0.74), 2.1)
+
+
 static func _lily(c: CanvasItem, pos: Vector2, radius: float, kind: int, t: float, ident: int, impact: float = 0.0, biome: int = 0, graphics_quality: int = 2) -> void:
 	var r := radius * (1.0 + sin(t * 1.5 + float(ident)) * 0.012)
 	var wiggle := sin(t * 2.1 + float(ident) * 1.7) * 0.035 + sin((1.0 - impact) * 17.0) * impact * 0.075
@@ -704,7 +756,7 @@ static func _friend(c: CanvasItem, at: Vector2, kind: int, scale: float = 1.0, t
 	c.draw_set_transform(Vector2.ZERO)
 
 
-static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: float, airborne: bool, tilt: float, squash: float, sway: float, blink: float, impact: float, celebration: float, skin: int = 0) -> void:
+static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: float, airborne: bool, tilt: float, squash: float, sway: float, blink: float, impact: float, celebration: float, skin: int = 0, gaze: Vector2 = Vector2.ZERO, expression: int = 0) -> void:
 	# Animated vector puppet: springy takeoff, landing compression and follow-through.
 	var flight := clampf(height / 53.0, 0.0, 1.0)
 	var jump_stretch := flight * 0.19
@@ -761,15 +813,30 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 			line(c, eye + Vector2(-3, 0), eye + Vector2(3, 0), dark, 2.2)
 		else:
 			ellipse(c, eye, Vector2(3.6, 3.9), Color("#352f36"))
-			var gaze := Vector2(clampf(tilt * 4.0, -1.5, 1.5), -0.7 - flight * 0.6)
-			c.draw_circle(eye + gaze, 1.25, Color.WHITE)
+			var pupil_offset := Vector2(clampf(gaze.x, -2.8, 2.8), clampf(-0.7 - flight * 0.6 + gaze.y, -2.2, 1.6))
+			c.draw_circle(eye + pupil_offset, 1.25, Color.WHITE)
 		ellipse(c, Vector2(17.0 * side, -17), Vector2(4.4, 2.9), Color("#d58979"))
 	ellipse(c, Vector2(0, -14), Vector2(7, 4), Color("#70544c"))
 	line(c, Vector2(0, -11), Vector2(0, -7), Color("#70544c"), 1.5)
-	# Tiny smile, plus asymmetrical fur texture.
-	c.draw_arc(Vector2(0, -8), 4.1, 0.2, PI - 0.2, 14, Color("#81574c"), 1.2, true)
+	# Expression tracks live aim grade: gold = delight, crab = concern,
+	# ordinary safe aiming = quiet concentration, never a gameplay hint
+	# hidden at lower quality settings.
+	if expression < 0:
+		c.draw_arc(Vector2(0, -5), 4.4, PI + 0.16, TAU - 0.16, 14, Color("#81574c"), 1.65, true)
+		for side in [-1, 1]:
+			line(c, Vector2(float(side) * 8.5, -36), Vector2(float(side) * 16.0, -38), dark, 1.7)
+	elif expression == 2:
+		ellipse(c, Vector2(0, -6), Vector2(5.2, 4.0), Color("#715049"), 14)
+		c.draw_arc(Vector2(0, -6), 5.3, 0.15, PI - 0.15, 14, Color("#fff0db"), 1.6, true)
+	elif expression == 1:
+		line(c, Vector2(-4.0, -6.0), Vector2(4.0, -6.0), Color("#81574c"), 1.5)
+	else:
+		c.draw_arc(Vector2(0, -8), 4.1, 0.2, PI - 0.2, 14, Color("#81574c"), 1.2, true)
 	line(c, Vector2(-17, 5), Vector2(-14, 11), Color("#d7a885"), 1.1)
 	line(c, Vector2(-13, 4), Vector2(-10, 9), Color("#d7a885"), 1.1)
+	# Gentle frog throat breathing, tucked under the chin.
+	var throat := 5.6 + sin(t * 3.0) * (0.8 if not airborne else 0.25)
+	ellipse(c, Vector2(0, 20.0), Vector2(throat + 3.0, throat * 0.8), warm * Color(1, 1, 1, 0.67), 18)
 	# Small forearms reach forward in flight; palms spread when landing.
 	for side in [-1, 1]:
 		var arm := Vector2(float(side) * 25.0, 0.0 - flight * 11.0 - impact * 4.0)
