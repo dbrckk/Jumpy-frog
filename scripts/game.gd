@@ -12,6 +12,7 @@ const PLATFORM_MOTION = preload("res://scripts/platform_motion.gd")
 const PAD_DANGER = preload("res://scripts/pad_danger.gd")
 const ROUTE_DIRECTOR = preload("res://scripts/route_director.gd")
 const ENDLESS_PACING = preload("res://scripts/endless_pacing.gd")
+const JUMP_FEEDBACK = preload("res://scripts/jump_feedback.gd")
 const RIVER_FESTIVAL = preload("res://scripts/river_festival.gd")
 const DEVICE_DIAGNOSTICS = preload("res://scripts/device_diagnostics.gd")
 const W := 540.0
@@ -569,12 +570,14 @@ func _draw() -> void:
 	var at := _player_screen()
 	var preview := Vector2(aim_x, PLAYER_ANCHOR - (aim_m - cam_m) * PX_PER_M)
 	var aim_valid := false
+	var aim_perfect := false
 	var aim_danger_seconds := 0.0
 	if mode == MODE_AIM:
 		var pad := _landing_target(aim_x, aim_m)
 		if not pad.is_empty():
 			preview = Vector2(_predicted_pad_x(pad), PLAYER_ANCHOR - (float(pad["m"]) - cam_m) * PX_PER_M)
 			aim_valid = true
+			aim_perfect = JUMP_FEEDBACK.is_perfect(pad, aim_x, aim_m, _predicted_pad_x(pad), PX_PER_M)
 		else:
 			var warning := _danger_aim_warning(aim_x, aim_m)
 			if not warning.is_empty():
@@ -583,7 +586,7 @@ func _draw() -> void:
 				aim_danger_seconds = float(warning["wait"])
 
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {}, aim_danger_seconds, festival.progress, festival_banner_seconds, perfect_streak, best_endless_m, distance_banner_mark, distance_banner_seconds)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash + JUMP_FEEDBACK.windup(aim_m, player_m) * 0.16 if mode == MODE_AIM else body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {}, aim_danger_seconds, festival.progress, festival_banner_seconds, perfect_streak, best_endless_m, distance_banner_mark, distance_banner_seconds, aim_perfect)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -938,8 +941,7 @@ func _start_jump() -> void:
 	jump_pad_id = -1 if target.is_empty() else int(target["id"])
 	jump_is_perfect = false
 	if not target.is_empty():
-		var diff := Vector2(_predicted_pad_x(target) - aim_x, (float(target["m"]) - aim_m) * PX_PER_M)
-		jump_is_perfect = (diff.length_squared() < pow(float(target["r"]) * 0.28, 2))
+		jump_is_perfect = JUMP_FEEDBACK.is_perfect(target, aim_x, aim_m, _predicted_pad_x(target), PX_PER_M)
 	jump_start = Vector2(player_x, player_m)
 	jump_end = Vector2(aim_x, aim_m)
 	if not target.is_empty():
@@ -950,6 +952,10 @@ func _start_jump() -> void:
 	flight_trail.clear()
 	jump_duration = _duration_to(jump_end.y)
 	body_squash = 0.23
+	# A bounded takeoff pulse gives tactile weight without altering physics.
+	_add_ripple(_player_screen() + Vector2(0, 12), 0.45)
+	if graphics_quality > 0:
+		_burst(_player_screen() + Vector2(0, 10), 5 if graphics_quality == 1 else 8, "spark")
 	mode = MODE_FLY
 	sound.play_event("jump")
 
@@ -1223,7 +1229,8 @@ func _save_progress() -> void:
 func _add_float_text(value: String, pos: Vector2, color: Color) -> void:
 	if float_texts.size() >= 8:
 		float_texts.pop_front()
-	float_texts.append({"text": value, "pos": pos, "life": 1.0, "color": color})
+	var placed: Vector2 = JUMP_FEEDBACK.place_message(pos, float_texts)
+	float_texts.append({"text": value, "pos": placed, "life": 1.0, "color": color})
 
 func _add_ripple(pos: Vector2, size: float) -> void:
 	if ripples.size() >= 12:
