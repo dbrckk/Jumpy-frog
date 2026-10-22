@@ -11,6 +11,8 @@ on:
       - tests/capture_route_pacing.gd
       - tests/capture_endless_pacing.gd
       - tests/capture_jump_feedback.gd
+      - tests/capture_expressive_visuals.gd
+      - scripts/visual_motion.gd
       - scripts/jump_feedback.gd
       - scripts/endless_pacing.gd
       - scripts/route_director.gd
@@ -73,6 +75,10 @@ jobs:
         run: |
           set -euo pipefail
           timeout --kill-after=10s 100s xvfb-run -a -s '-screen 0 540x960x24' godot --path . --rendering-driver opengl3 --script res://tests/capture_jump_feedback.gd
+      - name: Capture expressive frog and distinctive six-biome shorelines
+        run: |
+          set -euo pipefail
+          timeout --kill-after=10s 120s xvfb-run -a -s '-screen 0 540x960x24' godot --path . --rendering-driver opengl3 --script res://tests/capture_expressive_visuals.gd
       - name: Validate Play screenshots
         run: |
           python -m pip install Pillow==11.3.0
@@ -82,7 +88,7 @@ jobs:
           files=sorted(Path('build/store').glob('0*.png'))
           assert len(files)==9, files
           diagnostics=sorted(Path('build/qa').glob('*.png'))
-          assert len(diagnostics)==14, diagnostics
+          assert len(diagnostics)==24, diagnostics
           for d in diagnostics:
               with Image.open(d) as im:
                   assert im.size==(1080,1920), (d, im.size)
