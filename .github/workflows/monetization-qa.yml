@@ -13,6 +13,8 @@ on:
       - export_presets.cfg
       - scripts/daily.gd
       - scripts/art.gd
+      - scripts/endless_pacing.gd
+      - tests/endless_pacing.gd
       - monetization/**
       - tools/prepare_monetized_build.py
       - tests/retention_and_ads.gd
@@ -36,6 +38,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      # Cache resolved native Android dependencies between builds to reduce
+      # Maven Central request bursts (the previous CI export hit HTTP 429).
+      - uses: gradle/actions/setup-gradle@v4
       - uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
@@ -77,6 +82,7 @@ jobs:
           timeout 120s godot --headless --path . --script res://tests/render_quality.gd
           timeout 120s godot --headless --path . --script res://tests/touch_and_fairness.gd
           timeout 120s godot --headless --path . --script res://tests/chapters.gd
+          timeout 120s godot --headless --path . --script res://tests/endless_pacing.gd
       - name: Create ephemeral DEBUG signing identity
         run: |
           keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/jumpy-debug.jks" -alias androiddebugkey -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US" -validity 3650 -keyalg RSA -keysize 2048
@@ -88,7 +94,19 @@ jobs:
           set -euo pipefail
           mkdir -p build
           godot --headless --path . --script res://tools/generate_icons.gd
-          timeout --kill-after=15s 900s godot --headless --path . --install-android-build-template --export-debug "Google Play AAB" build/JumpyFrog-Monetized-QA.aab
+          # Maven repositories occasionally throttle anonymous GitHub
+          # runners (HTTP 429). Reuse Gradle's cached modules and retry
+          # only this disposable QA export; never suppress a third failure.
+          attempt=1
+          until timeout --kill-after=15s 600s godot --headless --path . --install-android-build-template --export-debug "Google Play AAB" build/JumpyFrog-Monetized-QA.aab; do
+            if (( attempt >= 3 )); then
+              echo "::error::Native SDK QA AAB export failed after three attempts"
+              exit 1
+            fi
+            echo "::warning::Native dependency or export error; retrying with cached Gradle modules"
+            sleep "$((25 * attempt))"
+            attempt=$((attempt + 1))
+          done
           test -s build/JumpyFrog-Monetized-QA.aab
           unzip -tq build/JumpyFrog-Monetized-QA.aab
       - name: Validate bundle, Billing SDK and AdMob native package
