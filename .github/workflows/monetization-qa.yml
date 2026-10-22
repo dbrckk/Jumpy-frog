@@ -14,6 +14,8 @@ on:
       - scripts/daily.gd
       - scripts/art.gd
       - scripts/endless_pacing.gd
+      - scripts/tide_refuge.gd
+      - tests/tide_refuge.gd
       - scripts/precision_sprint.gd
       - tests/precision_sprint.gd
       - tests/rotating_challenges.gd
@@ -93,6 +95,7 @@ jobs:
           timeout 120s godot --headless --path . --script res://tests/challenge_mastery.gd
           timeout 120s godot --headless --path . --script res://tests/chapters.gd
           timeout 120s godot --headless --path . --script res://tests/endless_pacing.gd
+          timeout 120s godot --headless --path . --script res://tests/tide_refuge.gd
       - name: Create ephemeral DEBUG signing identity
         run: |
           keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/jumpy-debug.jks" -alias androiddebugkey -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US" -validity 3650 -keyalg RSA -keysize 2048

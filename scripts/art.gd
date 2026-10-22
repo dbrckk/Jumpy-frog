@@ -81,6 +81,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 			_festival_lily(c, screen, float(pad["r"]), time, int(pad["festival_step"]), bool(pad.get("festival_collected", false)), graphics_quality)
 		if bool(pad.get("branch_bonus", false)):
 			_bonus_branch_lily(c, screen, float(pad["r"]), time, graphics_quality)
+		if bool(pad.get("tide_refuge", false)):
+			_tide_refuge_lily(c, screen, float(pad["r"]), time, graphics_quality)
 		if bool(pad.get("moving", false)):
 			_moving_lily_cue(c, screen, float(pad["r"]), time, graphics_quality)
 		if bool(pad.get("danger", false)):
@@ -501,6 +503,29 @@ static func _festival_banner(c: CanvasItem, seconds: float) -> void:
 	ink.a = alpha
 	text(c, "FESTIVAL COMPLETE!", Vector2(270, 187), 20, ink, true, 260.0)
 	text(c, "+3 LEAVES  •  +320 PTS", Vector2(270, 213), 16, ink, false, 260.0)
+
+
+static func _tide_refuge_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, quality: int) -> void:
+	# Readable turquoise refuge from the LOWEST quality tier onward.
+	# No textures, particle allocations, extra shaders or collision changes.
+	var breathe := 0.5 + 0.5 * sin(time * 2.5)
+	var ring := Color(0.50, 0.98, 0.92, 0.56 + breathe * 0.23)
+	c.draw_arc(pos, radius + 7.0, 0.0, TAU, 28 if quality == 0 else 44, ring, 3.5, true)
+	var center := pos + Vector2(0, -15.0)
+	c.draw_circle(center + Vector2(0, 2.5), 17.0, Color(0.10, 0.29, 0.42, 0.54))
+	c.draw_circle(center, 13.0, Color("#b7fff0"))
+	c.draw_circle(center, 9.3, Color("#2e9b9e"))
+	# A sheltered tidal eddy, distinct from gold +2 and Firefly Festival 1/3.
+	c.draw_arc(center + Vector2(0, 1), 5.8, -0.10, PI + 0.55, 14, Color("#e5fff4"), 2.3, true)
+	c.draw_circle(center + Vector2(5.5, -3.0), 2.8, Color("#f0ffed"))
+	# Make the strategic value readable *before* the player risks a detour.
+	# Always visible, including quality zero (and needs no particle effect).
+	text(c, "WAVE -9m", pos + Vector2(0, 22), 12, Color("#f1ffef"), true, 94.0)
+	if quality > 0:
+		for i in range(3 if quality == 1 else 5):
+			var angle := time * 0.64 + float(i) * TAU / (3.0 if quality == 1 else 5.0)
+			var bubble_at := pos + Vector2(cos(angle) * (radius + 15.0), sin(angle) * (radius + 10.0))
+			c.draw_circle(bubble_at, 2.0 + breathe * 0.8, Color(0.84, 1, 0.96, 0.42))
 
 
 static func _bonus_branch_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, quality: int) -> void:

@@ -14,6 +14,7 @@ const ROUTE_DIRECTOR = preload("res://scripts/route_director.gd")
 const ENDLESS_PACING = preload("res://scripts/endless_pacing.gd")
 const JUMP_FEEDBACK = preload("res://scripts/jump_feedback.gd")
 const RIVER_FESTIVAL = preload("res://scripts/river_festival.gd")
+const TIDE_REFUGE = preload("res://scripts/tide_refuge.gd")
 const PRECISION_SPRINT = preload("res://scripts/precision_sprint.gd")
 const DEVICE_DIAGNOSTICS = preload("res://scripts/device_diagnostics.gd")
 const W := 540.0
@@ -400,23 +401,28 @@ func _generate_pads() -> void:
 			# generated collision size, and never coincides with a Guardian.
 			"fragile": festival_step < 0 and biome in [2, 5] and ident > 4 and ident % 7 == 5 and ident % 13 != 0
 		})
-		# An optional second route, with a smaller golden lily and a better
-		# reward. Always keep the ordinary primary lily at the same m.
-		# The next primary landing remains reachable even from the gold lane.
+		# Two distinct, occasional optional lanes keep Endless decisions
+		# meaningful: GOLD yields currency, TIDE REFUGE buys time against
+		# the pursuing wave. Every fork retains its ordinary primary lily.
+		# They have mutually exclusive id schedules and never obstruct play.
 		var split_path := campaign_stage == -1 and ident >= 9 and ident % 12 == 9
 		split_path = split_path and festival_step < 0 and not dangerous and not bool(motion["moving"])
 		split_path = split_path and not harmony and ident % 13 != 0
 		split_path = split_path and not (biome in [2, 5] and ident % 7 == 5)
-		if split_path:
-			var direction := -1.0 if last_pad_x > 270.0 else 1.0
-			var optional_x := clampf(last_pad_x + direction * rng.randf_range(88.0, 104.0), 95.0, 445.0)
-			if absf(optional_x - last_pad_x) >= 82.0:
+		var tide_path: bool = TIDE_REFUGE.eligible(ident, campaign_stage == -1, festival_step,
+			dangerous, bool(motion["moving"]), harmony,
+			bool(pads.back().get("fragile", false)), ident % 13 == 0)
+		if split_path or tide_path:
+			var optional_x := TIDE_REFUGE.branch_x(last_pad_x, rng) if tide_path else clampf(
+				last_pad_x + (-1.0 if last_pad_x > 270.0 else 1.0) * rng.randf_range(88.0, 104.0),
+				95.0, 445.0)
+			if TIDE_REFUGE.is_clear_fork(last_pad_x, optional_x):
 				pads.append({
 					"id": 1000000 + ident,
 					"x": optional_x,
 					"m": last_generated_m,
-					"r": 37.0,
-					"kind": 1,
+					"r": TIDE_REFUGE.ROUTE_RADIUS if tide_path else 37.0,
+					"kind": 3 if tide_path else 1,
 					"coin": false,
 					"pet": false,
 					"boost": false,
@@ -425,7 +431,8 @@ func _generate_pads() -> void:
 					"moving": false,
 					"fragile": false,
 					"danger": false,
-					"branch_bonus": true
+					"branch_bonus": split_path,
+					"tide_refuge": tide_path
 				})
 
 func _process(delta: float) -> void:
@@ -1095,6 +1102,18 @@ func _finish_jump() -> void:
 				_add_float_text("GUARDIAN READY!", _player_screen() + Vector2(0, -153), Color("#fff3b9"))
 				_burst(_player_screen() + Vector2(0, -16), 15, "spark")
 				sound.play_event("victory")
+			if TIDE_REFUGE.claim(pad):
+				# Relief, not money: a second valid route with a different
+				# strategic benefit. Never retrigger on the same lily.
+				wave_m -= TIDE_REFUGE.WAVE_RELIEF_METERS
+				gain += TIDE_REFUGE.SCORE_BONUS
+				celebration = maxf(celebration, 0.75)
+				precision_pulse = maxf(precision_pulse, 0.8)
+				_add_float_text("TIDE REFUGE! +9m BREATHING ROOM",
+					_player_screen() + Vector2(0, -158), Color("#b4fff0"))
+				if graphics_quality > 0:
+					_burst(_player_screen() + Vector2(0, -12), 9 if graphics_quality == 1 else 14, "spark")
+				sound.play_event("boost")
 			if bool(pad.get("branch_bonus", false)):
 				pad["branch_bonus"] = false
 				leaves += 2
