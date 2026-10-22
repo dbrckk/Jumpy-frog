@@ -14,6 +14,7 @@ const ROUTE_DIRECTOR = preload("res://scripts/route_director.gd")
 const ENDLESS_PACING = preload("res://scripts/endless_pacing.gd")
 const JUMP_FEEDBACK = preload("res://scripts/jump_feedback.gd")
 const RIVER_FESTIVAL = preload("res://scripts/river_festival.gd")
+const PRECISION_SPRINT = preload("res://scripts/precision_sprint.gd")
 const DEVICE_DIAGNOSTICS = preload("res://scripts/device_diagnostics.gd")
 const W := 540.0
 const H := 960.0
@@ -51,6 +52,7 @@ var best_endless_m := 0
 var distance_banner_seconds := 0.0
 var distance_banner_mark := 0
 var run_landmarks := 0
+var precision_sprint := PRECISION_SPRINT.new()
 var run_new_distance_record := false
 var festival := RIVER_FESTIVAL.new()
 var festival_banner_seconds := 0.0
@@ -267,6 +269,7 @@ func _reset_game() -> void:
 	run_landmarks = 0
 	route_director.reset()
 	festival.reset()
+	precision_sprint.reset()
 	festival_banner_seconds = 0.0
 	standing_pad_id = 0
 	pets = 0
@@ -1038,6 +1041,20 @@ func _finish_jump() -> void:
 					sound.play_event("combo")
 			else:
 				perfect_streak = 0
+			# A six-hop precision challenge gives a small, optional reason
+			# to master the touch controls without introducing hazards.
+			if campaign_stage == -1:
+				var sprint: Dictionary = precision_sprint.on_landing(run_hops + 1, jump_is_perfect)
+				if bool(sprint.get("won", false)):
+					leaves += PRECISION_SPRINT.REWARD_LEAVES
+					run_leaves += PRECISION_SPRINT.REWARD_LEAVES
+					gain += PRECISION_SPRINT.REWARD_SCORE
+					celebration = 1.0
+					_add_float_text("PRECISION SPRINT! +2 LEAVES", _player_screen() + Vector2(0, -189), Color("#fff1b1"))
+					_burst(_player_screen() + Vector2(0, -14), 17, "spark")
+					sound.play_event("victory")
+				elif sprint.has("progress"):
+					_add_float_text("SPRINT %d/3  •  %d LEFT" % [int(sprint["progress"]), int(sprint["remaining"])], _player_screen() + Vector2(0, -165), Color("#b9f7ea"))
 			# A Harmony blossom is resolved exactly once, even when a player
 			# lands off-center or revisits an already used lily.
 			if bool(pad.get("harmony", false)):
