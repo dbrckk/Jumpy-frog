@@ -9,6 +9,8 @@ on:
       - tests/capture_gold_routes.gd
       - tests/capture_river_festival.gd
       - tests/capture_route_pacing.gd
+      - tests/capture_endless_pacing.gd
+      - scripts/endless_pacing.gd
       - scripts/route_director.gd
       - scripts/river_festival.gd
       - scripts/pad_danger.gd
@@ -61,6 +63,10 @@ jobs:
         run: |
           set -euo pipefail
           timeout --kill-after=10s 100s xvfb-run -a -s '-screen 0 540x960x24' godot --path . --rendering-driver opengl3 --script res://tests/capture_route_pacing.gd
+      - name: Capture distance checkpoint effects
+        run: |
+          set -euo pipefail
+          timeout --kill-after=10s 100s xvfb-run -a -s '-screen 0 540x960x24' godot --path . --rendering-driver opengl3 --script res://tests/capture_endless_pacing.gd
       - name: Validate Play screenshots
         run: |
           python -m pip install Pillow==11.3.0
@@ -70,7 +76,7 @@ jobs:
           files=sorted(Path('build/store').glob('0*.png'))
           assert len(files)==9, files
           diagnostics=sorted(Path('build/qa').glob('*.png'))
-          assert len(diagnostics)==9, diagnostics
+          assert len(diagnostics)==11, diagnostics
           for d in diagnostics:
               with Image.open(d) as im:
                   assert im.size==(1080,1920), (d, im.size)
