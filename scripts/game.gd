@@ -589,7 +589,7 @@ func _draw() -> void:
 				aim_danger_seconds = float(warning["wait"])
 
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash + JUMP_FEEDBACK.windup(aim_m, player_m) * 0.16 if mode == MODE_AIM else body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {}, aim_danger_seconds, festival.progress, festival_banner_seconds, perfect_streak, best_endless_m, distance_banner_mark, distance_banner_seconds, aim_perfect, precision_sprint.active, precision_sprint.perfects, precision_sprint.attempts)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash + JUMP_FEEDBACK.windup(aim_m, player_m) * 0.16 if mode == MODE_AIM else body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {}, aim_danger_seconds, festival.progress, festival_banner_seconds, perfect_streak, best_endless_m, distance_banner_mark, distance_banner_seconds, aim_perfect, precision_sprint.snapshot())
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -1041,20 +1041,6 @@ func _finish_jump() -> void:
 					sound.play_event("combo")
 			else:
 				perfect_streak = 0
-			# A six-hop precision challenge gives a small, optional reason
-			# to master the touch controls without introducing hazards.
-			if campaign_stage == -1:
-				var sprint: Dictionary = precision_sprint.on_landing(run_hops + 1, jump_is_perfect)
-				if bool(sprint.get("won", false)):
-					leaves += PRECISION_SPRINT.REWARD_LEAVES
-					run_leaves += PRECISION_SPRINT.REWARD_LEAVES
-					gain += PRECISION_SPRINT.REWARD_SCORE
-					celebration = 1.0
-					_add_float_text("PRECISION SPRINT! +2 LEAVES", _player_screen() + Vector2(0, -189), Color("#fff1b1"))
-					_burst(_player_screen() + Vector2(0, -14), 17, "spark")
-					sound.play_event("victory")
-				elif sprint.has("progress"):
-					_add_float_text("SPRINT %d/3  •  %d LEFT" % [int(sprint["progress"]), int(sprint["remaining"])], _player_screen() + Vector2(0, -165), Color("#b9f7ea"))
 			# A Harmony blossom is resolved exactly once, even when a player
 			# lands off-center or revisits an already used lily.
 			if bool(pad.get("harmony", false)):
@@ -1114,6 +1100,24 @@ func _finish_jump() -> void:
 				sound.play_event("friend")
 			else:
 				sound.play_event("land")
+			# Optional Endless challenge director counts only genuine landing
+			# events. Collectible flags are captured BEFORE being consumed.
+			# No new obstacles, timers or forced detours are introduced.
+			if campaign_stage == -1:
+				var challenge: Dictionary = precision_sprint.on_landing(
+					run_hops + 1, jump_is_perfect, collected_leaf,
+					float(pad["m"]) - jump_start.y, rescued_pet)
+				if bool(challenge.get("won", false)):
+					leaves += int(challenge["leaves"])
+					run_leaves += int(challenge["leaves"])
+					gain += int(challenge["score"])
+					celebration = 1.0
+					precision_pulse = maxf(precision_pulse, 1.0)
+					_add_float_text("%s! +2 LEAVES" % String(challenge["title"]), _player_screen() + Vector2(0, -189), Color("#fff1b1"))
+					_burst(_player_screen() + Vector2(0, -14), 17, "spark")
+					sound.play_event("victory")
+				elif challenge.has("progress") and int(challenge["remaining"]) == 5:
+					_add_float_text("%s START!" % String(challenge["title"]), _player_screen() + Vector2(0, -165), Color("#b9f7ea"))
 			run_hops += 1
 			var daily_bonus: int = daily.on_landing(int(float(pad["m"])), collected_leaf, rescued_pet, combo + 1, absf(jump_end.x - jump_start.x) >= 80.0, jump_is_perfect)
 			if daily_bonus > 0:

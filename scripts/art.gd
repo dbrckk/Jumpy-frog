@@ -55,7 +55,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_LEFT, -1, actual_size, color)
 
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0, perfect_streak: int = 0, best_endless_m: int = 0, distance_banner_mark: int = 0, distance_banner_seconds: float = 0.0, aim_perfect: bool = false, sprint_active: bool = false, sprint_perfects: int = 0, sprint_attempts: int = 0) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0, perfect_streak: int = 0, best_endless_m: int = 0, distance_banner_mark: int = 0, distance_banner_seconds: float = 0.0, aim_perfect: bool = false, sprint_state: Dictionary = {}) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
@@ -147,8 +147,11 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		_fragile_hud(c, fragile_seconds)
 	if festival_progress > 0 and mode in [1, 2, 3]:
 		_festival_hud(c, festival_progress)
-	if sprint_active and campaign_stage == -1 and mode in [1, 2, 3]:
-		_precision_sprint_hud(c, sprint_perfects, sprint_attempts)
+	if bool(sprint_state.get("active", false)) and campaign_stage == -1 and mode in [1, 2, 3]:
+		# Move down when celebration/biome banners are present. Never hide
+		# the objective or cover important danger indicators.
+		var challenge_y := 328.0 if biome_banner > 0.0 or festival_banner_seconds > 0.0 or distance_banner_seconds > 0.0 or fragile_pad_id >= 0 else 151.0
+		_endless_challenge_hud(c, sprint_state, challenge_y)
 	if festival_banner_seconds > 0.0 and mode in [1, 2, 3]:
 		_festival_banner(c, festival_banner_seconds)
 	if distance_banner_seconds > 0.0 and distance_banner_mark > 0 and mode in [1, 2, 3]:
@@ -405,18 +408,28 @@ static func _festival_lily(c: CanvasItem, pos: Vector2, radius: float, time: flo
 			c.draw_circle(at, 2.0, Color(0.96, 0.91, 1.0, 0.45))
 
 
-static func _precision_sprint_hud(c: CanvasItem, perfects: int, attempts: int) -> void:
-	# Compact, persistent progress under the regular HUD; away from touch
-	# controls and at a lower priority than the main safety indicators.
-	var p := clampi(perfects, 0, 3)
-	var remaining := clampi(6 - attempts, 0, 6)
-	var rect := Rect2(135, 164, 270, 49)
-	rr(c, rect, 16, Color(0.10, 0.24, 0.29, 0.90), Color(0.64, 0.89, 0.80, 0.62), 1.5)
-	text(c, "PRECISION SPRINT", Vector2(270, 178), 13, Color("#e5fff1"), false, 240)
-	for i in range(3):
-		var x := 218.0 + float(i) * 52.0
-		c.draw_circle(Vector2(x, 198), 7.0, Color("#f3d778") if i < p else Color("#527a78"))
-	text(c, "%d LEFT" % remaining, Vector2(366, 198), 11, Color("#e5fff1"), false, 72)
+static func _endless_challenge_hud(c: CanvasItem, challenge: Dictionary, y: float = 151.0) -> void:
+	# One HUD for four different live objectives. It uses only cheap CanvasItem
+	# shapes, stays legible on quality zero and never changes the simulation.
+	var kind := clampi(int(challenge.get("type", 0)), 0, 3)
+	var palette := [Color("#7bc7be"), Color("#a1d38b"), Color("#f1cc82"), Color("#c9ace8")]
+	var accent: Color = palette[kind]
+	var target := clampi(int(challenge.get("target", 3)), 1, 3)
+	var completed := clampi(int(challenge.get("progress", 0)), 0, target)
+	var remaining := clampi(int(challenge.get("remaining", 0)), 0, 6)
+	var title_text := String(challenge.get("title", "RIVER CHALLENGE"))
+	var description := String(challenge.get("description", "COMPLETE THE CHALLENGE"))
+	rr(c, Rect2(112, y, 316, 77), 19,
+		Color(0.10, 0.22, 0.28, 0.92), Color(accent.r, accent.g, accent.b, 0.85), 1.8)
+	text(c, title_text, Vector2(270, y + 17), 17, Color("#f5f9ec"), true, 282.0)
+	text(c, description, Vector2(270, y + 39), 12, Color("#d1e5df"), false, 282.0)
+	text(c, "%d/%d" % [completed, target], Vector2(160, y + 61), 15, accent, true, 66.0)
+	for i in range(target):
+		var x := 235.0 + float(i) * 37.0
+		c.draw_circle(Vector2(x, y + 61), 7.0, accent if i < completed else Color("#526e72"))
+		if i < completed:
+			c.draw_circle(Vector2(x - 1.5, y + 59.0), 2.5, Color(1, 1, 1, 0.54))
+	text(c, "%d LEFT" % remaining, Vector2(377, y + 61), 12, Color("#e5f8f0"), false, 72.0)
 
 
 static func _festival_hud(c: CanvasItem, progress: int) -> void:
