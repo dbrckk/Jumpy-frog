@@ -47,8 +47,13 @@ func _run() -> void:
 		_check(span >= FESTIVAL.MIN_NEXT_GAP and span <= FESTIVAL.MAX_NEXT_GAP,
 			"rare events spaced between 37 and 49 hops")
 	for start in group_starts:
-		for k in range(3):
-			_check(int(stages.get(start+k, -1)) == k, "every generated festival has all three stages")
+		# The streaming generator may stop partway through the last group.
+		# It will emit its remaining pads as the player moves forward;
+		# only fully generated groups can be checked for completeness.
+		if start + FESTIVAL.LENGTH > game.next_pad_id:
+			continue
+		for k in range(FESTIVAL.LENGTH):
+			_check(int(stages.get(start+k, -1)) == k, "complete generated festivals have exactly three stages")
 
 	# End-to-end gameplay: traverse 25 real landings, including the
 	# first full festival. Do not force a touch score or bypass collisions.
