@@ -17,6 +17,7 @@ on:
       - scripts/precision_sprint.gd
       - tests/precision_sprint.gd
       - tests/rotating_challenges.gd
+      - tests/challenge_balance.gd
       - tests/endless_pacing.gd
       - monetization/**
       - tools/prepare_monetized_build.py
@@ -86,6 +87,7 @@ jobs:
           timeout 120s godot --headless --path . --script res://tests/touch_and_fairness.gd
           timeout 120s godot --headless --path . --script res://tests/precision_sprint.gd
           timeout 120s godot --headless --path . --script res://tests/rotating_challenges.gd
+          timeout 120s godot --headless --path . --script res://tests/challenge_balance.gd
           timeout 120s godot --headless --path . --script res://tests/chapters.gd
           timeout 120s godot --headless --path . --script res://tests/endless_pacing.gd
       - name: Create ephemeral DEBUG signing identity
