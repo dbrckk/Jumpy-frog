@@ -55,7 +55,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_LEFT, -1, actual_size, color)
 
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0, perfect_streak: int = 0, best_endless_m: int = 0, distance_banner_mark: int = 0, distance_banner_seconds: float = 0.0, aim_perfect: bool = false, sprint_state: Dictionary = {}, challenge_banner: Dictionary = {}, challenge_banner_seconds: float = 0.0, lifetime_challenge_wins: Array = [], lifetime_best_challenge_streak: int = 0) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0, perfect_streak: int = 0, best_endless_m: int = 0, distance_banner_mark: int = 0, distance_banner_seconds: float = 0.0, aim_perfect: bool = false, sprint_state: Dictionary = {}, challenge_banner: Dictionary = {}, challenge_banner_seconds: float = 0.0, lifetime_challenge_wins: Array = [], lifetime_best_challenge_streak: int = 0, chapter_elapsed: float = 0.0, chapter_new_time_record: bool = false) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
@@ -139,7 +139,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	c.draw_set_transform(Vector2.ZERO)
 	if flash > 0.0:
 		c.draw_rect(Rect2(0, 0, W, H), Color(1.0, 0.97, 0.85, flash * 0.34))
-	_hud(c, score, best, pets, distance, wave_m, cam, combo, mode, chapters, campaign_stage, biome, biome_banner)
+	_hud(c, score, best, pets, distance, wave_m, cam, combo, mode, chapters, campaign_stage, biome, biome_banner, chapter_elapsed)
 	if guardian_charge and mode in [1, 2, 3, 5]:
 		rr(c, Rect2(12, 72, 146, 30), 13, Color("#fff1ba"), Color("#a6894a"), 1.5)
 		text(c, "GUARDIAN READY", Vector2(85, 87), 14, Color("#76572c"))
@@ -184,7 +184,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		if campaign_stage == -2:
 			_daily_clear_overlay(c, clear_reward, daily, score)
 		else:
-			_chapter_clear_overlay(c, campaign_stage, clear_medal, clear_reward, chapters)
+			_chapter_clear_overlay(c, campaign_stage, clear_medal, clear_reward, chapters, chapter_elapsed, chapter_new_time_record)
 
 static func _biome_blend(cam: float, campaign_stage: int) -> float:
 	# Full palette in chapters, daily runs and before the first transition.
@@ -1023,7 +1023,7 @@ static func _aim_guide(c: CanvasItem, from: Vector2, target: Vector2, t: float, 
 		rr(c, Rect2(target.x - 50, target.y - 70, 100, 28), 11, CREAM, accent, 1.5)
 		text(c, "SPLASH!", target + Vector2(0, -56), 14, accent)
 
-static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int, wave_m: float, cam: float, combo: int, mode: int, chapters: RefCounted, campaign_stage: int, biome: int, biome_banner: float) -> void:
+static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int, wave_m: float, cam: float, combo: int, mode: int, chapters: RefCounted, campaign_stage: int, biome: int, biome_banner: float, chapter_elapsed: float = 0.0) -> void:
 	rr(c, Rect2(14, 17, 101, 35), 17, CREAM, Color("#8c806e"), 1.6)
 	text(c, "★  x%d" % pets, Vector2(65, 34), 17, Color("#755b51"))
 	rr(c, Rect2(138, 14, 259, 44), 21, CREAM, Color("#8c806e"), 1.7)
@@ -1043,6 +1043,9 @@ static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int,
 		rr(c, Rect2(143, 139, 252.0 * fraction, 4), 2, Color("#92bd84"))
 		var progress_title := "DAILY RIVER" if campaign_stage == -2 else "CHAPTER %d" % (campaign_stage + 1)
 		text(c, "%s   %d/%d m" % [progress_title, distance, target], Vector2(270, 126), 15, INK)
+		if campaign_stage >= 0 and mode in [1, 2, 3]:
+			text(c, "TIME  %s" % chapters.format_time(maxi(1, roundi(chapter_elapsed * 1000.0))),
+				Vector2(270, 161), 15, Color("#fff7cf"), true)
 	if biome_banner > 0.0 and mode in [1, 2, 3]:
 		var names := ["SUNNY BANKS", "LILY GARDEN", "GOLDEN REEDS", "MOONLIT POND", "CRYSTAL RIVER", "STORMY RAPIDS"]
 		var alpha := minf(1.0, biome_banner * 1.5)
@@ -1284,7 +1287,10 @@ static func _chapter_select_overlay(c: CanvasItem, chapters: RefCounted) -> void
 		text(c, String(level["name"]), Vector2(x + 98, y + 61), 17, Color("#414854") if active else Color("#777a7e"))
 		if active:
 			var medal_text := "★".repeat(stars) + "☆".repeat(3 - stars)
-			text(c, medal_text, Vector2(x + 96, y + 95), 24, Color("#fff2be"), true)
+			text(c, medal_text, Vector2(x + 96, y + 91), 22, Color("#fff2be"), true)
+			if int(chapters.best_times_ms[i]) > 0:
+				text(c, "BEST  " + chapters.format_time(int(chapters.best_times_ms[i])),
+					Vector2(x + 96, y + 115), 13, Color("#334d52"), true, 179.0)
 		else:
 			text(c, "LOCKED", Vector2(x + 96, y + 95), 19, Color("#6b6d70"))
 	rr(c, Rect2(105, 790, 330, 75), 25, Color("#a8d1a3"), Color("#708768"), 2.0)
@@ -1307,7 +1313,7 @@ static func _daily_clear_overlay(c: CanvasItem, reward: int, daily: RefCounted, 
 	text(c, "HOME", Vector2(380, 663), 25, Color("#6a5d54"))
 
 
-static func _chapter_clear_overlay(c: CanvasItem, index: int, stars: int, reward: int, chapters: RefCounted) -> void:
+static func _chapter_clear_overlay(c: CanvasItem, index: int, stars: int, reward: int, chapters: RefCounted, elapsed_seconds: float = 0.0, new_time_record: bool = false) -> void:
 	if index < 0:
 		return
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.11, 0.20, 0.26, 0.67))
@@ -1319,6 +1325,10 @@ static func _chapter_clear_overlay(c: CanvasItem, index: int, stars: int, reward
 	text(c, medal_text, Vector2(270, 443), 58, Color("#d7a74c"), true)
 	text(c, "CHAPTER %d / 6" % (index + 1), Vector2(270, 497), 21, Color("#717078"))
 	text(c, "+%d LEAVES" % reward if reward > 0 else "MEDAL RECORDED", Vector2(270, 548), 23, Color("#668957"))
+	var clock_text: String = chapters.format_time(maxi(0, roundi(elapsed_seconds * 1000.0)))
+	var best_text: String = chapters.format_time(int(chapters.best_times_ms[index]))
+	text(c, ("NEW TIME RECORD!  " if new_time_record else "TIME  ") + clock_text + "   BEST  " + best_text,
+		Vector2(270, 588), 17, Color("#537e71"), true, 412.0)
 	rr(c, Rect2(72, 633, 195, 66), 24, Color("#9fcf8b"), Color("#638761"), 2.0)
 	text(c, "NEXT" if chapters.can_play(index + 1) else "HOME", Vector2(169, 663), 25, Color("#435c49"))
 	rr(c, Rect2(285, 633, 190, 66), 24, Color("#e8d8b8"), Color("#938573"), 2.0)
