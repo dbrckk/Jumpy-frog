@@ -43,8 +43,13 @@ func _exercise() -> void:
 				paid += 1
 				successes[expected_type] += 1
 				_check(int(challenge["level"]) == expected_level, "clear reward difficulty is accurate")
-				_check(int(challenge["leaves"]) == (2 if expected_level == 0 else 3),
-					"advanced award scales from two to three leaves")
+				var expected_bonus: int = 1 if paid % DIRECTOR.STREAK_REWARD_AT == 0 else 0
+				_check(int(challenge["streak_bonus"]) == expected_bonus,
+					"only every third consecutive win gives a streak bonus")
+				_check(int(challenge["win_streak"]) == paid,
+					"winning challenge increments real streak only once")
+				_check(int(challenge["leaves"]) == (2 if expected_level == 0 else 3) + expected_bonus,
+					"advanced base award plus a bounded streak bonus")
 				_check(int(challenge["score"]) == (180 if expected_level == 0 else 260),
 					"advanced award scales from 180 to 260 score")
 				_check(int(challenge["target"]) == expected_target,
@@ -57,6 +62,8 @@ func _exercise() -> void:
 			"replayed last landing cannot collect more leaves")
 	_check(paid == 8 and successes == [2, 2, 2, 2] and d.completions == 8,
 		"two complete cycles across all four gameplay categories")
+	_check(d.win_streak == 8 and d.best_win_streak == 8,
+		"consecutive wins track the correct personal best")
 
 	# Higher difficulty is capped, not an unfair exponential grind.
 	for hop in range(d.last_processed_hop + 1, 290):

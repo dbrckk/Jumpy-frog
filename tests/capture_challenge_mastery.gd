@@ -22,9 +22,11 @@ func _capture() -> void:
 	game.highest_m = 925.0
 	game.best_endless_m = 1104
 	game.lifetime_challenge_wins = [5, 2, 3, 1]
+	game.lifetime_best_challenge_streak = 6
 	game.graphics_quality = 2
 	await _save(game, "47-lifetime-mastery.png")
 	game.lifetime_challenge_wins = [0, 0, 0, 0]
+	game.lifetime_best_challenge_streak = 0
 	game.graphics_quality = 0
 	await _save(game, "48-new-player-mastery.png")
 	game.queue_free()

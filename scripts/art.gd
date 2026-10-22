@@ -55,7 +55,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_LEFT, -1, actual_size, color)
 
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0, perfect_streak: int = 0, best_endless_m: int = 0, distance_banner_mark: int = 0, distance_banner_seconds: float = 0.0, aim_perfect: bool = false, sprint_state: Dictionary = {}, challenge_banner: Dictionary = {}, challenge_banner_seconds: float = 0.0, lifetime_challenge_wins: Array = []) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0, perfect_streak: int = 0, best_endless_m: int = 0, distance_banner_mark: int = 0, distance_banner_seconds: float = 0.0, aim_perfect: bool = false, sprint_state: Dictionary = {}, challenge_banner: Dictionary = {}, challenge_banner_seconds: float = 0.0, lifetime_challenge_wins: Array = [], lifetime_best_challenge_streak: int = 0) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
@@ -167,7 +167,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	if mode == 0:
 		_start_overlay(c, time, leaves, skin, daily, monetization, chapters, best_endless_m)
 	if mode == 4:
-		_lost_overlay(c, score, best, run_leaves, monetization, rewarded_this_run, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, run_grade, next_weekly, distance, best_endless_m, campaign_stage, lifetime_challenge_wins)
+		_lost_overlay(c, score, best, run_leaves, monetization, rewarded_this_run, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, run_grade, next_weekly, distance, best_endless_m, campaign_stage, lifetime_challenge_wins, lifetime_best_challenge_streak)
 	if mode == 5:
 		_pause_overlay(c, muted, monetization, haptics_enabled, android_tones_enabled)
 	if mode == 6:
@@ -420,7 +420,7 @@ static func _endless_challenge_hud(c: CanvasItem, challenge: Dictionary, y: floa
 	var kind := clampi(int(challenge.get("type", 0)), 0, 3)
 	var palette := [Color("#7bc7be"), Color("#a1d38b"), Color("#f1cc82"), Color("#c9ace8")]
 	var accent: Color = palette[kind]
-	var target := clampi(int(challenge.get("target", 3)), 1, 3)
+	var target := clampi(int(challenge.get("target", 3)), 1, 4)
 	var completed := clampi(int(challenge.get("progress", 0)), 0, target)
 	var remaining := clampi(int(challenge.get("remaining", 0)), 0, 6)
 	var advanced := int(challenge.get("level", 0)) > 0
@@ -431,16 +431,18 @@ static func _endless_challenge_hud(c: CanvasItem, challenge: Dictionary, y: floa
 		Color(0.10, 0.22, 0.28, 0.92), Color(accent.r, accent.g, accent.b, 0.85), 1.8)
 	text(c, title_text, Vector2(270, y + 17), 17, Color("#f5f9ec"), true, 282.0)
 	text(c, "ADVANCED  •  %s" % description if advanced else description,
-		Vector2(270, y + 39), 12, Color("#d1e5df"), false, 282.0)
+		Vector2(238 if win_streak >= 2 else 270, y + 39), 12,
+		Color("#d1e5df"), false, 206.0 if win_streak >= 2 else 282.0)
 	text(c, "%d/%d" % [completed, target], Vector2(160, y + 61), 15, accent, true, 66.0)
 	for i in range(target):
-		var x := 235.0 + float(i) * 37.0
+		# Center every advanced goal marker, including targets of four.
+		var x := 271.0 + (float(i) - float(target - 1) * 0.5) * 28.0
 		c.draw_circle(Vector2(x, y + 61), 7.0, accent if i < completed else Color("#526e72"))
 		if i < completed:
 			c.draw_circle(Vector2(x - 1.5, y + 59.0), 2.5, Color(1, 1, 1, 0.54))
 	text(c, "%d LEFT" % remaining, Vector2(377, y + 61), 12, Color("#e5f8f0"), false, 72.0)
 	if win_streak >= 2:
-		text(c, "STREAK x%d" % win_streak, Vector2(377, y + 39), 10, accent, false, 82.0)
+		text(c, "STREAK x%d" % win_streak, Vector2(385, y + 39), 10, accent, false, 75.0)
 
 
 
@@ -476,7 +478,7 @@ static func _challenge_result_banner(c: CanvasItem, result: Dictionary, seconds:
 	elif started:
 		subtitle = "GO FOR IT!"
 	else:
-		subtitle = "NEXT CHALLENGE AHEAD"
+		subtitle = "GOOD TRY! NEXT CHALLENGE AHEAD"
 	text(c, subtitle, Vector2(270, y + 48), 15, ink, false, 277.0)
 	if success and quality >= 1:
 		for i in range(5 if quality == 1 else 8):
@@ -1062,7 +1064,7 @@ static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, d
 	text(c, "Hop from lily to lily!", Vector2(270, 863), 19, Color("#947b6b"))
 	c.draw_circle(Vector2(270 + sin(time * 3) * 16, 907), 5, Color("#fff6d0"))
 
-static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int, monetization: Node, rewarded_this_run: bool, run_hops: int, run_perfects: int, run_peak_combo: int, run_friends: int, run_new_record: bool, run_grade: String, next_weekly: Dictionary, distance: int = 0, best_endless_m: int = 0, campaign_stage: int = -1, lifetime_challenge_wins: Array = []) -> void:
+static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int, monetization: Node, rewarded_this_run: bool, run_hops: int, run_perfects: int, run_peak_combo: int, run_friends: int, run_new_record: bool, run_grade: String, next_weekly: Dictionary, distance: int = 0, best_endless_m: int = 0, campaign_stage: int = -1, lifetime_challenge_wins: Array = [], lifetime_best_challenge_streak: int = 0) -> void:
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.16, 0.21, 0.32, 0.55))
 	rr(c, Rect2(42, 197, 456, 581), 32, Color("#fff0d9"), Color("#8a716a"), 4)
 	text(c, "SPLASH!", Vector2(270, 246), 42, Color("#5c668a"), true)
@@ -1092,7 +1094,8 @@ static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int,
 				total_mastered += n
 				if n > 0:
 					mastered_categories += 1
-			text(c, "CHALLENGE MASTERY  %d/4  •  %d WINS" % [mastered_categories, total_mastered],
+			text(c, "MASTERY %d/4 • %d WINS • BEST STREAK x%d" % [
+				mastered_categories, total_mastered, maxi(0, lifetime_best_challenge_streak)],
 				Vector2(270, 636), 15, Color("#567d65"), true, 394.0)
 	if not next_weekly.is_empty():
 		text(c, "NEXT WEEKLY GOAL", Vector2(270, 729), 14, Color("#8b7969"), false, 350.0)

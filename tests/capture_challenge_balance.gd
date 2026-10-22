@@ -31,12 +31,24 @@ func _capture() -> void:
 	game.precision_sprint.progress = 1
 	await _save(game, "42-advanced-leaf-hud.png")
 
+	# Advanced precision requires four accurate landings, not three.
+	# Show the complete four-dot target alongside an active win streak.
+	game.precision_sprint.challenge_type = game.precision_sprint.TYPE_PRECISION
+	game.precision_sprint.level = 1
+	game.precision_sprint.progress = 3
+	game.precision_sprint.attempts = 4
+	game.precision_sprint.win_streak = 2
+	await _save(game, "49-advanced-precision-four.png")
 	game.precision_sprint.active = false
 	game.run_hops = 207
 	game.challenge_banner = {"won": true, "title": "LONG LEAP", "level": 1, "leaves": 3, "score": 260}
 	game.challenge_banner_seconds = 2.0
 	await _save(game, "43-advanced-success.png")
 
+	game.challenge_banner = {"won": true, "title": "PRECISION SPRINT",
+		"level": 0, "leaves": 3, "streak_bonus": 1, "win_streak": 3, "score": 180}
+	game.challenge_banner_seconds = 2.0
+	await _save(game, "50-consecutive-streak-reward.png")
 	game.challenge_banner = {"won": false, "title": "FRIEND RESCUE", "level": 1}
 	game.challenge_banner_seconds = 1.5
 	await _save(game, "44-kind-failure.png")
@@ -66,7 +78,7 @@ func _capture() -> void:
 
 	game.queue_free()
 	await process_frame
-	print("PASS: 7 genuine 1080x1920 advance warnings, progressive skill HUD, advanced rewards, gentle failure and festival-safe render frames")
+	print("PASS: 9 genuine 1080x1920 advanced four-dot goal, earned streak rewards, readable failure and festival-safe frames")
 	quit(0)
 
 func _save(game: Node2D, name: String) -> void:

@@ -105,7 +105,7 @@ jobs:
           files=sorted(Path('build/store').glob('0*.png'))
           assert len(files)==9, files
           diagnostics=sorted(Path('build/qa').glob('*.png'))
-          assert len(diagnostics)==39, diagnostics
+          assert len(diagnostics)==41, diagnostics
           for d in diagnostics:
               with Image.open(d) as im:
                   assert im.size==(1080,1920), (d, im.size)
