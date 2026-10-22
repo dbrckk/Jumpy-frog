@@ -11,6 +11,7 @@ const RIVER_SHADER = preload("res://shaders/river_surface.gdshader")
 const PLATFORM_MOTION = preload("res://scripts/platform_motion.gd")
 const PAD_DANGER = preload("res://scripts/pad_danger.gd")
 const ROUTE_DIRECTOR = preload("res://scripts/route_director.gd")
+const ENDLESS_PACING = preload("res://scripts/endless_pacing.gd")
 const RIVER_FESTIVAL = preload("res://scripts/river_festival.gd")
 const DEVICE_DIAGNOSTICS = preload("res://scripts/device_diagnostics.gd")
 const W := 540.0
@@ -46,6 +47,9 @@ var next_pad_id: int = 1
 var last_danger_id := -99
 var route_director := ROUTE_DIRECTOR.new()
 var best_endless_m := 0
+var distance_banner_seconds := 0.0
+var distance_banner_mark := 0
+var run_landmarks := 0
 var run_new_distance_record := false
 var festival := RIVER_FESTIVAL.new()
 var festival_banner_seconds := 0.0
@@ -257,6 +261,9 @@ func _reset_game() -> void:
 	last_pad_x = 270.0
 	next_pad_id = 1
 	last_danger_id = -99
+	distance_banner_seconds = 0.0
+	distance_banner_mark = 0
+	run_landmarks = 0
 	route_director.reset()
 	festival.reset()
 	festival_banner_seconds = 0.0
@@ -349,7 +356,7 @@ func _generate_pads() -> void:
 		var dangerous := campaign_stage == -1 and ident >= 8 and ident - last_danger_id >= 3
 		dangerous = dangerous and festival_step < 0 and not bool(motion["moving"]) and not harmony
 		dangerous = dangerous and ident % 13 != 0 and not (biome in [2, 5] and ident % 7 == 5)
-		dangerous = dangerous and rng.randf() < 0.20
+		dangerous = dangerous and rng.randf() < ENDLESS_PACING.hazard_probability(last_generated_m)
 		var danger_phase := rng.randf_range(0.0, PAD_DANGER.CYCLE_SECONDS) if dangerous else 0.0
 		if dangerous:
 			last_danger_id = ident
@@ -437,6 +444,7 @@ func _process(delta: float) -> void:
 				break
 	biome_banner = maxf(0.0, biome_banner - delta)
 	festival_banner_seconds = maxf(0.0, festival_banner_seconds - delta)
+	distance_banner_seconds = maxf(0.0, distance_banner_seconds - delta)
 	var current_biome := chapters.biome_at(player_m, campaign_stage)
 	if current_biome != last_biome:
 		last_biome = current_biome
@@ -575,7 +583,7 @@ func _draw() -> void:
 				aim_danger_seconds = float(warning["wait"])
 
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
-	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {}, aim_danger_seconds, festival.progress, festival_banner_seconds, perfect_streak, best_endless_m)
+	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {}, aim_danger_seconds, festival.progress, festival_banner_seconds, perfect_streak, best_endless_m, distance_banner_mark, distance_banner_seconds)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -974,7 +982,24 @@ func _finish_jump() -> void:
 			if int(pad.get("festival_step", -1)) >= 0:
 				_add_float_text("FIREFLY %d/3" % (int(pad["festival_step"]) + 1), _player_screen() + Vector2(0, -142), Color("#e8d7ff"))
 				_burst(_player_screen() + Vector2(0, -10), 8, "spark")
-			var gain := maxi(12, int((float(pad["m"]) - highest_m) * 13.0))
+			var previous_height := highest_m
+			var new_height: float = float(pad["m"])
+			var distance_mark := ENDLESS_PACING.crossed_landmark(previous_height, new_height) if campaign_stage == -1 else 0
+			var gain := maxi(12, int((new_height - highest_m) * 13.0))
+			if distance_mark > 0:
+				run_landmarks += 1
+				distance_banner_mark = distance_mark
+				distance_banner_seconds = 2.5
+				leaves += ENDLESS_PACING.LANDMARK_LEAVES
+				run_leaves += ENDLESS_PACING.LANDMARK_LEAVES
+				gain += ENDLESS_PACING.LANDMARK_SCORE
+				wave_m -= ENDLESS_PACING.LANDMARK_WAVE_RELIEF
+				celebration = 1.0
+				precision_pulse = 1.25
+				impact_flash = maxf(impact_flash, 0.22)
+				_add_float_text("%d m! +2 LEAVES" % distance_mark, _player_screen() + Vector2(0, -179), Color("#f3f9bc"))
+				_burst(_player_screen() + Vector2(0, -17), 24, "spark")
+				sound.play_event("victory")
 			if festival_complete:
 				leaves += RIVER_FESTIVAL.LEAVES
 				run_leaves += RIVER_FESTIVAL.LEAVES
