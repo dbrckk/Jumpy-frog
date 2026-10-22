@@ -1325,8 +1325,8 @@ static func _chapter_clear_overlay(c: CanvasItem, index: int, stars: int, reward
 	text(c, medal_text, Vector2(270, 443), 58, Color("#d7a74c"), true)
 	text(c, "CHAPTER %d / 6" % (index + 1), Vector2(270, 497), 21, Color("#717078"))
 	text(c, "+%d LEAVES" % reward if reward > 0 else "MEDAL RECORDED", Vector2(270, 548), 23, Color("#668957"))
-	var clock_text := chapters.format_time(maxi(0, roundi(elapsed_seconds * 1000.0)))
-	var best_text := chapters.format_time(int(chapters.best_times_ms[index]))
+	var clock_text: String = chapters.format_time(maxi(0, roundi(elapsed_seconds * 1000.0)))
+	var best_text: String = chapters.format_time(int(chapters.best_times_ms[index]))
 	text(c, ("NEW TIME RECORD!  " if new_time_record else "TIME  ") + clock_text + "   BEST  " + best_text,
 		Vector2(270, 588), 17, Color("#537e71"), true, 412.0)
 	rr(c, Rect2(72, 633, 195, 66), 24, Color("#9fcf8b"), Color("#638761"), 2.0)
