@@ -54,7 +54,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_LEFT, -1, actual_size, color)
 
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0, perfect_streak: int = 0, best_endless_m: int = 0, distance_banner_mark: int = 0, distance_banner_seconds: float = 0.0) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0, perfect_streak: int = 0, best_endless_m: int = 0, distance_banner_mark: int = 0, distance_banner_seconds: float = 0.0, aim_perfect: bool = false) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
@@ -104,7 +104,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	if graphics_quality > 0:
 		_flight_ribbon(c, flight_trail, cam, shake, graphics_quality)
 	if aiming:
-		_aim_guide(c, player_at + shake, aim_at + shake, time, aim_valid, aim_danger_seconds)
+		_aim_guide(c, player_at + shake, aim_at + shake, time, aim_valid, aim_danger_seconds, aim_perfect)
 	if flow_seconds > 0.0:
 		_flow_aura(c, player_at + shake, jump_z, time, flow_seconds, graphics_quality)
 	if precision_pulse > 0.0:
@@ -815,9 +815,12 @@ static func _wave(c: CanvasItem, wave_y: float, t: float, graphics_quality: int 
 	bubbles.append(Vector2(0, H + 1000))
 	c.draw_colored_polygon(bubbles, Color(0.32, 0.45, 0.65, 0.27))
 
-static func _aim_guide(c: CanvasItem, from: Vector2, target: Vector2, t: float, valid: bool, danger_seconds: float = 0.0) -> void:
-	var ink := Color("#dcfbc3") if valid else Color("#ffb5a3")
-	var accent := Color("#5f895f") if valid else Color("#ac5c63")
+static func _aim_guide(c: CanvasItem, from: Vector2, target: Vector2, t: float, valid: bool, danger_seconds: float = 0.0, perfect: bool = false) -> void:
+	# Gold indicates a scored PERFECT landing; safe green and crab warning
+	# remain separate. Preview grade uses the exact launch scoring function.
+	var gold := valid and perfect
+	var ink := Color("#ffe5a4") if gold else (Color("#dcfbc3") if valid else Color("#ffb5a3"))
+	var accent := Color("#a77e32") if gold else (Color("#5f895f") if valid else Color("#ac5c63"))
 	var pulse := sin(t * 7.5) * 3.0
 	ellipse(c, target + Vector2(0, 6), Vector2(27, 13), Color(0.20, 0.30, 0.37, 0.25))
 	c.draw_arc(target, 25.0 + pulse, 0.05, TAU + 0.05, 52, Color("#4e5954"), 6.5, true)
@@ -829,8 +832,14 @@ static func _aim_guide(c: CanvasItem, from: Vector2, target: Vector2, t: float, 
 		c.draw_circle(point + Vector2(1.5, 2.0), 4.5 * (1.0 - portion * 0.35), Color(0.20, 0.30, 0.34, 0.35))
 		c.draw_circle(point, 3.6 * (1.0 - portion * 0.35), ink)
 	if valid:
-		rr(c, Rect2(target.x - 67, target.y - 70, 134, 28), 11, CREAM, accent, 1.5)
-		text(c, "SAFE LANDING", target + Vector2(0, -56), 14, accent)
+		if gold:
+			c.draw_arc(target, 33.0 + sin(t * 6.0) * 2.0, 0.0, TAU, 32,
+				Color(1.0, 0.84, 0.42, 0.46), 2.0, true)
+			rr(c, Rect2(target.x - 67, target.y - 70, 134, 28), 11, Color("#fff2c4"), accent, 1.5)
+			text(c, "PERFECT!", target + Vector2(0, -56), 16, accent, true, 118.0)
+		else:
+			rr(c, Rect2(target.x - 67, target.y - 70, 134, 28), 11, CREAM, accent, 1.5)
+			text(c, "SAFE LANDING", target + Vector2(0, -56), 14, accent)
 	elif danger_seconds > 0.0:
 		rr(c, Rect2(target.x - 85, target.y - 74, 170, 32), 12, Color("#fff1d9"), Color("#cd685e"), 1.8)
 		text(c, "CRAB - WAIT %.1fs" % danger_seconds, target + Vector2(0, -57), 13, Color("#a34740"), false, 154.0)
