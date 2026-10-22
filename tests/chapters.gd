@@ -83,7 +83,7 @@ func _run() -> void:
 		game._generate_pads()
 		var first_route: Array = []
 		for pad in game.pads:
-			first_route.append([pad["id"], pad["x"], pad["m"], pad["r"], pad["kind"], pad["moving"]])
+			first_route.append([pad["id"], pad["x"], pad["m"], pad["r"], pad["kind"], bool(pad.get("moving", false))])
 		var first_count: int = first_route.size()
 		game._start_chapter(index)
 		for n in range(175):
@@ -93,7 +93,7 @@ func _run() -> void:
 		game._generate_pads()
 		var second_route: Array = []
 		for pad in game.pads:
-			second_route.append([pad["id"], pad["x"], pad["m"], pad["r"], pad["kind"], pad["moving"]])
+			second_route.append([pad["id"], pad["x"], pad["m"], pad["r"], pad["kind"], bool(pad.get("moving", false))])
 		_test(first_count > 20 and first_route == second_route,
 			"chapter %d course survives replay, chunking and unrelated randomness" % index)
 	game.chapters.unlocked_count = 1
