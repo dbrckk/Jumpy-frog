@@ -28,6 +28,10 @@ var start_hop := 0
 var attempts := 0
 var perfects := 0 # Retained as the precision-specific metric.
 var completions := 0
+var win_streak := 0
+var best_win_streak := 0
+const STREAK_REWARD_AT := 3
+const STREAK_BONUS_LEAVES := 1
 var challenge_type := TYPE_PRECISION
 var progress := 0
 var level := 0
@@ -41,6 +45,8 @@ func reset() -> void:
 	attempts = 0
 	perfects = 0
 	completions = 0
+	win_streak = 0
+	best_win_streak = 0
 	challenge_type = TYPE_PRECISION
 	progress = 0
 	level = 0
@@ -70,7 +76,8 @@ func snapshot(next_hop: int = 0) -> Dictionary:
 		"target": target(),
 		"remaining": maxi(0, LENGTH - attempts),
 		"level": level,
-		"rest_hops": rest_hops
+		"rest_hops": rest_hops,
+		"win_streak": win_streak
 	}
 	if not active and next_hop > 0:
 		# Only the upcoming goal is announced; the preview is informative
@@ -136,17 +143,23 @@ func on_landing(hops: int, perfect: bool, picked_leaf: bool = false, hop_distanc
 	if progress >= target():
 		active = false
 		completions += 1
+		win_streak += 1
+		best_win_streak = maxi(best_win_streak, win_streak)
 		completed_by_type[challenge_type] += 1
+		var streak_bonus := STREAK_BONUS_LEAVES if win_streak >= STREAK_REWARD_AT and win_streak % STREAK_REWARD_AT == 0 else 0
 		return {
 			"won": true,
 			"type": challenge_type,
 			"title": title(),
 			"level": level,
 			"target": target(),
-			"leaves": ADVANCED_LEAVES if level > 0 else REWARD_LEAVES,
+			"leaves": (ADVANCED_LEAVES if level > 0 else REWARD_LEAVES) + streak_bonus,
+			"streak_bonus": streak_bonus,
+			"win_streak": win_streak,
 			"score": ADVANCED_SCORE if level > 0 else REWARD_SCORE
 		}
 	if attempts >= LENGTH:
 		active = false
+		win_streak = 0
 		return {"won": false, "type": challenge_type, "title": title(), "level": level}
 	return state

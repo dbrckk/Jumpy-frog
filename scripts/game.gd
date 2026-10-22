@@ -1134,6 +1134,9 @@ func _finish_jump() -> void:
 					challenge_banner_seconds = 2.3
 					_add_float_text("%s +%d LEAVES!" % [String(challenge["title"]), int(challenge["leaves"])],
 						_player_screen() + Vector2(0, -189), Color("#fff1b1"))
+					if int(challenge.get("streak_bonus", 0)) > 0:
+						_add_float_text("CHALLENGE STREAK x%d! +1 LEAF" % int(challenge["win_streak"]),
+							_player_screen() + Vector2(0, -205), Color("#fff1a0"))
 					if graphics_quality > 0:
 						_burst(_player_screen() + Vector2(0, -14), 12 if graphics_quality == 1 else 18, "spark")
 					sound.play_event("victory")

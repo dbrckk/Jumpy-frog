@@ -88,6 +88,7 @@ jobs:
           timeout 120s godot --headless --path . --script res://tests/touch_and_fairness.gd
           timeout 120s godot --headless --path . --script res://tests/precision_sprint.gd
           timeout 120s godot --headless --path . --script res://tests/rotating_challenges.gd
+          timeout 120s godot --headless --path . --script res://tests/challenge_streak.gd
           timeout 120s godot --headless --path . --script res://tests/challenge_balance.gd
           timeout 120s godot --headless --path . --script res://tests/challenge_mastery.gd
           timeout 120s godot --headless --path . --script res://tests/chapters.gd

@@ -424,6 +424,7 @@ static func _endless_challenge_hud(c: CanvasItem, challenge: Dictionary, y: floa
 	var completed := clampi(int(challenge.get("progress", 0)), 0, target)
 	var remaining := clampi(int(challenge.get("remaining", 0)), 0, 6)
 	var advanced := int(challenge.get("level", 0)) > 0
+	var win_streak := clampi(int(challenge.get("win_streak", 0)), 0, 999)
 	var title_text := String(challenge.get("title", "RIVER CHALLENGE"))
 	var description := String(challenge.get("description", "COMPLETE THE CHALLENGE"))
 	rr(c, Rect2(112, y, 316, 77), 19,
@@ -438,6 +439,9 @@ static func _endless_challenge_hud(c: CanvasItem, challenge: Dictionary, y: floa
 		if i < completed:
 			c.draw_circle(Vector2(x - 1.5, y + 59.0), 2.5, Color(1, 1, 1, 0.54))
 	text(c, "%d LEFT" % remaining, Vector2(377, y + 61), 12, Color("#e5f8f0"), false, 72.0)
+	if win_streak >= 2:
+		text(c, "STREAK x%d" % win_streak, Vector2(377, y + 39), 10, accent, false, 82.0)
+
 
 
 static func _upcoming_challenge_hud(c: CanvasItem, info: Dictionary, y: float) -> void:
