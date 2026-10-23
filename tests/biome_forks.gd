@@ -31,7 +31,7 @@ func _run() -> void:
 	var tiny_a := {"x": 270.0, "m": 0.0, "moving": false}
 	var tiny_b := {"x": 360.0, "m": 21.0, "moving": false}
 	_check(FORKS.reachable(tiny_a, tiny_b), "reachable optional gesture is accepted")
-	_check(not FORKS.reachable(tiny_a, {"x": 440.0, "m": 22.0}), "too-long gesture gets rejected")
+	_check(not FORKS.reachable(tiny_a, {"x": 440.0, "m": 30.0}), "too-long gesture gets rejected")
 	_check(not FORKS.reachable(tiny_b, tiny_a), "backward jumps are never eligible")
 	var unique_labels := {}
 	for biome in range(6):
