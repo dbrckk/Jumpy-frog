@@ -100,6 +100,9 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 			_bonus_branch_lily(c, screen, float(pad["r"]), time, graphics_quality)
 		if bool(pad.get("tide_refuge", false)):
 			_tide_refuge_lily(c, screen, float(pad["r"]), time, graphics_quality)
+		if bool(pad.get("biome_fork", false)):
+			_biome_fork_lily(c, screen, float(pad["r"]), time,
+				int(pad.get("fork_biome", 0)), graphics_quality)
 		if bool(pad.get("moving", false)):
 			_moving_lily_cue(c, screen, float(pad["r"]), time, graphics_quality)
 		if bool(pad.get("danger", false)):
@@ -574,6 +577,27 @@ static func _bonus_branch_lily(c: CanvasItem, pos: Vector2, radius: float, time:
 			var angle := time * 0.3 + float(i) * TAU / 4.0
 			c.draw_circle(pos + Vector2(cos(angle), sin(angle)) * (radius + 17),
 				2.2 + float(quality - 1), Color(1.0, 0.94, 0.60, 0.5))
+
+
+# Optional campaign detour: distinctive color, readable even at tier zero.
+# Neither glow nor labels modify touch, hitboxes or the prediction solver.
+static func _biome_fork_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, biome: int, quality: int) -> void:
+	var b: int = clampi(biome, 0, 5)
+	var accent: Color = TRIAL_INKS[b]
+	var labels := ["SUN", "PETAL", "REED", "MOON", "PRISM", "RAPID"]
+	var pulse := sin(time * 3.5) * 2.0
+	c.draw_arc(pos, radius + 7.0 + pulse, 0.0, TAU,
+		24 if quality == 0 else 36, accent, 3.0, true)
+	c.draw_circle(pos + Vector2(0, -11), 13.0, Color("#405a60"))
+	c.draw_circle(pos + Vector2(0, -11), 10.4, accent)
+	text(c, labels[b], pos + Vector2(0, -12), 11, Color("#314347"), true, 47.0)
+	text(c, "DETOUR", pos + Vector2(0, radius * 0.44), 11,
+		Color("#fff6d5"), true, 74.0)
+	if quality >= 2:
+		for i in range(4):
+			var angle: float = time * 0.5 + float(i) * TAU / 4.0
+			c.draw_circle(pos + Vector2(cos(angle), sin(angle)) * (radius + 15),
+				2.0, Color(accent.r, accent.g, accent.b, 0.55))
 
 
 static func _danger_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, active: bool, quality: int) -> void:

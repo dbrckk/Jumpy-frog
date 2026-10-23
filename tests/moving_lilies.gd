@@ -21,7 +21,8 @@ func _exercise() -> void:
 				_expect(not bool(pad.get("fragile", false)), "moving pads never overlap fragile hazards")
 				_expect(int(pad["id"]) >= 5, "introductory jumps stay static")
 			if biome not in [3, 4]:
-				_expect(not bool(pad.get("moving", false)), "other biomes remain stable")
+				_expect(not bool(pad.get("moving", false)) or bool(pad.get("biome_fork", false)),
+					"mandatory platforms in other biomes remain stable")
 		if biome in [3, 4]:
 			_expect(movers.size() >= 1, "moonlit and crystal chapters introduce moving lilies")
 			if movers.is_empty():

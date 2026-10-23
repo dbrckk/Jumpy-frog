@@ -20,6 +20,7 @@ const DEVICE_DIAGNOSTICS = preload("res://scripts/device_diagnostics.gd")
 const FRAME_PACING = preload("res://scripts/frame_pacing.gd")
 const WEATHER = preload("res://scripts/weather.gd")
 const BIOME_TRIALS = preload("res://scripts/biome_trials.gd")
+const BIOME_FORKS = preload("res://scripts/biome_forks.gd")
 const W := 540.0
 const H := 960.0
 const PX_PER_M := 8.0
@@ -382,6 +383,10 @@ func _generate_pads() -> void:
 				dx *= 0.28
 			elif phrase_step in [5, 6, 7]:
 				dx = lateral * (0.67 if phrase_step % 2 == 1 else -0.67)
+		# Side branches never replace the previous mandatory pad.
+		var previous_main: Dictionary = pads.back()
+		if bool(previous_main.get("biome_fork", false)):
+			previous_main = pads[pads.size() - 2]
 		last_pad_x = clampf(last_pad_x + dx, 116.0, 421.0)
 		var ident := next_pad_id
 		next_pad_id += 1
@@ -435,6 +440,15 @@ func _generate_pads() -> void:
 			# generated collision size, and never coincides with a Guardian.
 			"fragile": fragile
 		})
+		if campaign_stage >= 0:
+			# Generation runs far ahead of the camera. With the *next* normal
+			# lily now known, remove any preceding fork that cannot reconnect.
+			if pads.size() >= 2 and bool(pads[pads.size() - 2].get("biome_fork", false)):
+				if not BIOME_FORKS.reachable(pads[pads.size() - 2], pads.back()):
+					pads.remove_at(pads.size() - 2)
+			var chapter_fork: Dictionary = BIOME_FORKS.build(ident, biome, previous_main, pads.back())
+			if not chapter_fork.is_empty():
+				pads.append(chapter_fork)
 		# Two distinct, occasional optional lanes keep Endless decisions
 		# meaningful: GOLD yields currency, TIDE REFUGE buys time against
 		# the pursuing wave. Every fork retains its ordinary primary lily.
@@ -1211,6 +1225,21 @@ func _finish_jump() -> void:
 					_player_screen() + Vector2(0, -158), Color("#b4fff0"))
 				if graphics_quality > 0:
 					_burst(_player_screen() + Vector2(0, -12), 9 if graphics_quality == 1 else 14, "spark")
+				sound.play_event("boost")
+			var side_reward: Dictionary = BIOME_FORKS.claim(pad)
+			if not side_reward.is_empty():
+				# Six different risk/reward routes, never a permanent-leaf payout.
+				gain += int(side_reward["score"])
+				wave_m -= float(side_reward["wave_relief"])
+				flow_seconds = minf(FLOW_DURATION, flow_seconds + float(side_reward["flow_seconds"]))
+				if bool(side_reward["guardian"]):
+					guardian_charge = true
+				precision_pulse = maxf(precision_pulse, 0.9)
+				_add_float_text("%s!" % String(side_reward["label"]),
+					_player_screen() + Vector2(0, -154), Color("#f5f1c4"))
+				if graphics_quality > 0:
+					_burst(_player_screen() + Vector2(0, -10),
+						7 if graphics_quality == 1 else 12, "spark")
 				sound.play_event("boost")
 			if bool(pad.get("branch_bonus", false)):
 				pad["branch_bonus"] = false
