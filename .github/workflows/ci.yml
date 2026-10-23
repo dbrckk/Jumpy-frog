@@ -142,6 +142,7 @@ jobs:
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/route_pacing.gd
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/endless_pacing.gd
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/jump_feedback.gd
+          timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/weather.gd
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/expressive_visuals.gd
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/precision_sprint.gd
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/rotating_challenges.gd

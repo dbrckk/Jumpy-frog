@@ -3,6 +3,7 @@ const PLATFORM_MOTION = preload("res://scripts/platform_motion.gd")
 const PAD_DANGER = preload("res://scripts/pad_danger.gd")
 const VISUAL_MOTION = preload("res://scripts/visual_motion.gd")
 const JUMP_FEEDBACK = preload("res://scripts/jump_feedback.gd")
+const WEATHER = preload("res://scripts/weather.gd")
 ## Hand-drawn, resolution-independent vector renderer. All illustrations are original.
 const W := 540.0
 const H := 960.0
@@ -56,12 +57,12 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_LEFT, -1, actual_size, color)
 
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0, perfect_streak: int = 0, best_endless_m: int = 0, distance_banner_mark: int = 0, distance_banner_seconds: float = 0.0, aim_perfect: bool = false, sprint_state: Dictionary = {}, challenge_banner: Dictionary = {}, challenge_banner_seconds: float = 0.0, lifetime_challenge_wins: Array = [], lifetime_best_challenge_streak: int = 0, chapter_elapsed: float = 0.0, chapter_new_time_record: bool = false, chapter_split_seconds: float = 0.0, chapter_split_banner_seconds: float = 0.0, flight_target_id: int = -1, flight_phase: float = 0.0, flight_perfect: bool = false, chapter_new_mastery_mask: int = 0) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0, perfect_streak: int = 0, best_endless_m: int = 0, distance_banner_mark: int = 0, distance_banner_seconds: float = 0.0, aim_perfect: bool = false, sprint_state: Dictionary = {}, challenge_banner: Dictionary = {}, challenge_banner_seconds: float = 0.0, lifetime_challenge_wins: Array = [], lifetime_best_challenge_streak: int = 0, chapter_elapsed: float = 0.0, chapter_new_time_record: bool = false, chapter_split_seconds: float = 0.0, chapter_split_banner_seconds: float = 0.0, flight_target_id: int = -1, flight_phase: float = 0.0, flight_perfect: bool = false, chapter_new_mastery_mask: int = 0, weather: Dictionary = {}) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
 	_river(c, time, cam, biome, graphics_quality, campaign_stage)
-	_bank_landmarks(c, biome, time, cam, graphics_quality)
+	_bank_landmarks(c, biome, time, cam, graphics_quality, float(weather.get("wind", 0.0)))
 	# Sparse animated surface glints: stable world-space placement, zero textures.
 	# Limited to 15 strokes so older Android GPUs are not overloaded.
 	for i in range(15 if graphics_quality >= 2 else (6 if graphics_quality == 1 else 0)):
@@ -146,9 +147,12 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		ink.a = clampf(life * 1.45, 0.0, 1.0)
 		text(c, String(floating["text"]), p, 22, ink, true)
 	c.draw_set_transform(Vector2.ZERO)
+	_weather_atmosphere(c, weather, time, graphics_quality)
 	if flash > 0.0:
 		c.draw_rect(Rect2(0, 0, W, H), Color(1.0, 0.97, 0.85, flash * 0.34))
 	_hud(c, score, best, pets, distance, wave_m, cam, combo, mode, chapters, campaign_stage, biome, biome_banner, chapter_elapsed)
+	if mode in [1, 2, 3]:
+		_weather_label(c, weather)
 	if guardian_charge and mode in [1, 2, 3, 5]:
 		rr(c, Rect2(12, 72, 146, 30), 13, Color("#fff1ba"), Color("#a6894a"), 1.5)
 		text(c, "GUARDIAN READY", Vector2(85, 87), 14, Color("#76572c"))
@@ -707,7 +711,67 @@ static func _biome_accents(c: CanvasItem, biome: int, time: float, cam: float, q
 				line(c, Vector2(x, y - 20), Vector2(x - 10, y + 14), Color(0.86, 0.93, 1.0, 0.43), 2.0)
 
 
-static func _bank_landmarks(c: CanvasItem, biome: int, time: float, cam: float, quality: int) -> void:
+static func _weather_atmosphere(c: CanvasItem, state: Dictionary, time: float, quality: int) -> void:
+	if state.is_empty():
+		return
+	var night: float = float(state.get("night", 0.0))
+	var clouds: float = float(state.get("clouds", 0.0))
+	var rain: float = float(state.get("rain", 0.0))
+	var gust: float = float(state.get("wind", 0.0))
+	# Dim the entire game world, but render the HUD/aim labels afterwards.
+	# No hard-to-see blackouts, lightning flashes or simulation effects.
+	if night > 0.01 or clouds > 0.1:
+		c.draw_rect(Rect2(0, 0, W, H), Color(0.09, 0.15, 0.27, night * 0.25 + clouds * 0.055))
+	# The sun or moon reflects over the river. Night stars stay sparse.
+	var sky_at := Vector2(448, 226)
+	if night > 0.08:
+		var glow := Color(0.72, 0.86, 1.0, 0.16 * night)
+		c.draw_circle(sky_at, 31, glow)
+		c.draw_circle(sky_at, 16, Color(0.94, 0.96, 0.88, 0.82 * night))
+		c.draw_circle(sky_at + Vector2(6, -5), 15, Color(0.22, 0.32, 0.48, 0.75 * night))
+		for i in range(5 if quality == 0 else (10 if quality == 1 else 16)):
+			var star := Vector2(74.0 + float((i * 137) % 390), 172.0 + float((i * 89) % 550))
+			c.draw_circle(star, 1.0 + 0.6 * sin(time * 1.3 + float(i)),
+				Color(0.94, 0.97, 0.85, night * (0.20 + 0.12 * sin(time * 2.0 + float(i)))))
+	elif clouds < 0.68:
+		var shine := (1.0 - clouds) * (1.0 - rain)
+		c.draw_circle(sky_at, 28, Color(1.0, 0.92, 0.65, 0.12 * shine))
+		c.draw_circle(sky_at, 15, Color(1.0, 0.93, 0.73, 0.50 * shine))
+	if clouds > 0.12:
+		# Soft cloud-shadows drift without affecting touch or collision cues.
+		for i in range(1 if quality == 0 else (2 if quality == 1 else 3)):
+			var x := fposmod(86.0 + float(i) * 188.0 + time * (5.0 + gust * 15.0), 730.0) - 70.0
+			var y := 280.0 + float(i) * 205.0
+			var color := Color(0.17, 0.24, 0.34, clouds * 0.065)
+			c.draw_circle(Vector2(x, y), 51.0, color)
+			c.draw_circle(Vector2(x + 35.0, y + 5.0), 43.0, color)
+			c.draw_circle(Vector2(x - 29.0, y + 12.0), 33.0, color)
+	if gust > 0.17:
+		for i in range(WEATHER.gust_budget(quality)):
+			var x := fposmod(float(i * 147 + 29) + time * (45.0 + gust * 115.0), 680.0) - 60.0
+			var y := 195.0 + float((i * 113) % 630)
+			c.draw_line(Vector2(x, y), Vector2(x + 17.0 + gust * 20.0, y - gust * 7.0),
+				Color(0.91, 0.97, 0.93, gust * 0.13), 1.3, true)
+	if rain > 0.03:
+		# No particle nodes, RNG, allocations of textures or physics impulses.
+		for i in range(int(ceil(float(WEATHER.raindrop_budget(quality)) * rain))):
+			var x := fposmod(float((i * 131 + 37) % 607) + time * gust * 38.0, W + 40.0) - 20.0
+			var y := fposmod(float(i * 97 + 11) + time * (240.0 + float(i % 5) * 31.0), H + 70.0) - 30.0
+			c.draw_line(Vector2(x, y), Vector2(x - gust * 11.0 - 3.0, y + 15.0 + rain * 12.0),
+				Color(0.87, 0.96, 1.0, rain * 0.36), 1.4 if quality == 0 else 1.7, true)
+
+
+static func _weather_label(c: CanvasItem, state: Dictionary) -> void:
+	if state.is_empty():
+		return
+	# Dedicated corner slot to the right of chapter progress and below pause.
+	rr(c, Rect2(420, 147, 108, 28), 12, Color(0.22, 0.34, 0.41, 0.78),
+		Color(0.67, 0.78, 0.80, 0.82), 1.0)
+	text(c, String(state.get("label", "SUNNY")), Vector2(474, 161), 13,
+		Color("#f4f5e7"), false, 102.0)
+
+
+static func _bank_landmarks(c: CanvasItem, biome: int, time: float, cam: float, quality: int, gust: float = 0.0) -> void:
 	# Original hand-drawn roadside silhouettes, world-locked (do not pop
 	# when the camera pans); density scales with graphics quality.
 	# All geometry is within x=0..36 or x=504..540, outside lily landings.
@@ -718,6 +782,7 @@ static func _bank_landmarks(c: CanvasItem, biome: int, time: float, cam: float, 
 		if y < -95.0 or y > H + 70.0:
 			continue
 		var drift := VISUAL_MOTION.environmental_drift(time, i, biome)
+		drift += sin(time * 2.6 + float(i) * 0.8) * gust * 10.0
 		var root := Vector2(x, y)
 		match biome:
 			0: # Wildflower banks, stalks and pale yellow blossoms.
