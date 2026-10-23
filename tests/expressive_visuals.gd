@@ -33,6 +33,10 @@ func _exercise() -> void:
 	_check(MOTION.landing_halo_alpha(1.0) > MOTION.landing_halo_alpha(0.0),
 		"approaching landing increases legibility")
 	_check(MOTION.landing_halo_alpha(5.0) <= 0.72, "halo alpha is capped for slow phones")
+	_check(MOTION.effect_visible(Vector2(270, 700)), "active landing VFX remains visible")
+	_check(MOTION.effect_visible(Vector2(-15, 900), 20.0), "partially clipped water crown is retained")
+	_check(not MOTION.effect_visible(Vector2(-300, 700), 40.0), "offscreen effects skip CanvasItem commands")
+	_check(not MOTION.effect_visible(Vector2(270, 1200), 100.0), "far below screen particles are culled")
 	_check(MOTION.bank_prop_count(0) == 2 and MOTION.bank_prop_count(1) == 6 and MOTION.bank_prop_count(2) == 10,
 		"tier zero has just two bank silhouettes; high quality remains bounded")
 	for biome in range(6):

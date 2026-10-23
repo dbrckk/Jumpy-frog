@@ -2,6 +2,23 @@ extends RefCounted
 ## Shared score-grade calculation between the live touch preview and launch.
 ## Visual spring compression is intentionally independent of simulation.
 const PERFECT_RADIUS_RATIO := 0.28
+const ARC_HEIGHT := 53.0
+
+# One visual/physical jump curve: the dotted aim promise and airborne motion
+# must remain identical even when the engine adjusts its rendering quality.
+static func flight_fraction(portion: float) -> float:
+	var t := clampf(portion, 0.0, 1.0)
+	return t * t * (3.0 - 2.0 * t)
+
+static func flight_arc_height(portion: float) -> float:
+	return sin(clampf(portion, 0.0, 1.0) * PI) * ARC_HEIGHT
+
+static func trajectory_screen(from: Vector2, target: Vector2, portion: float) -> Vector2:
+	return from.lerp(target, flight_fraction(portion)) + Vector2(0, -flight_arc_height(portion))
+
+# Keep gameplay cues at tier zero, trim decorative dots when the GPU struggles.
+static func aim_marker_count(quality: int) -> int:
+	return 7 if quality <= 0 else (10 if quality == 1 else 13)
 
 static func is_perfect(pad: Dictionary, desired_x: float, desired_m: float, predicted_x: float, px_per_m: float) -> bool:
 	if pad.is_empty():

@@ -17,6 +17,24 @@ func _exercise() -> void:
 	_check(not FEEDBACK.is_perfect(sample, 285.0, 16.0, 270.0, 8.0), "edge touch is safe but not perfect")
 	_check(not FEEDBACK.is_perfect(sample, 270.0, 19.0, 270.0, 8.0), "long miss is not perfect")
 	_check(not FEEDBACK.is_perfect({}, 270.0, 16.0, 270.0, 8.0), "empty target never scores")
+	# Flight preview and simulation must be the same geometry at all phases.
+	var from := Vector2(210.0, 700.0)
+	var target := Vector2(340.0, 520.0)
+	_check(FEEDBACK.trajectory_screen(from, target, 0.0) == from,
+		"aim guide begins at actual takeoff")
+	_check(FEEDBACK.trajectory_screen(from, target, 1.0).distance_to(target) < 0.001,
+		"aim guide terminates at actual touchdown")
+	_check(is_equal_approx(FEEDBACK.flight_fraction(0.5), 0.5) and is_equal_approx(FEEDBACK.flight_arc_height(0.5), 53.0),
+		"flight midpoint keeps legacy timing and height")
+	for n in range(101):
+		var portion := float(n) / 100.0
+		var fraction: float = FEEDBACK.flight_fraction(portion)
+		var visual: Vector2 = FEEDBACK.trajectory_screen(from, target, portion)
+		var expected: Vector2 = from.lerp(target, fraction) + Vector2(0, -FEEDBACK.flight_arc_height(portion))
+		_check(visual.distance_to(expected) < 0.001, "drawn arc samples match gameplay formula")
+		_check(fraction >= 0.0 and fraction <= 1.0, "jump interpolation stays bounded")
+	_check(FEEDBACK.aim_marker_count(0) == 7 and FEEDBACK.aim_marker_count(1) == 10 and FEEDBACK.aim_marker_count(2) == 13,
+		"low-end devices use fewer aim dots without losing target cues")
 
 	var captions: Array = []
 	for i in range(8):
@@ -49,6 +67,17 @@ func _exercise() -> void:
 	var particles: int = game.particles.size()
 	game._start_jump()
 	_check(game.jump_is_perfect == preview_perfect, "gold live preview and launched jump grade agree")
+	var elapsed_seconds: float = game.jump_duration * 0.32
+	game._process(elapsed_seconds / 4.0)
+	game._process(elapsed_seconds / 4.0)
+	game._process(elapsed_seconds / 4.0)
+	game._process(elapsed_seconds / 4.0)
+	var flight_t: float = game.jump_elapsed / game.jump_duration
+	var expected_world: Vector2 = game.jump_start.lerp(game.jump_end, FEEDBACK.flight_fraction(flight_t))
+	_check(Vector2(game.player_x, game.player_m).distance_to(expected_world) < 0.001,
+		"real in-flight world location follows exactly the projected curve")
+	_check(absf(game.jump_z - FEEDBACK.flight_arc_height(flight_t)) < 0.001,
+		"real midair height equals dotted-arc height")
 	_check(game.jump_pad_id == int(preview_pad["id"]), "perfect cue guarantees chosen lily by shared resolver")
 	_check(game.ripples.size() == rp + 1, "launch creates exactly one small takeoff ripple")
 	_check(game.particles.size() > particles and game.particles.size() <= 110, "takeoff sparks obey bounded pool")

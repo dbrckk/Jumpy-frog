@@ -30,6 +30,11 @@ static func landing_halo_radius(pad_radius: float, progress: float) -> float:
 static func landing_halo_alpha(progress: float) -> float:
 	return lerpf(0.28, 0.72, clampf(progress, 0.0, 1.0))
 
+# Bounding out-of-screen VFX before submitting CanvasItem commands saves
+# CPU/GPU work on long Android sessions, without deleting effects from pools.
+static func effect_visible(at: Vector2, margin: float = 48.0) -> bool:
+	return at.x >= -margin and at.x <= 540.0 + margin and at.y >= -margin and at.y <= 960.0 + margin
+
 static func bank_prop_count(quality: int) -> int:
 	# Total across both banks. Still some foreground silhouette at tier zero.
 	return 10 if quality >= 2 else (6 if quality == 1 else 2)
