@@ -54,6 +54,10 @@ func _run() -> void:
 		course.append([pad["id"], pad["x"], pad["m"]])
 	var original_score: int = game.score
 	var original_leaves: int = game.leaves
+	# The SceneTree keeps calling _process() on alive gameplay between frames.
+	# Pause the world while rendering weather at synthetic distant coordinates:
+	# otherwise lily streaming/pruning is expected, not a weather regression.
+	game._pause_game()
 	for type_index in range(6):
 		game.weather_seed = type_index
 		game.graphics_quality = type_index % 3
