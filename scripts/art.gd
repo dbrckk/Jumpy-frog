@@ -4,6 +4,7 @@ const PAD_DANGER = preload("res://scripts/pad_danger.gd")
 const VISUAL_MOTION = preload("res://scripts/visual_motion.gd")
 const JUMP_FEEDBACK = preload("res://scripts/jump_feedback.gd")
 const WEATHER = preload("res://scripts/weather.gd")
+const BIOME_TRIALS = preload("res://scripts/biome_trials.gd")
 ## Hand-drawn, resolution-independent vector renderer. All illustrations are original.
 const W := 540.0
 const H := 960.0
@@ -13,6 +14,10 @@ const INK := Color("#424454")
 const CREAM := Color("#fff1da")
 const PALETTE := [
 	Color("#a8cb65"), Color("#7ebf75"), Color("#d8b66b"), Color("#80bdad")
+]
+const TRIAL_INKS := [
+	Color("#f6c66b"), Color("#ee94b4"), Color("#ddaf62"),
+	Color("#b6b8ff"), Color("#84e1f8"), Color("#b5dbec")
 ]
 
 static func ellipse(c: CanvasItem, at: Vector2, radii: Vector2, color: Color, segments: int = 30) -> void:
@@ -103,6 +108,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 			_fragile_lily(c, screen, float(pad["r"]), time, int(pad["id"]) == fragile_pad_id, fragile_seconds, graphics_quality)
 		if bool(pad.get("harmony", false)):
 			_harmony_lily(c, screen, float(pad["r"]), time, graphics_quality)
+		if bool(pad.get("trial", false)):
+			_trial_lily(c, screen, float(pad["r"]), time, int(pad.get("trial_biome", 0)), graphics_quality)
 		if bool(pad.get("guardian", false)):
 			_guardian_lily(c, screen, float(pad["r"]), time)
 		if bool(pad.get("boost", false)):
@@ -842,6 +849,22 @@ static func _bank_landmarks(c: CanvasItem, biome: int, time: float, cam: float, 
 					line(c, root + Vector2(float(blade - 2) * 5.0, 17),
 						root + Vector2(sway, -22.0 - float(blade % 2) * 14.0),
 						Color(0.68, 0.81, 0.82, 0.74), 2.1)
+
+
+# Clearly signposted skill objective, visible even at Android quality zero.
+# All rings/marks are cosmetic; actual perfect detection is unchanged.
+static func _trial_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, biome: int, quality: int) -> void:
+	var accent: Color = TRIAL_INKS[clampi(biome, 0, 5)]
+	var pulse := 1.5 * sin(time * 4.0)
+	var ring_radius := minf(radius * 0.56, 28.0) + pulse
+	c.draw_arc(pos, ring_radius, 0.0, TAU, 24 if quality == 0 else 36,
+		Color(0.16, 0.29, 0.30, 0.86), 5.0, true)
+	c.draw_arc(pos, ring_radius, 0.0, TAU, 24 if quality == 0 else 36, accent, 3.1, true)
+	c.draw_circle(pos, 13.0, Color(0.20, 0.37, 0.39, 0.90))
+	c.draw_circle(pos, 9.0, accent)
+	text(c, "!", pos + Vector2(0, -1), 17, Color("#35464b"), true)
+	# Explicit objective beside the target rather than a misleading SAFE cue.
+	text(c, "CENTER", pos + Vector2(0, radius * 0.42), 11, Color("#fff9db"), true, 73.0)
 
 
 static func _lily(c: CanvasItem, pos: Vector2, radius: float, kind: int, t: float, ident: int, impact: float = 0.0, biome: int = 0, graphics_quality: int = 2) -> void:

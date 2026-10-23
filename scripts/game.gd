@@ -19,6 +19,7 @@ const PRECISION_SPRINT = preload("res://scripts/precision_sprint.gd")
 const DEVICE_DIAGNOSTICS = preload("res://scripts/device_diagnostics.gd")
 const FRAME_PACING = preload("res://scripts/frame_pacing.gd")
 const WEATHER = preload("res://scripts/weather.gd")
+const BIOME_TRIALS = preload("res://scripts/biome_trials.gd")
 const W := 540.0
 const H := 960.0
 const PX_PER_M := 8.0
@@ -406,6 +407,9 @@ func _generate_pads() -> void:
 		var danger_phase := layout_rng.randf_range(0.0, PAD_DANGER.CYCLE_SECONDS) if dangerous else 0.0
 		if dangerous:
 			last_danger_id = ident
+		var fragile := festival_step < 0 and biome in [2, 5] and ident > 4 and ident % 7 == 5 and ident % 13 != 0
+		var trial := BIOME_TRIALS.eligible(ident, festival_step, dangerous, bool(motion["moving"]),
+			harmony, fragile, ident % 13 == 0)
 		pads.append({
 			"id": ident,
 			"x": last_pad_x,
@@ -417,6 +421,8 @@ func _generate_pads() -> void:
 			"boost": festival_step < 0 and ident % 7 == 0 and biome >= 1,
 			"guardian": festival_step < 0 and ident % 13 == 0,
 			"harmony": harmony,
+			"trial": trial,
+			"trial_biome": biome,
 			"festival_group": int(festival_info["festival_group"]),
 			"festival_step": festival_step,
 			"festival_collected": false,
@@ -427,7 +433,7 @@ func _generate_pads() -> void:
 			"motion_amplitude": float(motion["motion_amplitude"]),
 			# A timed hazard is always clearly marked; it never changes
 			# generated collision size, and never coincides with a Guardian.
-			"fragile": festival_step < 0 and biome in [2, 5] and ident > 4 and ident % 7 == 5 and ident % 13 != 0
+			"fragile": fragile
 		})
 		# Two distinct, occasional optional lanes keep Endless decisions
 		# meaningful: GOLD yields currency, TIDE REFUGE buys time against
@@ -1088,6 +1094,27 @@ func _finish_jump() -> void:
 			var new_height: float = float(pad["m"])
 			var distance_mark := ENDLESS_PACING.crossed_landmark(previous_height, new_height) if campaign_stage == -1 else 0
 			var gain := maxi(12, int((new_height - highest_m) * 13.0))
+			# A marked trial is consumed on its FIRST real landing, even if the
+			# player misses the center. Repeated visits cannot farm bonuses.
+			# Existing pads/collisions and permanent currency are unchanged.
+			if bool(pad.get("trial", false)):
+				pad["trial"] = false
+				if jump_is_perfect:
+					var trial_reward: Dictionary = BIOME_TRIALS.reward(int(pad.get("trial_biome", 0)))
+					gain += int(trial_reward.get("score", 0))
+					wave_m -= float(trial_reward.get("wave_relief", 0.0))
+					flow_seconds = minf(FLOW_DURATION, flow_seconds + float(trial_reward.get("flow_seconds", 0.0)))
+					if bool(trial_reward.get("guardian", false)):
+						guardian_charge = true
+					precision_pulse = maxf(precision_pulse, 1.0)
+					_add_float_text("%s!" % String(trial_reward.get("name", "TRIAL")),
+						_player_screen() + Vector2(0, -165), Color("#fff3b6"))
+					if graphics_quality > 0:
+						_burst(_player_screen() + Vector2(0, -10), 7 if graphics_quality == 1 else 12, "spark")
+					sound.play_event("boost")
+				else:
+					_add_float_text("TRIAL: CENTER NEEDED", _player_screen() + Vector2(0, -135),
+						Color("#eaf0da"))
 			if distance_mark > 0:
 				run_landmarks += 1
 				distance_banner_mark = distance_mark
