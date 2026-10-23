@@ -58,9 +58,15 @@ func _run() -> void:
 		for pad in game.pads:
 			if int(pad["id"]) == 0:
 				continue
+			# Only mandatory lilies form a linear sequence. The alternative
+			# detour sits at the same river height, and has an independent
+			# strict two-sided reachability regression in biome_forks.gd.
+			if bool(pad.get("biome_fork", false)):
+				_check(float(pad["r"]) >= 34.0, "optional skill platform has a visible hitbox")
+				continue
 			var dx := absf(float(pad["x"]) - float(previous["x"])) / 1.2
 			var dy := (float(pad["m"]) - float(previous["m"])) * 8.0 / 1.35
-			_check(Vector2(dx, dy).length() <= 215.0, "biome %d procedural lily is reachable by a real gesture" % biome)
+			_check(Vector2(dx, dy).length() <= 215.0, "biome %d mandatory lily is reachable by a real gesture" % biome)
 			_check(float(pad["r"]) >= 37.0, "biome %d lily remains a readable collision target" % biome)
 			previous = pad
 		_check(game.pads.size() > 60, "biome %d generates long courses" % biome)
