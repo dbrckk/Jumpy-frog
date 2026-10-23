@@ -42,6 +42,21 @@ func _run() -> void:
 	_check(WEATHER.at(0.0, 2) == WEATHER.at(-123.0, 2), "negative position safely clamps")
 	_check(WEATHER.at(110.0, 2) != WEATHER.at(110.0, 3),
 		"changing a run seed changes the forecast without changing river geometry")
+	var incoming: Dictionary = WEATHER.at(WEATHER.FRONT_METERS - 12.0, 0)
+	_check(incoming["next_label"] == WEATHER.LABELS[1] and int(incoming["next_in_m"]) == 12,
+		"HUD forecasts the exact next front and distance")
+	_check(String(WEATHER.at(0.0, 0)["next_label"]).is_empty(),
+		"forecast does not clutter the HUD far from a weather change")
+	_check(WEATHER.at(WEATHER.FRONT_METERS + 0.01, 0)["label"] == WEATHER.LABELS[0],
+		"weather label stays on outgoing front while transition just began")
+	_check(WEATHER.at(WEATHER.FRONT_METERS + WEATHER.CROSSFADE_METERS, 0)["label"] == WEATHER.LABELS[1],
+		"weather label catches up after visual crossfade")
+	for front_index in range(1, 12):
+		var border: float = float(front_index) * WEATHER.FRONT_METERS
+		for sample in [1.0, 8.0, 17.0, 35.0, 70.0]:
+			var frame: Dictionary = WEATHER.at(border + sample, 1)
+			_check(int(frame["next_in_m"]) >= 0, "forecast distance never negative")
+			_check(frame == WEATHER.at(border + sample, 1), "forecast is deterministic across draws")
 
 	var game: Node2D = load("res://main.tscn").instantiate()
 	root.add_child(game)

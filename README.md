@@ -76,6 +76,8 @@ All code and illustrations in this repository are the original work of the proje
 Only advertise at natural game-over breaks; no interstitials during active jumps. First 4 games are ad-free and interstitials have 6-minute cooldowns. Rewarded videos are optional, granting leaves only after an SDK-earned-reward callback. A **non-consumable** Google Play purchase `remove_ads` removes all ads after confirmed ownership, including restores. The price is configured in Play Console (intended €2.00 in France) and fetched from Play Billing. See [monetization](docs/monetization.md).
 
 
+Weather is visual-only and deterministic: six smoothly blended fronts (sunny, cloudy, rain, wind, night, and rainy night) cycle through long rivers. Incoming weather is previewed in the HUD during the final 28 m before a front, and rain/night tint stays behind the frog, landing guides and interactive objects for readability. Rain impacts and surface glints scale with the adaptive draw-quality budget; weather never changes timings, physics or rewards.
+
 ## Six replayable chapters (version 1.2)
 
 Beyond endless running, the CHAPTERS menu offers Sunny Banks, Lily Garden, Golden Reeds, Moonlit Pond, Crystal River and Stormy Rapids. Each stage uses different pad widths, lateral drift, wave pressure, water colors and vegetation. Finishing a stage earns permanent medals (1–3 stars) and unlocks the next stage. First-time rewards cannot be farmed by repeating the same medal; higher medals can award a small improvement bonus.
