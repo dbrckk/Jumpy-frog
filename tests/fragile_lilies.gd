@@ -41,7 +41,7 @@ func _run() -> void:
 		game.aim_x = float(target["x"])
 		game.aim_m = float(target["m"])
 		game._start_jump()
-		_expect(game.jump_pad_id == intended, "existing collision logic predicts the next pad")
+		_expect(game.jump_pad_id == intended, "next main pad %d predicted, got %d at hop %d" % [intended, game.jump_pad_id, hop + 1])
 		for frame in range(65):
 			game._process(0.02)
 			if game.mode != 3:
@@ -112,6 +112,10 @@ func _run() -> void:
 
 func _next_pad(game: Node2D) -> Dictionary:
 	for pad in game.pads:
+		# The endurance rehearsal follows mandatory lilies, never optional
+		# side routes appended at the same distance as a regular lily.
+		if bool(pad.get("biome_fork", false)):
+			continue
 		if float(pad["m"]) > game.player_m + 3.0:
 			return pad
 	return {}
