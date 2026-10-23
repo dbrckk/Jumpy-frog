@@ -723,8 +723,9 @@ func _down(pos: Vector2) -> void:
 			return
 		for i in range(6):
 			var x := 65.0 + float(i % 2) * 215.0
-			var y := 335.0 + float(i / 2) * 138.0
-			if Rect2(x, y, 192, 123).has_point(pos) and chapters.can_play(i):
+			var y := 335.0 + float(i / 2) * 142.0
+			# Hitboxes must stay identical to the taller mastery chapter cards.
+			if Rect2(x, y, 192, 136).has_point(pos) and chapters.can_play(i):
 				_start_chapter(i)
 				return
 		return
