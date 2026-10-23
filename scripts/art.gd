@@ -1151,9 +1151,10 @@ static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int,
 				total_mastered += n
 				if n > 0:
 					mastered_categories += 1
+			rr(c, Rect2(81, 627, 388, 21), 10, Color("#e5efdb"))
 			text(c, "MASTERY %d/4 • %d WINS • BEST STREAK x%d" % [
 				mastered_categories, total_mastered, maxi(0, lifetime_best_challenge_streak)],
-				Vector2(270, 636), 15, Color("#567d65"), true, 394.0)
+				Vector2(270, 637), 14, Color("#567d65"), false, 370.0)
 	if not next_weekly.is_empty():
 		text(c, "NEXT WEEKLY GOAL", Vector2(270, 729), 14, Color("#8b7969"), false, 350.0)
 		text(c, "%s  %d/%d" % [String(next_weekly["title"]), int(next_weekly["progress"]), int(next_weekly["target"])], Vector2(270, 748), 15, Color("#516f57"), false, 350.0)
@@ -1357,11 +1358,16 @@ static func _chapter_clear_overlay(c: CanvasItem, index: int, stars: int, reward
 	var clock_text: String = chapters.format_time(maxi(0, roundi(elapsed_seconds * 1000.0)))
 	var best_text: String = chapters.format_time(int(chapters.best_times_ms[index]))
 	text(c, ("NEW TIME RECORD!  " if new_time_record else "TIME  ") + clock_text + "   BEST  " + best_text,
-		Vector2(270, 588), 17, Color("#537e71"), true, 412.0)
-	rr(c, Rect2(72, 633, 195, 66), 24, Color("#9fcf8b"), Color("#638761"), 2.0)
-	text(c, "NEXT" if chapters.can_play(index + 1) else "HOME", Vector2(169, 663), 25, Color("#435c49"))
-	rr(c, Rect2(285, 633, 190, 66), 24, Color("#e8d8b8"), Color("#938573"), 2.0)
-	text(c, "HOME", Vector2(380, 663), 25, Color("#6a5d54"))
+		Vector2(270, 582), 17, Color("#537e71"), true, 412.0)
+	var best_split: String = chapters.format_time(int(chapters.best_splits_ms[index]))
+	text(c, "HALFWAY BEST  " + best_split, Vector2(270, 607), 14, Color("#748178"))
+	# Exact shared bounds with game.gd: one-tap PB rematch, next or gallery, home.
+	rr(c, Rect2(57, 633, 135, 66), 21, Color("#d3ecce"), Color("#7d9c72"), 2.0)
+	text(c, "REPLAY", Vector2(124, 663), 19, Color("#435c49"))
+	rr(c, Rect2(202, 633, 137, 66), 21, Color("#9fcf8b"), Color("#638761"), 2.0)
+	text(c, "NEXT" if chapters.can_play(index + 1) else "CHAPTERS", Vector2(270, 663), 19, Color("#435c49"))
+	rr(c, Rect2(349, 633, 134, 66), 21, Color("#e8d8b8"), Color("#938573"), 2.0)
+	text(c, "HOME", Vector2(416, 663), 20, Color("#6a5d54"))
 
 
 static func _commas(value: int) -> String:

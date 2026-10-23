@@ -720,14 +720,19 @@ func _down(pos: Vector2) -> void:
 			elif Rect2(285, 633, 190, 66).has_point(pos):
 				_reset_game()
 			return
-		if Rect2(72, 633, 195, 66).has_point(pos):
+		# Three explicit campaign actions: PB replay, progression, or Home.
+		# On the final river, progression opens the finished chapter gallery.
+		if Rect2(57, 633, 135, 66).has_point(pos):
+			_start_chapter(campaign_stage)
+			return
+		if Rect2(202, 633, 137, 66).has_point(pos):
 			var next_stage := campaign_stage + 1
 			if chapters.can_play(next_stage):
 				_start_chapter(next_stage)
 			else:
-				_reset_game()
+				mode = MODE_CHAPTERS
 			return
-		if Rect2(285, 633, 190, 66).has_point(pos):
+		if Rect2(349, 633, 134, 66).has_point(pos):
 			_reset_game()
 			return
 		return
@@ -792,18 +797,22 @@ func _down(pos: Vector2) -> void:
 		_pause_game()
 		return
 	if mode == MODE_LOST:
-		var retry_chapter := campaign_stage
+		# A tap on a record, weekly objective, or an unavailable rewarded ad
+		# must never silently restart the run or dismiss the results.
 		if not rewarded_this_run and Rect2(80, 651, 390, 62).has_point(pos) and monetization.can_watch_rewarded():
 			monetization.request_rewarded_leaves()
 			return
 		if Rect2(293, 565, 182, 65).has_point(pos):
-			# Ads are requested only at an intentional between-run transition.
 			if not rewarded_this_run:
 				monetization.request_break_interstitial()
 			_reset_game()
 			return
-		if Rect2(70, 565, 213, 65).has_point(pos) and not rewarded_this_run:
+		if not Rect2(70, 565, 213, 65).has_point(pos):
+			return
+		# Retry is a deliberate button tap, never an accidental drag release.
+		if not rewarded_this_run:
 			monetization.request_break_interstitial()
+		var retry_chapter := campaign_stage
 		if retry_chapter == -2:
 			_start_daily_river()
 			return
@@ -815,6 +824,7 @@ func _down(pos: Vector2) -> void:
 		total_runs += 1
 		daily.begin_run()
 		_save_progress()
+		return
 	elif mode == MODE_TITLE:
 		if Rect2(281, 470, 197, 62).has_point(pos):
 			_start_daily_river()
