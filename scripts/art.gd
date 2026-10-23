@@ -607,7 +607,7 @@ static func _biome_fork_lily(c: CanvasItem, pos: Vector2, radius: float, time: f
 # alternate "SURGE" = skill/tempo. No interaction or collision changes.
 static func _crossroad_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, choice: int, biome: int, quality: int) -> void:
 	var safe: bool = choice == 1
-	var ink := Color("#a0efcd") if safe else TRIAL_INKS[clampi(biome, 0, 5)]
+	var ink: Color = Color("#a0efcd") if safe else TRIAL_INKS[clampi(biome, 0, 5)]
 	var pulse := sin(time * (2.2 if safe else 4.5)) * 1.7
 	c.draw_arc(pos, radius + 8.0 + pulse, 0.0, TAU,
 		28 if quality == 0 else (38 if quality == 1 else 48), ink,
