@@ -117,6 +117,7 @@ jobs:
           fi
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/chapters.gd
           timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/retention_and_ads.gd
+          timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/freemium_guardian.gd
           # Running twice ensures an already-claimed daily save does not break QA.
           for attempt in 1 2; do
             timeout --signal=TERM --kill-after=10s 100s godot --headless --path . --script res://tests/daily_river.gd
