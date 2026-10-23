@@ -66,10 +66,10 @@ encoded_key = os.environ.get("PLAY_KEYSTORE_BASE64", "").strip()
 alias = os.environ.get("PLAY_KEY_ALIAS", "").strip()
 password = os.environ.get("PLAY_KEY_PASSWORD", "")
 
-check("AdMob application ID", bool(re.fullmatch(r"ca-app-pub-(\\d{16})~\\d+", app)) and
+check("AdMob application ID", bool(re.fullmatch(r"ca-app-pub-(\d{16})~\d+", app)) and
       not app.startswith("ca-app-pub-3940256099942544"),
       "Add a REAL ADMOB_APP_ID under GitHub Actions repository secrets.")
-check("Rewarded ad unit", bool(re.fullmatch(r"ca-app-pub-(\\d{16})/\\d+", rewarded)) and
+check("Rewarded ad unit", bool(re.fullmatch(r"ca-app-pub-(\d{16})/\d+", rewarded)) and
       not rewarded.startswith("ca-app-pub-3940256099942544") and
       app.split("~", 1)[0] == rewarded.split("/", 1)[0],
       "Add ADMOB_REWARDED_UNIT_ID from the same publisher (not a Google test ID).")
