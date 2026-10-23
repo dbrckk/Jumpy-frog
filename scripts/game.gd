@@ -100,6 +100,7 @@ var clear_reward := 0
 # The chapter clock counts live gameplay only, not pause or menu time.
 var chapter_elapsed := 0.0
 var clear_new_time_record := false
+var clear_new_mastery_mask := 0
 var chapter_split_seconds := 0.0
 var chapter_split_banner_seconds := 0.0
 var last_biome := 0
@@ -271,6 +272,7 @@ func _reset_game() -> void:
 	clear_reward = 0
 	chapter_elapsed = 0.0
 	clear_new_time_record = false
+	clear_new_mastery_mask = 0
 	chapter_split_seconds = 0.0
 	chapter_split_banner_seconds = 0.0
 	last_biome = 0
@@ -652,7 +654,7 @@ func _draw() -> void:
 		chapter_elapsed, clear_new_time_record, chapter_split_seconds, chapter_split_banner_seconds,
 		jump_pad_id if mode == MODE_FLY else -1,
 		clampf(jump_elapsed / maxf(jump_duration, 0.01), 0.0, 1.0) if mode == MODE_FLY else 0.0,
-		jump_is_perfect)
+		jump_is_perfect, clear_new_mastery_mask)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -721,8 +723,9 @@ func _down(pos: Vector2) -> void:
 			return
 		for i in range(6):
 			var x := 65.0 + float(i % 2) * 215.0
-			var y := 335.0 + float(i / 2) * 138.0
-			if Rect2(x, y, 192, 123).has_point(pos) and chapters.can_play(i):
+			var y := 335.0 + float(i / 2) * 142.0
+			# Hitboxes must stay identical to the taller mastery chapter cards.
+			if Rect2(x, y, 192, 136).has_point(pos) and chapters.can_play(i):
 				_start_chapter(i)
 				return
 		return
@@ -933,6 +936,9 @@ func _finish_chapter() -> void:
 		return
 	var completion: Dictionary = chapters.complete(campaign_stage, score, run_leaves)
 	clear_new_time_record = chapters.record_time(campaign_stage, chapter_elapsed)
+	# New badges use genuine successful landings, with no extra currency.
+	clear_new_mastery_mask = chapters.record_mastery(campaign_stage, chapter_elapsed,
+		run_hops, run_perfects, flow_triggers)
 	# Split records are committed only on successful chapter completion.
 	if chapter_split_seconds > 0.0:
 		chapters.record_split(campaign_stage, chapter_split_seconds)

@@ -19,6 +19,8 @@ func _exercise() -> void:
 		_check(game.mode == 9, "chapter %d completes by jumping, not by bypassing gameplay" % chapter_index)
 		_check(game.chapters.medals[chapter_index] > 0, "chapter %d awards a medal" % chapter_index)
 		_check(game.clear_reward >= 0, "chapter %d reward is nonnegative" % chapter_index)
+		_check(game.chapters.mastery_count(chapter_index) >= 1,
+			"real hops can earn chapter %d mastery badge" % chapter_index)
 		if game.mode != 9:
 			break
 	_check(game.chapters.completed_count() == 6, "all six chapters can be completed")
