@@ -2,6 +2,7 @@ extends RefCounted
 const PLATFORM_MOTION = preload("res://scripts/platform_motion.gd")
 const PAD_DANGER = preload("res://scripts/pad_danger.gd")
 const VISUAL_MOTION = preload("res://scripts/visual_motion.gd")
+const JUMP_FEEDBACK = preload("res://scripts/jump_feedback.gd")
 ## Hand-drawn, resolution-independent vector renderer. All illustrations are original.
 const W := 540.0
 const H := 960.0
@@ -105,12 +106,14 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		var age: float = float(ripple["age"])
 		var pos: Vector2 = Vector2(ripple["pos"]) + shake
 		var radius: float = (15.0 + age * 88.0) * float(ripple["size"])
-		c.draw_arc(pos, radius, 0.0, TAU, 56, Color(0.99, 1.0, 0.91, (1.0 - age / 0.78) * 0.65), 2.9 * (1.0 - age / 0.9), true)
+		if not VISUAL_MOTION.effect_visible(pos, radius + 6.0):
+			continue
+		c.draw_arc(pos, radius, 0.0, TAU, 32 if graphics_quality == 0 else (44 if graphics_quality == 1 else 56), Color(0.99, 1.0, 0.91, (1.0 - age / 0.78) * 0.65), 2.9 * (1.0 - age / 0.9), true)
 	_wave(c, ANCHOR - (wave_m - cam) * SCALE + shake.y, time, graphics_quality)
 	if graphics_quality > 0:
 		_flight_ribbon(c, flight_trail, cam, shake, graphics_quality)
 	if aiming:
-		_aim_guide(c, player_at + shake, aim_at + shake, time, aim_valid, aim_danger_seconds, aim_perfect)
+		_aim_guide(c, player_at + shake, aim_at + shake, time, aim_valid, aim_danger_seconds, aim_perfect, graphics_quality)
 	if flow_seconds > 0.0:
 		_flow_aura(c, player_at + shake, jump_z, time, flow_seconds, graphics_quality)
 	if precision_pulse > 0.0:
@@ -122,6 +125,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		c.draw_arc(player_at + shake + Vector2(0, -jump_z - 20), 43.0 + sin(time * 4.0) * 2.0, 0, TAU, 40, Color(1.0, 0.88, 0.43, 0.40), 2.5, true)
 	for particle in particles:
 		var p: Vector2 = Vector2(particle["pos"]) + shake
+		if not VISUAL_MOTION.effect_visible(p, 30.0):
+			continue
 		var life: float = particle["life"]
 		if particle.get("kind", "spark") == "water":
 			var velocity: Vector2 = particle["velocity"]
@@ -135,6 +140,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	for floating in float_texts:
 		var life: float = float(floating["life"])
 		var p: Vector2 = Vector2(floating["pos"]) + shake
+		if not VISUAL_MOTION.effect_visible(p, 230.0):
+			continue
 		var ink: Color = floating["color"]
 		ink.a = clampf(life * 1.45, 0.0, 1.0)
 		text(c, String(floating["text"]), p, 22, ink, true)
@@ -757,16 +764,17 @@ static func _lily(c: CanvasItem, pos: Vector2, radius: float, kind: int, t: floa
 	c.draw_arc(center + Vector2(0, 3), r + 12.0, 0.1, PI - 0.1, 32, Color(1, 1, 1, 0.24), 1.8, true)
 	var segments := 52 if graphics_quality >= 2 else (38 if graphics_quality == 1 else 24)
 	var pts := PackedVector2Array([center + Vector2(2, -2)])
+	var inner := PackedVector2Array([center])
 	var start := 0.38 + float(ident % 5) * 0.2
+	# Both leaf silhouettes share a single trigonometric pass: the former
+	# duplicated 2 * segments calls to sin/cos per visible pad each frame.
 	for i in range(segments):
 		var a := start + 0.55 + (TAU - 1.1) * float(i) / float(segments - 1)
-		pts.append(center + Vector2(cos(a) * r, sin(a) * r * 0.78))
+		var unit := Vector2(cos(a), sin(a) * 0.78)
+		pts.append(center + unit * r)
+		inner.append(center + unit * (r - 4.0))
 	var dark := Color("#547c57") if kind != 2 else Color("#9d8550")
 	c.draw_colored_polygon(pts, dark)
-	var inner := PackedVector2Array([center])
-	for i in range(segments):
-		var a := start + 0.55 + (TAU - 1.1) * float(i) / float(segments - 1)
-		inner.append(center + Vector2(cos(a) * (r - 4), sin(a) * (r - 4) * 0.78))
 	var fill: Color = PALETTE[kind % PALETTE.size()]
 	if biome == 2:
 		fill = fill.lerp(Color("#d9b975"), 0.34)
@@ -996,7 +1004,7 @@ static func _wave(c: CanvasItem, wave_y: float, t: float, graphics_quality: int 
 	bubbles.append(Vector2(0, H + 1000))
 	c.draw_colored_polygon(bubbles, Color(0.32, 0.45, 0.65, 0.27))
 
-static func _aim_guide(c: CanvasItem, from: Vector2, target: Vector2, t: float, valid: bool, danger_seconds: float = 0.0, perfect: bool = false) -> void:
+static func _aim_guide(c: CanvasItem, from: Vector2, target: Vector2, t: float, valid: bool, danger_seconds: float = 0.0, perfect: bool = false, graphics_quality: int = 2) -> void:
 	# Gold indicates a scored PERFECT landing; safe green and crab warning
 	# remain separate. Preview grade uses the exact launch scoring function.
 	var gold := valid and perfect
@@ -1006,11 +1014,14 @@ static func _aim_guide(c: CanvasItem, from: Vector2, target: Vector2, t: float, 
 	ellipse(c, target + Vector2(0, 6), Vector2(27, 13), Color(0.20, 0.30, 0.37, 0.25))
 	c.draw_arc(target, 25.0 + pulse, 0.05, TAU + 0.05, 52, Color("#4e5954"), 6.5, true)
 	c.draw_arc(target, 25.0 + pulse, 0.05, TAU + 0.05, 52, ink, 4.0, true)
-	# The dotted parabola terminates on the actual resolved lily when valid.
-	for i in range(1, 14):
-		var portion := float(i) / 14.0
-		var point := from.lerp(target, portion) + Vector2(0, -sin(portion * PI) * 64)
-		c.draw_circle(point + Vector2(1.5, 2.0), 4.5 * (1.0 - portion * 0.35), Color(0.20, 0.30, 0.34, 0.35))
+	# Sample the exact easing and jump arc used by _process(), including
+	# the same 53px peak. Low Android graphics tiers send fewer draw calls.
+	var markers: int = JUMP_FEEDBACK.aim_marker_count(graphics_quality)
+	for i in range(1, markers + 1):
+		var portion := float(i) / float(markers + 1)
+		var point := JUMP_FEEDBACK.trajectory_screen(from, target, portion)
+		if graphics_quality >= 1:
+			c.draw_circle(point + Vector2(1.5, 2.0), 4.5 * (1.0 - portion * 0.35), Color(0.20, 0.30, 0.34, 0.35))
 		c.draw_circle(point, 3.6 * (1.0 - portion * 0.35), ink)
 	if valid:
 		if gold:

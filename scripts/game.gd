@@ -552,10 +552,10 @@ func _process(delta: float) -> void:
 			flight_trail.append({"x": player_x, "m": player_m, "z": jump_z, "age": 0.0})
 		jump_elapsed += delta
 		var t := clampf(jump_elapsed / jump_duration, 0.0, 1.0)
-		var smooth := t * t * (3.0 - 2.0 * t)
+		var smooth := JUMP_FEEDBACK.flight_fraction(t)
 		player_x = lerpf(jump_start.x, jump_end.x, smooth)
 		player_m = lerpf(jump_start.y, jump_end.y, smooth)
-		jump_z = sin(t * PI) * 53.0
+		jump_z = JUMP_FEEDBACK.flight_arc_height(t)
 		if t >= 1.0:
 			_finish_jump()
 	# Exponential damping is stable across varying Android frame rates.
