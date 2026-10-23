@@ -55,18 +55,20 @@ def main() -> None:
     rewarded = os.environ.get("ADMOB_REWARDED_UNIT_ID", "").strip()
     for label, value, token in (
         ("ADMOB_APP_ID", app_id, "~"),
-        ("ADMOB_INTERSTITIAL_UNIT_ID", interstitial, "/"),
         ("ADMOB_REWARDED_UNIT_ID", rewarded, "/"),
     ):
         if not value.startswith("ca-app-pub-") or token not in value:
             raise SystemExit(f"Missing/invalid {label}; cannot produce monetized build")
+    # Legacy interstitial setting is optional and NEVER loaded in v1.4.
+    if interstitial and (not interstitial.startswith("ca-app-pub-") or "/" not in interstitial):
+        raise SystemExit("Invalid optional legacy ADMOB_INTERSTITIAL_UNIT_ID")
     # The production workflow must never accidentally ship Google's sample ads.
     # QA is explicitly allowed to use the documented sample IDs.
     if os.environ.get("REQUIRE_LIVE_ADMOB_IDS", "0") == "1":
         demo_prefix = "ca-app-pub-3940256099942544"
-        if any(item.startswith(demo_prefix) for item in (app_id, interstitial, rewarded)):
+        if any(item.startswith(demo_prefix) for item in (app_id, rewarded, interstitial) if item):
             raise SystemExit("Production release must use the developer's own AdMob IDs, not Google's test units")
-        if interstitial == rewarded:
+        if interstitial and interstitial == rewarded:
             raise SystemExit("Interstitial and rewarded ad IDs must be separate AdMob ad units")
     downloads = {}
     for name, (url, sha) in ASSETS.items():

@@ -85,7 +85,7 @@ The test AAB is debug-signed and **must never be uploaded as a production app**.
 - [x] Actual Google Play Billing plugin v3.3.0 using Billing Library 9.1.0, product identifier `remove_ads`
 - [x] Fail-closed UMP consent adapter; no advertising unless consent state is usable
 - [x] Permanent non-consumable entitlement with restore, acknowledge, local verified cache and refund revocation on authoritative Google purchase query
-- [x] Interstitial policy: 4-run minimum and 6-minute cooldown, score screen only; rewarded advertisements explicitly opt-in
+- [x] No interstitial ad loading or display; rewarded advertisements explicitly opt-in and only native callbacks pay the reward
 - [x] Automated mission, save, payout and anti-frequency tests
 - [ ] Google Play in-app product `remove_ads` configured with €2.00 French price and activated
 - [ ] Real AdMob app/units and GDPR/UMP privacy message configured; real publisher IDs stored in GitHub Actions secrets
@@ -118,3 +118,5 @@ See [final 1.3.0 checklist](final-1.3.md) and [monetization manual](monetization
 - Conduct a real Redmi Android 15 soak test (including a rewarded full-screen video, Billing, switching apps, screen-off/resume and ≥20 jumps). CI is not a substitute for this sign-off.
 
 - Public bilingual v1.4 privacy policy deployment verified published: https://vector-array-z8pwj3f.shipstatic.com/privacy.html. Update this URL in Play Console and re-check the live text from an Android device before submitting.
+
+- AdMob setup for v1.4 requires only `ADMOB_APP_ID` and `ADMOB_REWARDED_UNIT_ID` (plus Google Play upload signing secrets). Obsolete `ADMOB_INTERSTITIAL_UNIT_ID` is optional and unused.
