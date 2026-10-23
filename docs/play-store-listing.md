@@ -49,7 +49,7 @@ Dans Jumpy Frog, chaque bond compte : fais glisser ton doigt pour viser, relâch
 - Bonus pour les sauts précis et nénuphars qui repoussent la vague
 - Décors illustrés, nénuphars animés, remous et éclaboussures
 - Objectifs quotidiens, défi Rivière du jour de 180 mètres, récompenses et séries de jours
-- Publicités occasionnelles entre deux parties et vidéos récompensées facultatives
+- Aucune publicité imposée. Vidéo récompensée uniquement sur demande : 5 feuilles et une protection pour la prochaine partie
 - River Pass (achat unique) : une protection à chaque partie et 12 m d'avance sur la vague
 - Progression locale et aucun compte nécessaire
 

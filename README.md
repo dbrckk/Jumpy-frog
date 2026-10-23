@@ -8,7 +8,7 @@ Hold and drag **down** to aim a forward jump; drag left/right to steer, then rel
 
 A persistent progression system lets you earn leaves and unlock eight character color styles in the **Customize** screen. **Daily missions** refresh each UTC day, awarding bonus leaves for eight hops, four leaves, or reaching 80 meters. A play streak and lifetime statistics persist across sessions. Scores, unlocked styles, currency and preferences are saved locally.
 
-The default/debug build runs entirely offline with no ads. The **optional monetized Google Play build** integrates real Google AdMob/UMP advertising plus Google Play Billing for a permanent one-time remove-ads purchase; it requires real publisher credentials, consent configuration and a signed Gradle AAB.
+The default/debug build runs entirely offline with no ads. The **optional monetized Google Play build** integrates explicit voluntary Google AdMob/UMP rewarded videos and Google Play Billing for the lifetime **River Pass** (Guardian every run, 12m wave head start, no forced ads). It requires real publisher credentials, consent configuration and a signed Gradle AAB.
 
 ## Play Store v1.4 freemium (opt-in only)
 
