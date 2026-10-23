@@ -175,7 +175,7 @@ func _run() -> void:
 	game._down(Vector2(270, 663))
 	_test(game.mode == game.MODE_CHAPTERS,
 		"final chapter offers CHAPTERS gallery instead of duplicate HOME")
-	_test(game.sound.biome_id == 1, "chapter switches sound palette")
+	_test(game.sound.biome_id == 5, "final chapter keeps sixth biome ambience")
 	var cfg := ConfigFile.new()
 	_test(cfg.load("user://jumpy_frog.cfg") == OK, "chapter progress stored locally")
 	_test(int(cfg.get_value("chapters", "unlocked", 1)) >= 2, "unlocked chapters survive app restart")
