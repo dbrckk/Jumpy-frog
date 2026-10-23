@@ -8,8 +8,8 @@ signal status_changed(message: String)
 const SAVE_STORE = preload("res://scripts/save_store.gd")
 const PRODUCT_ID := "remove_ads"
 const REWARD_LEAVES := 5
-const INTERSTITIAL_MIN_RUNS := 4
-const INTERSTITIAL_COOLDOWN_SECONDS := 360.0
+# Automatic interstitial ads are deliberately disabled: free play has no
+# forced videos. Only the explicitly tapped rewarded button can show an ad.
 
 var premium := false
 var purchase_ready := false
@@ -163,21 +163,9 @@ func on_run_finished() -> void:
 	runs_since_ad += 1
 
 func request_break_interstitial() -> bool:
-	if premium or ads == null:
-		return false
-	if completed_runs < INTERSTITIAL_MIN_RUNS or runs_since_ad < INTERSTITIAL_MIN_RUNS:
-		return false
-	if elapsed - last_interstitial < INTERSTITIAL_COOLDOWN_SECONDS:
-		return false
-	if not ads.can_show_interstitial():
-		return false
-	# An ad should count against pacing only when the native bridge actually
-	# accepts the show request. Missing inventory never blocks the player.
-	if not ads.show_interstitial():
-		return false
-	last_interstitial = elapsed
-	runs_since_ad = 0
-	return true
+	# Retained for compatibility with old callers, but never shows an ad.
+	# This product is rewarded-opt-in only, including on retry/home.
+	return false
 
 func can_watch_rewarded() -> bool:
 	return not premium and not _reward_pending and ads != null and ads.can_show_rewarded()
