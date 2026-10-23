@@ -120,7 +120,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		_precision_feedback(c, player_at + shake, jump_z, precision_pulse, graphics_quality)
 	var gaze := VISUAL_MOTION.gaze(mode, player_at, aim_at, tilt)
 	var expression := VISUAL_MOTION.mood(mode, aim_valid, aim_perfect, aim_danger_seconds > 0.0)
-	_character(c, player_at + shake, jump_z, pets, time, mode == 3, tilt, squash, sway, blink, impact, celebration, skin, gaze, expression)
+	_character(c, player_at + shake, jump_z, pets, time, mode == 3, tilt, squash, sway, blink, impact, celebration, skin, gaze, expression, flight_phase)
 	if guardian_charge:
 		c.draw_arc(player_at + shake + Vector2(0, -jump_z - 20), 43.0 + sin(time * 4.0) * 2.0, 0, TAU, 40, Color(1.0, 0.88, 0.43, 0.40), 2.5, true)
 	for particle in particles:
@@ -878,11 +878,13 @@ static func _friend(c: CanvasItem, at: Vector2, kind: int, scale: float = 1.0, t
 	c.draw_set_transform(Vector2.ZERO)
 
 
-static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: float, airborne: bool, tilt: float, squash: float, sway: float, blink: float, impact: float, celebration: float, skin: int = 0, gaze: Vector2 = Vector2.ZERO, expression: int = 0) -> void:
+static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: float, airborne: bool, tilt: float, squash: float, sway: float, blink: float, impact: float, celebration: float, skin: int = 0, gaze: Vector2 = Vector2.ZERO, expression: int = 0, flight_phase: float = 0.0) -> void:
 	# Animated vector puppet: springy takeoff, landing compression and follow-through.
 	var flight := clampf(height / 53.0, 0.0, 1.0)
-	var jump_stretch := flight * 0.19
-	var limb_swing := sin(t * 14.0) * (0.6 + flight * 4.5)
+	var tuck := VISUAL_MOTION.airborne_tuck(flight_phase) if airborne else 0.0
+	var reach := VISUAL_MOTION.landing_reach(flight_phase) if airborne else 0.0
+	var jump_stretch := flight * (0.19 - tuck * 0.05)
+	var limb_swing := sin(t * 14.0) * (0.6 + flight * 4.5) * (1.0 - tuck * 0.4)
 	var compression := clampf(squash + impact * 0.14, 0.0, 0.34)
 	var scale_y := clampf(1.0 + jump_stretch - compression, 0.78, 1.24)
 	var scale_x := clampf(1.0 - jump_stretch * 0.4 + compression * 0.48, 0.88, 1.19)
@@ -894,7 +896,7 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 			c.draw_arc(at + Vector2(0, 8), 34.0 + float(i) * 10.0 + fposmod(t * 12, 12), 0.15, 3.0, 34, Color(1, 1, 1, 0.17 - i * 0.05), 1.5, true)
 	var body := at + Vector2(tilt * 8.0, -18.0 - height + breathing + bounce)
 	# Rotate and scale the character as one articulated group.
-	c.draw_set_transform(body, tilt, Vector2(scale_x, scale_y))
+	c.draw_set_transform(body, tilt + reach * 0.035 - tuck * 0.012, Vector2(scale_x, scale_y))
 	var darks := [Color("#604a43"), Color("#53586b"), Color("#886048"), Color("#52644f"), Color("#805463"), Color("#594a72"), Color("#8a626c"), Color("#8c7540")]
 	var furs := [Color("#b48161"), Color("#a9b9d2"), Color("#e9b379"), Color("#99bd87"), Color("#d68da7"), Color("#9988b5"), Color("#e9a6a2"), Color("#d9be67")]
 	var warms := [Color("#d6a680"), Color("#dde5ed"), Color("#f3d5a1"), Color("#c8dca4"), Color("#f1c3d3"), Color("#c7b8e3"), Color("#f9d2c7"), Color("#f1dfa0")]
@@ -906,11 +908,11 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 	# rotate slightly with the leap. Webbed toes preserve the silhouette.
 	for side in [-1, 1]:
 		var sgn := float(side)
-		var leg_x := sgn * (23.0 + flight * 6.0 + impact * 3.0)
-		var leg_y := 16.0 - flight * 8.0 + limb_swing * sgn
+		var leg_x := sgn * (23.0 + flight * 6.0 - tuck * 4.0 + reach * 5.0 + impact * 3.0)
+		var leg_y := 16.0 - flight * 8.0 - tuck * 7.0 + reach * 4.0 + limb_swing * sgn
 		ellipse(c, Vector2(leg_x, leg_y), Vector2(13.5, 17.5), dark)
 		ellipse(c, Vector2(leg_x, leg_y - 1), Vector2(11.0, 15.0), fur)
-		var foot := Vector2(leg_x + sgn * (5.0 + flight * 4.0), 27.0 - flight * 10.0 + limb_swing * sgn)
+		var foot := Vector2(leg_x + sgn * (5.0 + flight * 4.0 - tuck * 5.0 + reach * 6.0), 27.0 - flight * 10.0 - tuck * 7.0 + reach * 5.0 + limb_swing * sgn)
 		ellipse(c, foot, Vector2(10.0, 5.8), dark)
 		for toe in range(3):
 			c.draw_circle(foot + Vector2(sgn * (float(toe - 1) * 5.0), 4.0), 3.5, warm)
@@ -961,7 +963,7 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 	ellipse(c, Vector2(0, 20.0), Vector2(throat + 3.0, throat * 0.8), warm * Color(1, 1, 1, 0.67), 18)
 	# Small forearms reach forward in flight; palms spread when landing.
 	for side in [-1, 1]:
-		var arm := Vector2(float(side) * 25.0, 0.0 - flight * 11.0 - impact * 4.0)
+		var arm := Vector2(float(side) * (25.0 - tuck * 2.0 + reach * 3.0), 0.0 - flight * 11.0 - tuck * 5.0 + reach * 8.0 - impact * 4.0)
 		ellipse(c, arm, Vector2(7.0, 13.0), dark)
 		ellipse(c, arm + Vector2(0, 2), Vector2(5.0, 10.0), fur.lightened(0.14))
 	c.draw_set_transform(Vector2.ZERO)

@@ -33,6 +33,17 @@ func _exercise() -> void:
 	_check(MOTION.landing_halo_alpha(1.0) > MOTION.landing_halo_alpha(0.0),
 		"approaching landing increases legibility")
 	_check(MOTION.landing_halo_alpha(5.0) <= 0.72, "halo alpha is capped for slow phones")
+	_check(is_zero_approx(MOTION.airborne_tuck(0.0)) and is_zero_approx(MOTION.airborne_tuck(1.0)),
+		"frog legs start and finish extended with no animation snap")
+	_check(absf(MOTION.airborne_tuck(0.5) - 1.0) < 0.0001,
+		"frog tucks its hind legs at jump apex")
+	_check(is_zero_approx(MOTION.landing_reach(0.5)) and MOTION.landing_reach(0.98) == 1.0,
+		"frog anticipates the landing late in the flight")
+	_check(MOTION.landing_reach(0.75) > 0.0 and MOTION.landing_reach(0.75) < 1.0,
+		"landing reach eases smoothly rather than popping")
+	_check(MOTION.airborne_tuck(-2.0) == MOTION.airborne_tuck(0.0)
+		and MOTION.landing_reach(2.0) == 1.0,
+		"visual phase interpolation is safe with exceptional frame phases")
 	_check(MOTION.effect_visible(Vector2(270, 700)), "active landing VFX remains visible")
 	_check(MOTION.effect_visible(Vector2(-15, 900), 20.0), "partially clipped water crown is retained")
 	_check(not MOTION.effect_visible(Vector2(-300, 700), 40.0), "offscreen effects skip CanvasItem commands")

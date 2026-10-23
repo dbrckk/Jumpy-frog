@@ -17,6 +17,7 @@ const RIVER_FESTIVAL = preload("res://scripts/river_festival.gd")
 const TIDE_REFUGE = preload("res://scripts/tide_refuge.gd")
 const PRECISION_SPRINT = preload("res://scripts/precision_sprint.gd")
 const DEVICE_DIAGNOSTICS = preload("res://scripts/device_diagnostics.gd")
+const FRAME_PACING = preload("res://scripts/frame_pacing.gd")
 const W := 540.0
 const H := 960.0
 const PX_PER_M := 8.0
@@ -163,12 +164,13 @@ var river_shader_material: ShaderMaterial
 var _last_shader_quality := -1
 var _last_shader_biome := -1
 var _shader_frame_skip := 0
+var _android_fps_cap := -1
 
 func _ready() -> void:
-	# A 60 Hz cap avoids unnecessary GPU/CPU heat on 90/120 Hz handsets.
-	# The simulation still uses real frame delta to preserve gameplay speed.
+	# Preserve responsive 60 FPS gameplay, but save GPU/battery in results,
+	# menus and pause. Headless/desktop builds remain unrestricted.
 	if OS.has_feature("android"):
-		Engine.max_fps = 60
+		_set_android_frame_cap(FRAME_PACING.ACTIVE_FPS)
 	_initialize_river_shader()
 	rng.randomize()
 	sound = AUDIO.new()
@@ -207,6 +209,13 @@ func _ready() -> void:
 		# Fail closed if JNI/system tone output cannot be constructed.
 		android_tones_enabled = sound.set_android_system_tones(true)
 	_reset_game()
+
+func _set_android_frame_cap(target: int) -> void:
+	if _android_fps_cap == target:
+		return
+	_android_fps_cap = target
+	Engine.max_fps = target
+
 
 func _initialize_river_shader() -> void:
 	river_shader_rect = ColorRect.new()
@@ -449,6 +458,10 @@ func _generate_pads() -> void:
 				})
 
 func _process(delta: float) -> void:
+	# Apply only on Android and only on state transitions, not every frame.
+	# This does not affect the physics timestep or best-time computation.
+	if OS.has_feature("android"):
+		_set_android_frame_cap(FRAME_PACING.target_fps(mode))
 	performance_sampler.record(delta, mode in [MODE_PLAY, MODE_AIM, MODE_FLY])
 	# Some Android 15/HyperOS app switches do not emit focus-out promptly.
 	# Freeze an interrupted run before wave, flight or time-trial time moves;

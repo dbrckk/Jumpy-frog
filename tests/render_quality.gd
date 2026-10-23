@@ -1,6 +1,7 @@
 extends SceneTree
 ## Rendering quality and gameplay consistency. Headless tests check correctness
 ## and safety; they do not claim physical-device FPS measurements.
+const FRAME_PACING = preload("res://scripts/frame_pacing.gd")
 var failures := 0
 
 func _initialize() -> void:
@@ -16,6 +17,20 @@ func _run() -> void:
 	_check(not game.river_shader_rect.visible, "water shader off on title screen")
 	_check(game.river_shader_rect.mouse_filter == Control.MOUSE_FILTER_IGNORE, "shader cannot steal touch events")
 	_check(game.graphics_quality == 2, "full quality is initial default")
+	_check(FRAME_PACING.target_fps(game.MODE_PLAY) == 60
+		and FRAME_PACING.target_fps(game.MODE_AIM) == 60
+		and FRAME_PACING.target_fps(game.MODE_FLY) == 60,
+		"Android gameplay retains responsive 60 FPS target across jump states")
+	_check(FRAME_PACING.target_fps(game.MODE_TITLE) == 30
+		and FRAME_PACING.target_fps(game.MODE_LOST) == 30
+		and FRAME_PACING.target_fps(game.MODE_CHAPTERS) == 30
+		and FRAME_PACING.target_fps(game.MODE_CLEAR) == 30,
+		"noninteractive Android result and menu scenes reduce drawing cadence")
+	_check(FRAME_PACING.target_fps(game.MODE_PAUSED) == 24
+		and FRAME_PACING.target_fps(game.MODE_DIAGNOSTICS) == 24,
+		"Android pause/diagnostics screens use a low-power cadence")
+	_check(game._android_fps_cap == -1 or OS.has_feature("android"),
+		"desktop CI does not silently change global frame cap")
 
 	game.mode = 1
 	for i in range(140):
