@@ -63,17 +63,23 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	c.draw_set_transform(shake)
 	_river(c, time, cam, biome, graphics_quality, campaign_stage)
 	_bank_landmarks(c, biome, time, cam, graphics_quality, float(weather.get("wind", 0.0)))
+	# Sun glints dim naturally in storms instead of shining at full daylight.
+	var surface_light: float = clampf(1.0 - float(weather.get("rain", 0.0)) * 0.73
+		- float(weather.get("clouds", 0.0)) * 0.30 - float(weather.get("night", 0.0)) * 0.48, 0.12, 1.0)
 	# Sparse animated surface glints: stable world-space placement, zero textures.
 	# Limited to 15 strokes so older Android GPUs are not overloaded.
 	for i in range(15 if graphics_quality >= 2 else (6 if graphics_quality == 1 else 0)):
 		var seed := float(i * 83 + 17)
 		var x := 48.0 + fposmod(seed * 3.73, 448.0)
 		var y := fposmod(seed * 9.7 + time * (8.0 + float(i % 4) * 2.0) + cam * 1.3, H + 36.0) - 18.0
-		var shine := 0.20 + 0.16 * sin(time * 1.9 + seed)
+		var shine := (0.20 + 0.16 * sin(time * 1.9 + seed)) * surface_light
 		c.draw_line(Vector2(x - 7.0, y), Vector2(x + 7.0, y), Color(0.95, 1.0, 0.91, shine), 1.4, true)
 		if i % 3 == 0:
 			c.draw_line(Vector2(x - 3.0, y + 5.0), Vector2(x + 3.0, y + 5.0), Color(0.95, 1.0, 0.91, shine * 0.55), 1.0, true)
 	c.draw_set_transform(Vector2.ZERO)
+	# Render atmosphere behind gameplay silhouettes, landing targets and aim guides.
+	# Rain/night must not lower the contrast of interactive safety indicators.
+	_weather_atmosphere(c, weather, time, graphics_quality)
 	for pad in pads:
 		var screen := Vector2(PLATFORM_MOTION.x_at(pad, time), ANCHOR - (float(pad["m"]) - cam) * SCALE) + shake
 		if screen.y < -125.0 or screen.y > H + 125.0:
@@ -147,7 +153,6 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		ink.a = clampf(life * 1.45, 0.0, 1.0)
 		text(c, String(floating["text"]), p, 22, ink, true)
 	c.draw_set_transform(Vector2.ZERO)
-	_weather_atmosphere(c, weather, time, graphics_quality)
 	if flash > 0.0:
 		c.draw_rect(Rect2(0, 0, W, H), Color(1.0, 0.97, 0.85, flash * 0.34))
 	_hud(c, score, best, pets, distance, wave_m, cam, combo, mode, chapters, campaign_stage, biome, biome_banner, chapter_elapsed)
@@ -759,6 +764,15 @@ static func _weather_atmosphere(c: CanvasItem, state: Dictionary, time: float, q
 			var y := fposmod(float(i * 97 + 11) + time * (240.0 + float(i % 5) * 31.0), H + 70.0) - 30.0
 			c.draw_line(Vector2(x, y), Vector2(x - gust * 11.0 - 3.0, y + 15.0 + rain * 12.0),
 				Color(0.87, 0.96, 1.0, rain * 0.36), 1.4 if quality == 0 else 1.7, true)
+	# A few fading water impacts make rainy fronts distinct from mere streaks.
+	# Both the count and density are fixed; no physics or RNG allocations.
+	if rain > 0.15 and quality > 0:
+		for i in range(3 if quality == 1 else 7):
+			var phase := fposmod(time * (0.95 + float(i % 3) * 0.17) + float(i) * 0.37, 1.0)
+			var center := Vector2(98.0 + float((i * 67 + 37) % 340),
+				fposmod(float(i * 139 + 51) + time * 27.0, H + 50.0) - 25.0)
+			c.draw_arc(center, 2.0 + phase * 9.0, 0.0, TAU, 16,
+				Color(0.86, 0.98, 1.0, (1.0 - phase) * rain * 0.29), 1.2, true)
 
 
 static func _weather_label(c: CanvasItem, state: Dictionary) -> void:
@@ -769,6 +783,12 @@ static func _weather_label(c: CanvasItem, state: Dictionary) -> void:
 		Color(0.67, 0.78, 0.80, 0.82), 1.0)
 	text(c, String(state.get("label", "SUNNY")), Vector2(474, 161), 13,
 		Color("#f4f5e7"), false, 102.0)
+	var next_label := String(state.get("next_label", ""))
+	if not next_label.is_empty():
+		rr(c, Rect2(402, 180, 126, 24), 11, Color(0.22, 0.34, 0.41, 0.82),
+			Color(0.67, 0.78, 0.80, 0.70), 1.0)
+		text(c, "NEXT %s %dm" % [next_label, int(state.get("next_in_m", 0))],
+			Vector2(465, 192), 12, Color("#f4f5e7"), false, 119.0)
 
 
 static func _bank_landmarks(c: CanvasItem, biome: int, time: float, cam: float, quality: int, gust: float = 0.0) -> void:
