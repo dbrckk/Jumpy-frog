@@ -14,6 +14,7 @@ const REWARD_LEAVES := 5
 var premium := false
 var purchase_ready := false
 var price_label := ""
+var purchase_option_id := ""
 var billing: Node
 var ads: Node
 var completed_runs := 0
@@ -70,22 +71,56 @@ func _on_billing_connected() -> void:
 	billing.query_purchases(0) # restore past purchases, not just this session
 
 func _on_product_details(result: Dictionary) -> void:
+	# GodotGooglePlayBilling 3.3.0 returns multiple one-time options.
+	# Select an eligible BUY purchase option (no rentals or temporary offers)
+	# and use its real Google Play localized price. Never enable purchase UI
+	# for an unavailable product or a callback missing actual offer details.
+	purchase_ready = false
+	price_label = ""
+	purchase_option_id = ""
 	if int(result.get("response_code", -1)) != 0:
 		return
-	for item in result.get("product_details", []):
+	var products: Variant = result.get("product_details", [])
+	if not (products is Array):
+		return
+	for item in products:
+		if not (item is Dictionary):
+			continue
 		var product: Dictionary = item
-		if String(product.get("product_id", "")) == PRODUCT_ID:
-			var offers: Variant = product.get("one_time_purchase_offer_details_list", [])
-			if offers is Array and not offers.is_empty():
-				price_label = String(offers[0].get("formatted_price", ""))
+		if String(product.get("product_id", "")) != PRODUCT_ID:
+			continue
+		var offers: Variant = product.get("one_time_purchase_offer_details_list", null)
+		if not (offers is Array):
+			return
+		for offer in offers:
+			if not (offer is Dictionary):
+				continue
+			if offer.get("rental_details", null) != null:
+				continue
+			var offer_id: Variant = offer.get("offer_id", null)
+			if offer_id != null and not String(offer_id).is_empty():
+				continue
+			var available_price := String(offer.get("formatted_price", ""))
+			if available_price.is_empty():
+				continue
+			var option: Variant = offer.get("purchase_option_id", null)
+			purchase_option_id = "" if option == null else String(option)
+			price_label = available_price
 			purchase_ready = true
 			status_changed.emit("Purchase available")
+			return
+		return
 
 func purchase_remove_ads() -> bool:
 	if premium or not purchase_ready or billing == null:
 		return false
-	var response: Dictionary = billing.purchase(PRODUCT_ID)
-	return int(response.get("response_code", -1)) == 0
+	# The selected ID is required when the product has several buy options.
+	# Empty ID retains plugin backward compatibility for legacy products.
+	var response: Dictionary = billing.purchase(PRODUCT_ID, purchase_option_id)
+	if int(response.get("response_code", -1)) != 0:
+		status_changed.emit("Google Play purchase unavailable")
+		return false
+	return true
 
 func restore_purchase() -> bool:
 	if billing == null or not billing.is_ready():

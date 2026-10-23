@@ -21,7 +21,7 @@ This is a production implementation, not a local ad simulator. The ordinary offl
 ## Required actions outside GitHub
 
 1. Register Jumpy Frog in **Google Play Console** with package `org.dbrckk.jumpyfrog`, complete developer identity and set up Play App Signing.
-2. Under **Monetize → Products → In-app products**, create and activate the existing product ID **`remove_ads`**, **one-time purchase, non-consumable**, priced at **€2.00 for France**, with a title/description reflecting the **lifetime River Pass (Guardian on every run + 12m wave head start + ad-free)**; retain the same SKU to honor former purchasers. Local pricing and taxes are decided/displayed by Google Play; a purchase in another territory may have another currency/price.
+2. Under **Monetize → Products → In-app products**, create and activate the existing product ID **`remove_ads`**, **one-time purchase, non-consumable**, priced at **€2.00 for France**, with a title/description reflecting the **lifetime River Pass (Guardian on every run + 12m wave head start + ad-free)**; retain the same SKU to honor former purchasers. Activate a permanent **Buy** purchase option (not Rent). The application automatically discovers its real `purchase_option_id` and localized price from the Play Billing 3.3.0 product response. Local pricing and taxes are decided/displayed by Google Play; a purchase in another territory may have another currency/price.
 3. Register the app in [Google AdMob](https://admob.google.com/), create one **Rewarded** ad unit (no interstitial unit is necessary), complete the **Privacy & messaging / GDPR UMP** configuration, and configure the required consent message and ad technology partners. Do not run live ads before completing privacy disclosure/consent setup.
 4. For advertising EU users, confirm CMP/Google policy compatibility and the public [privacy policy](privacy-policy.md); populate the Play Console **Data safety** declarations for Google Mobile Ads and Play Billing. The old 'no data collected' declaration is **not valid for the monetized version**.
 5. Maintain an **app-ads.txt** file at a verified website domain according to AdMob instructions. Use your real publisher ID; do not copy another publisher's record.
@@ -61,3 +61,7 @@ The affected Redmi crashed in the **native Godot OpenSL ES audio callback**. And
 - [ ] Play content ratings and audience declaration reviewed (not child-targeted)
 
 Never claim purchase success, show made-up ad revenue or unlock a paid feature without a genuine Play Billing response.
+
+## Account preflight
+
+Use [Google Play readiness preflight](https://github.com/dbrckk/Jumpy-frog/actions/workflows/play-preflight.yml) on `main` after setting the five secrets. It checks formats, validates a copy of the upload key in ephemeral CI memory and reports a redacted summary. It does **not** access your real Play Console or AdMob accounts, activate products, or publish a release.
