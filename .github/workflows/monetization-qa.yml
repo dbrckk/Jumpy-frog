@@ -76,7 +76,6 @@ jobs:
       - name: Install verified plugins with Google's official SAMPLE AdMob IDs
         env:
           ADMOB_APP_ID: ca-app-pub-3940256099942544~3347511713
-          ADMOB_INTERSTITIAL_UNIT_ID: ca-app-pub-3940256099942544/1033173712
           ADMOB_REWARDED_UNIT_ID: ca-app-pub-3940256099942544/5224354917
         run: python3 tools/prepare_monetized_build.py
       - name: Import and test all functionality

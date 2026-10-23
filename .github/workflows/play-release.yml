@@ -15,7 +15,6 @@ jobs:
       PLAY_KEY_ALIAS: ${{ secrets.PLAY_KEY_ALIAS }}
       PLAY_KEY_PASSWORD: ${{ secrets.PLAY_KEY_PASSWORD }}
       ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
-      ADMOB_INTERSTITIAL_UNIT_ID: ${{ secrets.ADMOB_INTERSTITIAL_UNIT_ID }}
       ADMOB_REWARDED_UNIT_ID: ${{ secrets.ADMOB_REWARDED_UNIT_ID }}
     steps:
       - uses: actions/checkout@v4
