@@ -22,6 +22,10 @@ func _run() -> void:
 		_test(records.biome_at(20.0, i) == i, "level uses its distinct biome")
 		_test(records.course_seed(i) > 0, "each chapter has a fixed nonzero course seed")
 	_test(records.COURSE_SEEDS.size() == 6, "all chapter course versions are defined")
+	_test(records.mastered_total() == 0, "new profile has eighteen mastery objectives")
+	for chapter_index in range(6):
+		_test(int(records.chapter(chapter_index)["par"]) >= 30, "each chapter defines a par")
+	_test(records.record_mastery(3, 5.0, 8, 8, 2) == 0, "locked chapter cannot award mastery")
 	_test(records.biome_at(145.0, -1) == 1, "endless biome changes at 140 meters")
 	_test(records.biome_at(850.0, -1) == 0, "endless biomes cycle for infinite replayability")
 	var invalid: Dictionary = records.complete(3, 10000, 100)
@@ -32,6 +36,15 @@ func _run() -> void:
 	_test(records.can_play(1), "finishing stage unlocks next")
 	var repeat: Dictionary = records.complete(0, 1500, 10)
 	_test(int(repeat["reward"]) == 0, "replaying a mastered chapter cannot print currency")
+	_test(records.record_mastery(0, 15.0, 0, 0, 0) == 0, "empty run cannot earn pace")
+	_test(records.record_mastery(0, 15.0, 5, 6, 1) == 0, "impossible perfect count rejected")
+	_test(records.record_mastery(0, 0.0, 5, 5, 1) == 0, "invalid clock cannot earn badges")
+	_test(records.record_mastery(0, 20.0, 6, 5, 1) == records.BADGE_ALL,
+		"skillful completed river unlocks three badges")
+	_test(records.record_mastery(0, 20.0, 6, 6, 2) == 0,
+		"repeated mastery never unlocks badges twice")
+	_test(records.record_mastery(1, 15.0, 6, 6, 1) == 0,
+		"unfinished next chapter cannot earn badges")
 	# No premium currency is awarded by time records.
 	_test(not records.record_time(1, 20.0), "locked or unfinished chapter has no PB")
 	_test(not records.record_time(0, 0.0), "zero second time is rejected")
@@ -52,6 +65,8 @@ func _run() -> void:
 	_test(loaded.can_play(1) and int(loaded.medals[0]) == 3, "chapter medal persists")
 	_test(int(loaded.best_times_ms[0]) == 24120, "PB survives save/load")
 	_test(int(loaded.best_splits_ms[0]) == 11710, "half-time PB survives save/load")
+	_test(loaded.mastery_masks[0] == loaded.BADGE_ALL and loaded.mastered_total() == 3,
+		"permanent skill badges survive save/reload")
 	_test(not loaded.record_time(0, 24.12), "replayed identical time is not new PB")
 	_test(int(loaded.complete(0, 1500, 10)["reward"]) == 0, "reloading cannot duplicate rewards")
 	for index in range(1, 6):
@@ -68,6 +83,14 @@ func _run() -> void:
 	migrated.load_from(legacy)
 	_test(int(migrated.best_splits_ms[0]) == 0 and int(migrated.best_times_ms[0]) == 0,
 		"older saves without split fields remain compatible")
+	_test(migrated.mastered_total() == 0, "old save has zero badges and keeps medals")
+	var corrupt := ConfigFile.new()
+	corrupt.set_value("chapters", "mastery_mask_0", 99)
+	corrupt.set_value("chapters", "mastery_mask_1", -9)
+	var cleaned: RefCounted = Chapters.new()
+	cleaned.load_from(corrupt)
+	_test(cleaned.mastery_masks[0] == cleaned.BADGE_ALL and cleaned.mastery_masks[1] == 0,
+		"malformed badge data is bounded")
 
 	var game: Node2D = load("res://main.tscn").instantiate()
 	root.add_child(game)
@@ -146,6 +169,9 @@ func _run() -> void:
 		"completed run persists true halfway time")
 	_test(int(game.chapters.best_times_ms[0]) == roundi(game.chapter_elapsed * 1000.0), "PB uses the actual finish duration")
 	_test(game.best_score >= game.score, "chapter victories update personal best")
+	_test(game.clear_new_mastery_mask == game.chapters.BADGE_ALL,
+		"actual full-precision chapter grants three skill badges")
+	var persisted_badges: int = int(game.chapters.mastery_masks[0])
 	var hard_earned: int = game.leaves
 	var first_pb: int = int(game.chapters.best_times_ms[0])
 	game._down(Vector2(270, 608))
@@ -157,6 +183,8 @@ func _run() -> void:
 		"rematch resets timer and counts legitimate new attempt")
 	_test(game.leaves == hard_earned and int(game.chapters.best_times_ms[0]) == first_pb,
 		"replaying cannot erase records or duplicate medal prizes")
+	_test(game.clear_new_mastery_mask == 0 and game.chapters.mastery_masks[0] == persisted_badges,
+		"replay resets new-badge banner without erasing mastery")
 	game.mode = game.MODE_CLEAR # Navigation-only simulation; medals were earned above.
 	game._down(Vector2(270, 663))
 	_test(game.campaign_stage == 1 and game.mode == game.MODE_PLAY,
@@ -181,6 +209,8 @@ func _run() -> void:
 	_test(int(cfg.get_value("chapters", "unlocked", 1)) >= 2, "unlocked chapters survive app restart")
 	_test(int(cfg.get_value("chapters", "best_time_ms_0", 0)) > 0, "PB written to durable on-device save")
 	_test(int(cfg.get_value("chapters", "best_split_ms_0", 0)) > 0, "real halfway record saved only on finish")
+	_test(int(cfg.get_value("chapters", "mastery_mask_0", 0)) == 7,
+		"skill badges persisted on device")
 	game.queue_free()
 	await process_frame
 	if errors == 0:

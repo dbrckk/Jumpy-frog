@@ -56,7 +56,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_LEFT, -1, actual_size, color)
 
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0, perfect_streak: int = 0, best_endless_m: int = 0, distance_banner_mark: int = 0, distance_banner_seconds: float = 0.0, aim_perfect: bool = false, sprint_state: Dictionary = {}, challenge_banner: Dictionary = {}, challenge_banner_seconds: float = 0.0, lifetime_challenge_wins: Array = [], lifetime_best_challenge_streak: int = 0, chapter_elapsed: float = 0.0, chapter_new_time_record: bool = false, chapter_split_seconds: float = 0.0, chapter_split_banner_seconds: float = 0.0, flight_target_id: int = -1, flight_phase: float = 0.0, flight_perfect: bool = false) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0, perfect_streak: int = 0, best_endless_m: int = 0, distance_banner_mark: int = 0, distance_banner_seconds: float = 0.0, aim_perfect: bool = false, sprint_state: Dictionary = {}, challenge_banner: Dictionary = {}, challenge_banner_seconds: float = 0.0, lifetime_challenge_wins: Array = [], lifetime_best_challenge_streak: int = 0, chapter_elapsed: float = 0.0, chapter_new_time_record: bool = false, chapter_split_seconds: float = 0.0, chapter_split_banner_seconds: float = 0.0, flight_target_id: int = -1, flight_phase: float = 0.0, flight_perfect: bool = false, chapter_new_mastery_mask: int = 0) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
@@ -196,7 +196,7 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		if campaign_stage == -2:
 			_daily_clear_overlay(c, clear_reward, daily, score)
 		else:
-			_chapter_clear_overlay(c, campaign_stage, clear_medal, clear_reward, chapters, chapter_elapsed, chapter_new_time_record)
+			_chapter_clear_overlay(c, campaign_stage, clear_medal, clear_reward, chapters, chapter_elapsed, chapter_new_time_record, chapter_new_mastery_mask)
 
 static func _biome_blend(cam: float, campaign_stage: int) -> float:
 	# Full palette in chapters, daily runs and before the first transition.
@@ -1317,23 +1317,29 @@ static func _chapter_select_overlay(c: CanvasItem, chapters: RefCounted) -> void
 	rr(c, Rect2(28, 161, 484, 740), 33, Color("#fff1db"), Color("#8a7e72"), 3.0)
 	text(c, "THE SIX RIVERS", Vector2(270, 220), 34, Color("#53576b"), true)
 	text(c, "Finish each river to unlock the next", Vector2(270, 260), 18, Color("#998574"))
+	text(c, "SKILL BADGES %d/18 • PACE / PRECISION / FLOW" % chapters.mastered_total(),
+		Vector2(270, 290), 14, Color("#637e68"), false, 440.0)
 	var colors := [Color("#93bf92"), Color("#8ac2a8"), Color("#d9bf83"), Color("#9ba4c9"), Color("#82b5bf"), Color("#878fa7")]
 	for i in range(6):
 		var x := 65.0 + float(i % 2) * 215.0
-		var y := 335.0 + float(i / 2) * 138.0
+		var y := 335.0 + float(i / 2) * 142.0
 		var active: bool = chapters.can_play(i)
 		var level: Dictionary = chapters.chapter(i)
 		var stars: int = int(chapters.medals[i])
-		rr(c, Rect2(x, y, 192, 123), 22, (colors[i] if active else Color("#d5d5d3")), Color("#858576"), 2.0)
+		rr(c, Rect2(x, y, 192, 136), 22, (colors[i] if active else Color("#d5d5d3")), Color("#858576"), 2.0)
 		c.draw_circle(Vector2(x + 26, y + 28), 17, Color("#f7f1de"))
 		text(c, str(i + 1) if active else "×", Vector2(x + 26, y + 27), 20, Color("#626474"))
-		text(c, String(level["name"]), Vector2(x + 98, y + 61), 17, Color("#414854") if active else Color("#777a7e"))
+		text(c, String(level["name"]), Vector2(x + 98, y + 52), 17, Color("#414854") if active else Color("#777a7e"))
 		if active:
 			var medal_text := "★".repeat(stars) + "☆".repeat(3 - stars)
-			text(c, medal_text, Vector2(x + 96, y + 91), 22, Color("#fff2be"), true)
+			text(c, medal_text, Vector2(x + 96, y + 79), 22, Color("#fff2be"), true)
 			if int(chapters.best_times_ms[i]) > 0:
 				text(c, "BEST  " + chapters.format_time(int(chapters.best_times_ms[i])),
-					Vector2(x + 96, y + 115), 13, Color("#334d52"), true, 179.0)
+					Vector2(x + 96, y + 105), 13, Color("#334d52"), true, 179.0)
+			var mask: int = int(chapters.mastery_masks[i])
+			var badges := ("◆" if (mask & chapters.BADGE_PACE) != 0 else "◇") + ("◆" if (mask & chapters.BADGE_PRECISION) != 0 else "◇") + ("◆" if (mask & chapters.BADGE_FLOW) != 0 else "◇")
+			text(c, "SKILL %s  %d/3" % [badges, chapters.mastery_count(i)],
+				Vector2(x + 96, y + 125), 13, Color("#344e51"), true, 182.0)
 		else:
 			text(c, "LOCKED", Vector2(x + 96, y + 95), 19, Color("#6b6d70"))
 	rr(c, Rect2(105, 790, 330, 75), 25, Color("#a8d1a3"), Color("#708768"), 2.0)
@@ -1356,7 +1362,7 @@ static func _daily_clear_overlay(c: CanvasItem, reward: int, daily: RefCounted, 
 	text(c, "HOME", Vector2(380, 663), 25, Color("#6a5d54"))
 
 
-static func _chapter_clear_overlay(c: CanvasItem, index: int, stars: int, reward: int, chapters: RefCounted, elapsed_seconds: float = 0.0, new_time_record: bool = false) -> void:
+static func _chapter_clear_overlay(c: CanvasItem, index: int, stars: int, reward: int, chapters: RefCounted, elapsed_seconds: float = 0.0, new_time_record: bool = false, newly_mastered: int = 0) -> void:
 	if index < 0:
 		return
 	c.draw_rect(Rect2(0, 0, W, H), Color(0.11, 0.20, 0.26, 0.67))
@@ -1374,6 +1380,19 @@ static func _chapter_clear_overlay(c: CanvasItem, index: int, stars: int, reward
 		Vector2(270, 582), 17, Color("#537e71"), true, 412.0)
 	var best_split: String = chapters.format_time(int(chapters.best_splits_ms[index]))
 	text(c, "HALFWAY BEST  " + best_split, Vector2(270, 607), 14, Color("#748178"))
+	# Three permanent skill badges fit below the action controls, within the
+	# result card. Fresh achievements are explicitly distinguished.
+	var badge_mask: int = int(chapters.mastery_masks[index])
+	var badge_names := ["PACE", "PRECISION", "FLOW"]
+	var badge_flags := [chapters.BADGE_PACE, chapters.BADGE_PRECISION, chapters.BADGE_FLOW]
+	for b in range(3):
+		var x := 57.0 + float(b) * 147.0
+		var acquired: bool = (badge_mask & int(badge_flags[b])) != 0
+		var fresh: bool = (newly_mastered & int(badge_flags[b])) != 0
+		rr(c, Rect2(x, 712, 135, 31), 13, Color("#e5ecc3") if acquired else Color("#e5e0d8"),
+			Color("#81a077") if acquired else Color("#aba39b"), 1.2)
+		text(c, ("NEW " if fresh else ("◆ " if acquired else "◇ ")) + String(badge_names[b]),
+			Vector2(x + 67, 727), 12, Color("#49634d") if acquired else Color("#847f77"), false, 126.0)
 	# Exact shared bounds with game.gd: one-tap PB rematch, next or gallery, home.
 	rr(c, Rect2(57, 633, 135, 66), 21, Color("#d3ecce"), Color("#7d9c72"), 2.0)
 	text(c, "REPLAY", Vector2(124, 663), 19, Color("#435c49"))

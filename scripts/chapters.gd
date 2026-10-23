@@ -2,18 +2,22 @@ extends RefCounted
 ## Six curated rivers with separate difficulty, goals, and permanent medals.
 ## No consumables, paid shortcuts or time gates: every chapter unlocks by play.
 const LEVELS := [
-	{"name": "SUNNY BANKS", "biome": 0, "target": 105, "radius": 1.12, "drift": 82.0, "wave": -0.25, "reward": 12, "score": 780, "leaves": 2},
-	{"name": "LILY GARDEN", "biome": 1, "target": 130, "radius": 1.06, "drift": 94.0, "wave": 0.0, "reward": 16, "score": 1120, "leaves": 3},
-	{"name": "GOLDEN REEDS", "biome": 2, "target": 150, "radius": 1.00, "drift": 104.0, "wave": 0.25, "reward": 20, "score": 1420, "leaves": 4},
-	{"name": "MOONLIT POND", "biome": 3, "target": 175, "radius": 0.96, "drift": 111.0, "wave": 0.50, "reward": 25, "score": 1700, "leaves": 5},
-	{"name": "CRYSTAL RIVER", "biome": 4, "target": 195, "radius": 0.93, "drift": 115.0, "wave": 0.75, "reward": 32, "score": 2050, "leaves": 6},
-	{"name": "STORMY RAPIDS", "biome": 5, "target": 220, "radius": 0.90, "drift": 119.0, "wave": 1.1, "reward": 40, "score": 2460, "leaves": 7}
+	{"name": "SUNNY BANKS", "biome": 0, "target": 105, "par": 32, "radius": 1.12, "drift": 82.0, "wave": -0.25, "reward": 12, "score": 780, "leaves": 2},
+	{"name": "LILY GARDEN", "biome": 1, "target": 130, "par": 38, "radius": 1.06, "drift": 94.0, "wave": 0.0, "reward": 16, "score": 1120, "leaves": 3},
+	{"name": "GOLDEN REEDS", "biome": 2, "target": 150, "par": 44, "radius": 1.00, "drift": 104.0, "wave": 0.25, "reward": 20, "score": 1420, "leaves": 4},
+	{"name": "MOONLIT POND", "biome": 3, "target": 175, "par": 50, "radius": 0.96, "drift": 111.0, "wave": 0.50, "reward": 25, "score": 1700, "leaves": 5},
+	{"name": "CRYSTAL RIVER", "biome": 4, "target": 195, "par": 56, "radius": 0.93, "drift": 115.0, "wave": 0.75, "reward": 32, "score": 2050, "leaves": 6},
+	{"name": "STORMY RAPIDS", "biome": 5, "target": 220, "par": 62, "radius": 0.90, "drift": 119.0, "wave": 1.1, "reward": 40, "score": 2460, "leaves": 7}
 ]
 
 # Fixed, versioned course identities. Changing seeds requires explicit record migration.
 # Endless remains procedural and Daily River retains its separate UTC seed.
 const COURSE_SEEDS := [171009, 284119, 398221, 471449, 587033, 692191]
 const SECTOR_METERS := 140.0
+const BADGE_PACE := 1
+const BADGE_PRECISION := 2
+const BADGE_FLOW := 4
+const BADGE_ALL := BADGE_PACE | BADGE_PRECISION | BADGE_FLOW
 var unlocked_count := 1
 var medals := [0, 0, 0, 0, 0, 0]
 var attempts := [0, 0, 0, 0, 0, 0]
@@ -21,6 +25,8 @@ var attempts := [0, 0, 0, 0, 0, 0]
 var best_times_ms := [0, 0, 0, 0, 0, 0]
 # Best halfway split from a FULLY completed chapter, not an abandoned run.
 var best_splits_ms := [0, 0, 0, 0, 0, 0]
+# Three permanent skill achievements on each fixed course; no leaves are paid.
+var mastery_masks := [0, 0, 0, 0, 0, 0]
 
 func load_from(save: ConfigFile) -> void:
 	unlocked_count = clampi(int(save.get_value("chapters", "unlocked", 1)), 1, LEVELS.size())
@@ -29,6 +35,7 @@ func load_from(save: ConfigFile) -> void:
 		attempts[i] = maxi(0, int(save.get_value("chapters", "attempts_%d" % i, 0)))
 		best_times_ms[i] = clampi(int(save.get_value("chapters", "best_time_ms_%d" % i, 0)), 0, 86400000)
 		best_splits_ms[i] = clampi(int(save.get_value("chapters", "best_split_ms_%d" % i, 0)), 0, 86400000)
+		mastery_masks[i] = clampi(int(save.get_value("chapters", "mastery_mask_%d" % i, 0)), 0, BADGE_ALL)
 		if medals[i] > 0:
 			unlocked_count = maxi(unlocked_count, mini(i + 2, LEVELS.size()))
 
@@ -39,6 +46,7 @@ func write_to(save: ConfigFile) -> void:
 		save.set_value("chapters", "attempts_%d" % i, attempts[i])
 		save.set_value("chapters", "best_time_ms_%d" % i, best_times_ms[i])
 		save.set_value("chapters", "best_split_ms_%d" % i, best_splits_ms[i])
+		save.set_value("chapters", "mastery_mask_%d" % i, mastery_masks[i])
 
 func can_play(index: int) -> bool:
 	return index >= 0 and index < unlocked_count and index < LEVELS.size()
@@ -106,6 +114,45 @@ func record_split(index: int, elapsed_seconds: float) -> bool:
 		return false
 	best_splits_ms[index] = milliseconds
 	return true
+
+# The game calls this only after a REAL chapter victory. The run must include
+# at least four landings. Achievements accumulate over separate valid wins.
+# PACE: beat river-specific par. PRECISION: 75% perfect, minimum four.
+# FLOW: trigger a four-perfect Flow Rush. None awards replayable currency.
+func record_mastery(index: int, elapsed_seconds: float, hops: int, perfects: int, flows: int) -> int:
+	if not can_play(index) or int(medals[index]) <= 0:
+		return 0
+	if elapsed_seconds <= 0.0 or elapsed_seconds > 86400.0 or elapsed_seconds != elapsed_seconds:
+		return 0
+	if hops < 4 or perfects < 0 or perfects > hops or flows < 0 or flows > perfects:
+		return 0
+	var earned := 0
+	if elapsed_seconds <= float(LEVELS[index]["par"]):
+		earned |= BADGE_PACE
+	if perfects >= 4 and perfects * 4 >= hops * 3:
+		earned |= BADGE_PRECISION
+	if flows > 0 and perfects >= 4:
+		earned |= BADGE_FLOW
+	var previous: int = int(mastery_masks[index])
+	var fresh: int = earned & ~previous
+	mastery_masks[index] = previous | earned
+	return fresh
+
+func mastery_count(index: int) -> int:
+	if index < 0 or index >= mastery_masks.size():
+		return 0
+	var mask: int = int(mastery_masks[index])
+	var count := 0
+	for bit in [BADGE_PACE, BADGE_PRECISION, BADGE_FLOW]:
+		if (mask & bit) != 0:
+			count += 1
+	return count
+
+func mastered_total() -> int:
+	var count := 0
+	for i in range(mastery_masks.size()):
+		count += mastery_count(i)
+	return count
 
 static func format_time(milliseconds: int) -> String:
 	if milliseconds <= 0:

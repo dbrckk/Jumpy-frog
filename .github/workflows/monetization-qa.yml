@@ -7,6 +7,7 @@ on:
       - scripts/monetization.gd
       - scripts/game.gd
       - scripts/chapters.gd
+      - tests/chapters.gd
       - scripts/audio.gd
       - tests/smoke.gd
       - tests/chapters.gd
