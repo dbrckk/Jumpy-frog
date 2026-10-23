@@ -18,6 +18,7 @@ const TIDE_REFUGE = preload("res://scripts/tide_refuge.gd")
 const PRECISION_SPRINT = preload("res://scripts/precision_sprint.gd")
 const DEVICE_DIAGNOSTICS = preload("res://scripts/device_diagnostics.gd")
 const FRAME_PACING = preload("res://scripts/frame_pacing.gd")
+const WEATHER = preload("res://scripts/weather.gd")
 const W := 540.0
 const H := 960.0
 const PX_PER_M := 8.0
@@ -39,6 +40,8 @@ var mode: int = MODE_TITLE
 var rng := RandomNumberGenerator.new()
 # Isolated course generator: animation, particles and sfx RNG cannot alter races.
 var chapter_rng := RandomNumberGenerator.new()
+# Visual forecast seed: never touches the course layout RNG.
+var weather_seed := 0
 var pads: Array[Dictionary] = []
 var particles: Array[Dictionary] = []
 var clock: float = 0.0
@@ -277,6 +280,7 @@ func _reset_game() -> void:
 	chapter_split_banner_seconds = 0.0
 	last_biome = 0
 	biome_banner = 0.0
+	weather_seed = posmod(total_runs, WEATHER.TYPES)
 	sound.set_biome(0)
 	if sound != null:
 		sound.set_paused(false)
@@ -654,7 +658,7 @@ func _draw() -> void:
 		chapter_elapsed, clear_new_time_record, chapter_split_seconds, chapter_split_banner_seconds,
 		jump_pad_id if mode == MODE_FLY else -1,
 		clampf(jump_elapsed / maxf(jump_duration, 0.01), 0.0, 1.0) if mode == MODE_FLY else 0.0,
-		jump_is_perfect, clear_new_mastery_mask)
+		jump_is_perfect, clear_new_mastery_mask, WEATHER.at(player_m, weather_seed))
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)
@@ -877,6 +881,7 @@ func _start_daily_river() -> void:
 	# Reset RNG after the generic initialization so this day's lily route,
 	# bonuses and animal placements are reproducible on every attempt.
 	rng.seed = daily.river_seed()
+	weather_seed = int(daily.river_seed())
 	pads.resize(1)
 	last_generated_m = 0.0
 	last_pad_x = 270.0
@@ -915,6 +920,7 @@ func _start_chapter(index: int) -> void:
 	# Identical pads and moving-lily starting phase on every attempt.
 	# The river's daily seed and endless RNG are intentionally untouched.
 	chapter_rng.seed = chapters.course_seed(index)
+	weather_seed = chapters.course_seed(index)
 	clock = 0.0
 	sound.set_biome(index)
 	biome_banner = 2.5

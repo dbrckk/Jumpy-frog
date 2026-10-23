@@ -7,6 +7,8 @@ on:
       - scripts/monetization.gd
       - scripts/game.gd
       - scripts/chapters.gd
+      - scripts/weather.gd
+      - tests/weather.gd
       - tests/chapters.gd
       - scripts/audio.gd
       - tests/smoke.gd
@@ -95,6 +97,7 @@ jobs:
           timeout 120s godot --headless --path . --script res://tests/challenge_balance.gd
           timeout 120s godot --headless --path . --script res://tests/challenge_mastery.gd
           timeout 120s godot --headless --path . --script res://tests/chapters.gd
+          timeout 120s godot --headless --path . --script res://tests/weather.gd
           timeout 120s godot --headless --path . --script res://tests/endless_pacing.gd
           timeout 120s godot --headless --path . --script res://tests/tide_refuge.gd
       - name: Create ephemeral DEBUG signing identity
