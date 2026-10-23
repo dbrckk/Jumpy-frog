@@ -20,8 +20,12 @@ class TestAdBridge extends Node:
 
 class TestBilling extends Node:
 	var acknowledged_tokens: Array[String] = []
+	var initiated_purchases: Array[Array] = []
 	func acknowledge_purchase(token: String) -> void:
 		acknowledged_tokens.append(token)
+	func purchase(product_id: String, option_id: String = "") -> Dictionary:
+		initiated_purchases.append([product_id, option_id])
+		return {"response_code": 0}
 
 
 func _initialize() -> void:
@@ -182,6 +186,31 @@ func _check_all() -> void:
 	var test_billing := TestBilling.new()
 	root.add_child(test_billing)
 	monet.billing = test_billing
+	# Mirror the 3.3.0 plugin's real one-time offer dictionary schema.
+	# Never accidentally sell a rental or a time-limited offer as lifetime.
+	monet._on_product_details({"response_code": 0, "product_details": [
+		{"product_id": "remove_ads", "one_time_purchase_offer_details_list": null}]})
+	_expect(not monet.purchase_ready, "product with no eligible offer is not purchasable")
+	monet._on_product_details({"response_code": 0, "product_details": [
+		{"product_id": "remove_ads", "one_time_purchase_offer_details_list": [
+			{"purchase_option_id": "rental", "rental_details": {"rental_period": "P1D"},
+				"formatted_price": "0,50 €"},
+			{"purchase_option_id": "promo", "offer_id": "trial-offer",
+				"formatted_price": "0,99 €"},
+			{"purchase_option_id": "river_pass_buy", "offer_id": null,
+				"rental_details": null, "formatted_price": "2,00 €"}
+		]}]})
+	_expect(monet.purchase_ready and monet.price_label == "2,00 €",
+		"billing exposes Google's price for the permanent buy option")
+	_expect(monet.purchase_option_id == "river_pass_buy",
+		"billing selects an actual permanent Play Console purchase option ID")
+	_expect(monet.purchase_remove_ads(), "purchase launches via genuine Billing API")
+	_expect(test_billing.initiated_purchases == [["remove_ads", "river_pass_buy"]],
+		"Billing receives exact product plus selected purchase option")
+	_expect(not monet.premium, "a launched checkout alone never grants River Pass")
+	monet._on_product_details({"response_code": 2})
+	_expect(not monet.purchase_ready and monet.price_label.is_empty(),
+		"failed product refresh cannot leave a stale buy button or old price")
 	monet._on_purchases({"response_code": 0, "purchases": [{
 		"product_ids": PackedStringArray(["remove_ads"]),
 		"purchase_state": 2,

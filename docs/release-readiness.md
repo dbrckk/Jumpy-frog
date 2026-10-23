@@ -1,9 +1,9 @@
-# Release gate for Jumpy Frog 1.3.0
+# Release gate for Jumpy Frog 1.4.0
 
 **Code-ready does not mean Play-published.** The Google Play submission is blocked until every gate is verified.
 
 ## Build and security
-- [x] Final release-candidate version 1.3.0, Android versionCode 5
+- [x] Final release-candidate version 1.4.0, Android versionCode 6
 - [x] Original artwork and no runtime dependencies on third-party servers
 - [x] Monetization is opt-in at build time; ordinary debug APK remains offline and ad-free
 - [x] API 36 Gradle AAB preset configured, real AdMob/UMP + Google Play Billing 9.1.0 integrated in monetized QA/release workflow
@@ -56,7 +56,7 @@ Set three GitHub Actions repository secrets (**Settings → Secrets and variable
 - `PLAY_KEY_ALIAS`: the alias `jumpy-upload`.
 - `PLAY_KEY_PASSWORD`: the keystore password (must also be the key password).
 
-Then **Actions → Google Play signed AAB → Run workflow**. If successful, download `JumpyFrog-GooglePlay-signed-AAB`, verify it and upload to the Play Console internal testing track. Once Play App Signing is enabled, do not rotate upload keys casually.
+Then **Actions → Google Play signed AAB → Run workflow**. If successful, download `JumpyFrog-GooglePlay-Monetized-signed-AAB`, verify it and upload to the Play Console internal testing track. Once Play App Signing is enabled, do not rotate upload keys casually.
 
 The existing debug APK workflow generates an ephemeral key per run; it is **not** suitable for publishing and can require uninstalling the previous debug build.
 
@@ -120,3 +120,9 @@ See [final 1.3.0 checklist](final-1.3.md) and [monetization manual](monetization
 - Public bilingual v1.4 privacy policy deployment verified published: https://vector-array-z8pwj3f.shipstatic.com/privacy.html. Update this URL in Play Console and re-check the live text from an Android device before submitting.
 
 - AdMob setup for v1.4 requires only `ADMOB_APP_ID` and `ADMOB_REWARDED_UNIT_ID` (plus Google Play upload signing secrets). Obsolete `ADMOB_INTERSTITIAL_UNIT_ID` is optional and unused.
+
+## One-click GitHub account preflight
+
+Use [Google Play readiness preflight](https://github.com/dbrckk/Jumpy-frog/actions/workflows/play-preflight.yml) → **Run workflow** on `main`. The job verifies local Play metadata, active code version and configuration, and the **presence and basic validity** of the five required Actions secrets. It does not read Play Console and never prints private values. Inspect its job summary for outstanding manual setup.
+
+The `remove_ads` product must have an activated permanent **Buy** purchase option; the game selects its `purchase_option_id` from the actual Play Billing 3.3.0 response, not a hardcoded value. Product price is the formatted amount from Google Play. Older buyers continue to own the same product.

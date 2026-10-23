@@ -1,0 +1,27 @@
+name: Google Play account readiness preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
+      ADMOB_REWARDED_UNIT_ID: ${{ secrets.ADMOB_REWARDED_UNIT_ID }}
+      PLAY_KEYSTORE_BASE64: ${{ secrets.PLAY_KEYSTORE_BASE64 }}
+      PLAY_KEY_ALIAS: ${{ secrets.PLAY_KEY_ALIAS }}
+      PLAY_KEY_PASSWORD: ${{ secrets.PLAY_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Java for keystore validation
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Inspect publication configuration without exposing secrets
+        run: python3 tools/play_release_preflight.py
