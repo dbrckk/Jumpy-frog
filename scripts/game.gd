@@ -21,6 +21,7 @@ const FRAME_PACING = preload("res://scripts/frame_pacing.gd")
 const WEATHER = preload("res://scripts/weather.gd")
 const BIOME_TRIALS = preload("res://scripts/biome_trials.gd")
 const BIOME_FORKS = preload("res://scripts/biome_forks.gd")
+const RIVER_CROSSROADS = preload("res://scripts/river_crossroads.gd")
 const W := 540.0
 const H := 960.0
 const PX_PER_M := 8.0
@@ -440,6 +441,15 @@ func _generate_pads() -> void:
 			# generated collision size, and never coincides with a Guardian.
 			"fragile": fragile
 		})
+		if campaign_stage == -1 and pads.size() >= 2:
+			# Pending SURGE lane can be evaluated only after the following
+			# primary is generated. Never show an unreturnable route.
+			var pending: Dictionary = pads[pads.size() - 2]
+			if int(pending.get("crossroad_choice", 0)) == 2:
+				if not RIVER_CROSSROADS.reachable(pending, pads.back()):
+					var abandoned: int = int(pending["crossroad_id"])
+					pads.remove_at(pads.size() - 2)
+					RIVER_CROSSROADS.cancel_pair(pads, abandoned)
 		if campaign_stage >= 0:
 			# Generation runs far ahead of the camera. With the *next* normal
 			# lily now known, remove any preceding fork that cannot reconnect.
@@ -482,6 +492,15 @@ func _generate_pads() -> void:
 					"branch_bonus": split_path,
 					"tide_refuge": tide_path
 				})
+		# A rare Endless crossroads offers *one* of two useful rewards.
+		# Existing primary geometry and PRNG stream are never changed.
+		if campaign_stage == -1 and RIVER_CROSSROADS.eligible(campaign_stage, ident, pads.back()):
+			var refuge: Dictionary = RIVER_CROSSROADS.create_side(ident, biome, previous_main, pads.back())
+			if not refuge.is_empty():
+				pads.back()["crossroad_id"] = ident
+				pads.back()["crossroad_choice"] = 1
+				pads.back()["crossroad_biome"] = biome
+				pads.append(refuge)
 
 func _process(delta: float) -> void:
 	# Apply only on Android and only on state transitions, not every frame.
@@ -1240,6 +1259,21 @@ func _finish_jump() -> void:
 				if graphics_quality > 0:
 					_burst(_player_screen() + Vector2(0, -10),
 						7 if graphics_quality == 1 else 12, "spark")
+				sound.play_event("boost")
+			var crossroad_reward: Dictionary = RIVER_CROSSROADS.claim(pad, pads)
+			if not crossroad_reward.is_empty():
+				# REST buys survival time; SURGE buys Flow and score. Both
+				# options are exclusive, once only, and award no extra leaves.
+				gain += int(crossroad_reward["score"])
+				wave_m -= float(crossroad_reward["wave_relief"])
+				flow_seconds = minf(FLOW_DURATION,
+					flow_seconds + float(crossroad_reward["flow_seconds"]))
+				precision_pulse = maxf(precision_pulse, 0.95)
+				_add_float_text("%s!" % String(crossroad_reward["label"]),
+					_player_screen() + Vector2(0, -164), Color("#f4f8d1"))
+				if graphics_quality > 0:
+					_burst(_player_screen() + Vector2(0, -10),
+						8 if graphics_quality == 1 else 13, "spark")
 				sound.play_event("boost")
 			if bool(pad.get("branch_bonus", false)):
 				pad["branch_bonus"] = false
