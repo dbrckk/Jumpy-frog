@@ -116,3 +116,5 @@ See [final 1.3.0 checklist](final-1.3.md) and [monetization manual](monetization
 - Upload signed RELEASE AAB using `.github/workflows/play-release.yml` after adding all publisher and keystore secrets, and verify Google Play's API 36 / 16-KiB/ signing checks. **Do not use disposable CI QA signing credentials for production.**
 - Update the French/English store listing and public privacy policy to describe optional Google rewarded advertising, ads/device data from its SDK, the lifetime IAP and no login. Verify developer contact/website, content rating, data safety, advertising declaration and age targeting in Play Console.
 - Conduct a real Redmi Android 15 soak test (including a rewarded full-screen video, Billing, switching apps, screen-off/resume and ≥20 jumps). CI is not a substitute for this sign-off.
+
+- Public bilingual v1.4 privacy policy deployment verified published: https://vector-array-z8pwj3f.shipstatic.com/privacy.html. Update this URL in Play Console and re-check the live text from an Android device before submitting.

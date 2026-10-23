@@ -64,7 +64,7 @@ Jusqu'où réussiras-tu à sauter ?
 - Internet permission: Required in monetized AdMob build; not needed in the offline debug build
 - Content rating: Complete the interactive questionnaire, do not assume an age category
 - Target audience: Select truthfully when submitting; inspect Families policy if children are targeted
-- Privacy policy URL (live, French and English): https://micro-matrix-a49rp83.shipstatic.com/privacy.html
+- Privacy policy URL (live, French and English): https://vector-array-z8pwj3f.shipstatic.com/privacy.html
 - Developer contact: Add a genuine support email in Play Console
 - Screenshots: Capture real frames from an installed release build, showing title, gameplay and wardrobe
 - Feature graphic: 1024 × 500 PNG/JPEG; avoid implying endorsements
@@ -77,4 +77,4 @@ Audio: native Godot audio remains disabled on Android for crash compatibility. E
 
 ## Published policy
 
-Public standalone privacy policy: https://micro-matrix-a49rp83.shipstatic.com/privacy.html
+Public standalone privacy policy: https://vector-array-z8pwj3f.shipstatic.com/privacy.html
