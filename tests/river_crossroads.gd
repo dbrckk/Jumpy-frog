@@ -29,7 +29,9 @@ func _run() -> void:
 	_check(not CROSSROADS.eligible(-2, 31, {}), "daily challenge seed remains untouched")
 	_check(not CROSSROADS.eligible(-1, 32, {}), "crossings stay exceptional")
 	for flag in ["danger", "moving", "fragile", "guardian", "harmony", "trial", "boost"]:
-		_check(not CROSSROADS.eligible(-1, 31, {flag: true}),
+		var flagged: Dictionary = {}
+		flagged[flag] = true
+		_check(not CROSSROADS.eligible(-1, 31, flagged),
 			"no special hazard or existing reward overlaps: " + flag)
 	_check(not CROSSROADS.eligible(-1, 31, {"festival_step": 1}),
 		"crossroads never overlap the three-hop festival")
