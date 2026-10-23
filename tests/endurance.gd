@@ -40,6 +40,19 @@ func _exercise() -> void:
 	_check(game.player_m > 2200, "endless distance exceeds 2.2 kilometers")
 	_check(seen_biomes.size() == 6, "endless run visits all six biomes")
 	_check(game.score > 0 and game.daily.lifetime_hops >= 155, "long run earns score and persistent progression")
+	# Realistic user idle between hops: the game must not let decorative
+	# menus/repeated focus interruptions corrupt an established long run.
+	var survived_m: float = game.player_m
+	var survived_score: int = game.score
+	game._notification(NOTIFICATION_APPLICATION_FOCUS_OUT)
+	_check(game.mode == game.MODE_PAUSED, "backgrounding an extended endless run pauses safely")
+	for background_frame in range(12):
+		game._process(0.10)
+	_check(game.player_m == survived_m and game.score == survived_score,
+		"lengthy background frames never consume long-run progress")
+	game._resume_game()
+	_check(game.mode == game.MODE_PLAY and game.player_m == survived_m,
+		"long run resumes at its original lily without teleportation")
 	game._save_progress()
 	var stored := ConfigFile.new()
 	_check(stored.load("user://jumpy_frog.cfg") == OK, "long-run save is readable")

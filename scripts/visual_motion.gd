@@ -35,6 +35,15 @@ static func landing_halo_alpha(progress: float) -> float:
 static func effect_visible(at: Vector2, margin: float = 48.0) -> bool:
 	return at.x >= -margin and at.x <= 540.0 + margin and at.y >= -margin and at.y <= 960.0 + margin
 
+# Pose phases are cosmetic, pure and symmetric across device refresh rates.
+# The frog pulls its hind legs in midflight and extends them before touchdown.
+static func airborne_tuck(progress: float) -> float:
+	return maxf(0.0, sin(PI * clampf(progress, 0.0, 1.0)))
+
+static func landing_reach(progress: float) -> float:
+	var t := clampf((progress - 0.58) / 0.36, 0.0, 1.0)
+	return t * t * (3.0 - 2.0 * t)
+
 static func bank_prop_count(quality: int) -> int:
 	# Total across both banks. Still some foreground silhouette at tier zero.
 	return 10 if quality >= 2 else (6 if quality == 1 else 2)
