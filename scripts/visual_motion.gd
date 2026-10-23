@@ -2,6 +2,10 @@ extends RefCounted
 ## Pure visual state; never touches gameplay, collisions or run economy.
 const LOOK_LIMIT_X := 2.8
 const LOOK_LIMIT_Y := 1.9
+const LANDING_COLORS := [
+	Color("#ffe69b"), Color("#ffb9cf"), Color("#edba74"),
+	Color("#d9d4ff"), Color("#a4edff"), Color("#d3eaff")
+]
 
 static func gaze(mode: int, player_at: Vector2, aim_at: Vector2, body_tilt: float) -> Vector2:
 	if mode == 2: # AIM
@@ -43,6 +47,18 @@ static func airborne_tuck(progress: float) -> float:
 static func landing_reach(progress: float) -> float:
 	var t := clampf((progress - 0.58) / 0.36, 0.0, 1.0)
 	return t * t * (3.0 - 2.0 * t)
+
+# Smooth double spring: zero translation both at touchdown and after recovery.
+# Purely cosmetic; the physical landing position never moves.
+static func landing_rebound(impact: float) -> float:
+	var energy: float = clampf(impact, 0.0, 1.0)
+	return -sin(energy * PI) * (6.0 + energy * 2.0) + sin(energy * TAU) * energy * 1.5
+
+static func landing_signature_color(biome: int) -> Color:
+	return LANDING_COLORS[clampi(biome, 0, LANDING_COLORS.size() - 1)]
+
+static func landing_signature_count(quality: int) -> int:
+	return 2 if quality <= 0 else (4 if quality == 1 else 6)
 
 static func bank_prop_count(quality: int) -> int:
 	# Total across both banks. Still some foreground silhouette at tier zero.
