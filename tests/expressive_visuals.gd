@@ -48,6 +48,23 @@ func _exercise() -> void:
 	_check(MOTION.effect_visible(Vector2(-15, 900), 20.0), "partially clipped water crown is retained")
 	_check(not MOTION.effect_visible(Vector2(-300, 700), 40.0), "offscreen effects skip CanvasItem commands")
 	_check(not MOTION.effect_visible(Vector2(270, 1200), 100.0), "far below screen particles are culled")
+	_check(absf(MOTION.landing_rebound(0.0)) < 0.001 and absf(MOTION.landing_rebound(1.0)) < 0.001,
+		"landing spring starts and finishes with no displacement")
+	_check(MOTION.landing_rebound(0.5) < -4.0,
+		"responsive landing causes visible upward rebound")
+	_check(MOTION.landing_rebound(-2.0) == MOTION.landing_rebound(0.0),
+		"malformed spring progress remains bounded")
+	_check(MOTION.landing_signature_count(0) == 2 and MOTION.landing_signature_count(1) == 4
+		and MOTION.landing_signature_count(2) == 6,
+		"tier-zero graphics still show chapter-specific accents at a bounded draw cost")
+	var distinct_signatures: Dictionary = {}
+	for biome_index in range(6):
+		var signature: Color = MOTION.landing_signature_color(biome_index)
+		distinct_signatures[signature.to_html(false)] = true
+	_check(distinct_signatures.size() == 6, "six uniquely colored landing signatures")
+	_check(MOTION.landing_signature_color(-1) == MOTION.landing_signature_color(0)
+		and MOTION.landing_signature_color(99) == MOTION.landing_signature_color(5),
+		"invalid biome IDs safely clamp to known palettes")
 	_check(MOTION.bank_prop_count(0) == 2 and MOTION.bank_prop_count(1) == 6 and MOTION.bank_prop_count(2) == 10,
 		"tier zero has just two bank silhouettes; high quality remains bounded")
 	for biome in range(6):

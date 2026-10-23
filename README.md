@@ -78,6 +78,8 @@ Only advertise at natural game-over breaks; no interstitials during active jumps
 
 Weather is visual-only and deterministic: six smoothly blended fronts (sunny, cloudy, rain, wind, night, and rainy night) cycle through long rivers. Incoming weather is previewed in the HUD during the final 28 m before a front, and rain/night tint stays behind the frog, landing guides and interactive objects for readability. Rain impacts and surface glints scale with the adaptive draw-quality budget; weather never changes timings, physics or rewards.
 
+Every successful landing now has a short biome-specific response: sunrays, rose petals, amber reed leaves, moonlit fireflies, crystal glints or wind-driven spray. The frog's touchdown recovery uses a smooth double-spring pose, while lily collisions and jump timing remain unchanged. Contact effects are strictly capped (2/4/6 accents at low/medium/high quality) and verified in the headless chapter visual regression suite.
+
 ## Six replayable chapters (version 1.2)
 
 Beyond endless running, the CHAPTERS menu offers Sunny Banks, Lily Garden, Golden Reeds, Moonlit Pond, Crystal River and Stormy Rapids. Each stage uses different pad widths, lateral drift, wave pressure, water colors and vegetation. Finishing a stage earns permanent medals (1–3 stars) and unlocks the next stage. First-time rewards cannot be farmed by repeating the same medal; higher medals can award a small improvement bonus.

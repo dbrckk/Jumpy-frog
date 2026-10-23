@@ -84,7 +84,11 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		var screen := Vector2(PLATFORM_MOTION.x_at(pad, time), ANCHOR - (float(pad["m"]) - cam) * SCALE) + shake
 		if screen.y < -125.0 or screen.y > H + 125.0:
 			continue
-		_lily(c, screen, float(pad["r"]), int(pad["kind"]), time, int(pad["id"]), float(pad_impacts.get(int(pad["id"]), 0.0)), chapters.biome_at(float(pad["m"]), campaign_stage), graphics_quality)
+		var contact: float = float(pad_impacts.get(int(pad["id"]), 0.0))
+		var pad_biome: int = chapters.biome_at(float(pad["m"]), campaign_stage)
+		_lily(c, screen, float(pad["r"]), int(pad["kind"]), time, int(pad["id"]), contact, pad_biome, graphics_quality)
+		if contact > 0.02:
+			_landing_signature(c, screen, float(pad["r"]), contact, pad_biome, graphics_quality)
 		if int(pad.get("festival_step", -1)) >= 0:
 			_festival_lily(c, screen, float(pad["r"]), time, int(pad["festival_step"]), bool(pad.get("festival_collected", false)), graphics_quality)
 		if bool(pad.get("branch_bonus", false)):
@@ -882,6 +886,44 @@ static func _lily(c: CanvasItem, pos: Vector2, radius: float, kind: int, t: floa
 		_flower(c, center + Vector2(-9, 8), 0.7, t)
 	c.draw_set_transform(Vector2.ZERO)
 
+# A tactile, distinctive landing response for each chapter. All accents are
+# deterministic CanvasItem commands and never create colliders or affect scoring.
+# A single contact pulse fades in ~0.36 seconds; tier 0 draws only 2 accents.
+static func _landing_signature(c: CanvasItem, at: Vector2, radius: float, impact: float, biome: int, quality: int) -> void:
+	var strength: float = clampf(impact, 0.0, 1.0)
+	if strength <= 0.02:
+		return
+	var progress: float = 1.0 - strength
+	var color: Color = VISUAL_MOTION.landing_signature_color(biome)
+	color.a = 0.56 * strength
+	var ring_radius: float = clampf(radius * 0.77, 18.0, 55.0) + progress * 28.0
+	c.draw_arc(at + Vector2(0, 7), ring_radius, 0.0, TAU,
+		24 if quality <= 0 else (32 if quality == 1 else 40), color, 2.0, true)
+	var count: int = VISUAL_MOTION.landing_signature_count(quality)
+	for i in range(count):
+		var angle: float = TAU * float(i) / float(count) + float(biome) * 0.33
+		var direction := Vector2(cos(angle), sin(angle))
+		var p := at + Vector2(direction.x * (ring_radius + 4.0),
+			direction.y * (ring_radius * 0.65 + 4.0)) + direction * progress * 11.0
+		match clampi(biome, 0, 5):
+			0: # Sunny Banks: little golden sunrays
+				c.draw_line(p - direction * 4.0, p + direction * 6.0, color, 2.5, true)
+			1: # Lily Garden: short-lived rose-colored petals
+				ellipse(c, p, Vector2(3.0, 5.0), color, 12)
+			2: # Golden Reeds: diamond-shaped amber leaves
+				c.draw_colored_polygon(PackedVector2Array([
+					p + Vector2(0, -6), p + Vector2(4, 0),
+					p + Vector2(0, 6), p + Vector2(-4, 0)]), color)
+			3: # Moonlit Pond: luminous firefly double glow
+				c.draw_circle(p, 5.0, Color(color.r, color.g, color.b, strength * 0.13))
+				c.draw_circle(p, 2.1, color)
+			4: # Crystal River: sharp refracted spark lines
+				c.draw_line(p + Vector2(-3, -5), p + Vector2(3, 5), color, 2.0, true)
+				c.draw_line(p + Vector2(3, -5), p + Vector2(-3, 5), color, 1.4, true)
+			5: # Stormy Rapids: diagonal wind-driven spray
+				c.draw_line(p + Vector2(4, -6), p + Vector2(-4, 8), color, 2.3, true)
+
+
 static func _flower(c: CanvasItem, at: Vector2, scale: float, t: float) -> void:
 	var p := at + Vector2(0, sin(t * 2.3 + at.x) * 1.5)
 	for i in range(7):
@@ -974,7 +1016,7 @@ static func _character(c: CanvasItem, at: Vector2, height: float, pets: int, t: 
 	var scale_y := clampf(1.0 + jump_stretch - compression, 0.78, 1.24)
 	var scale_x := clampf(1.0 - jump_stretch * 0.4 + compression * 0.48, 0.88, 1.19)
 	var breathing := sin(t * 2.5) * (0.8 if not airborne else 0.0)
-	var bounce := -sin(impact * PI) * 7.0
+	var bounce := VISUAL_MOTION.landing_rebound(impact)
 	ellipse(c, at + Vector2(2, 13), Vector2(29.0 - flight * 8.0, 12.0 - flight * 3.0), Color(0.20, 0.39, 0.45, 0.29 - flight * 0.11))
 	if not airborne:
 		for i in range(2):
