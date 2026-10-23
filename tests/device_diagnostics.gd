@@ -8,6 +8,10 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var monitor := MONITOR.new()
+	_check(not MONITOR.is_interruption_frame(0.016), "smooth frame never trips Android resume guard")
+	_check(not MONITOR.is_interruption_frame(0.050), "slow device frame still advances gameplay")
+	_check(not MONITOR.is_interruption_frame(0.400), "regular test frame remains valid")
+	_check(MONITOR.is_interruption_frame(0.9), "suspended-application frame is detected")
 	_check(monitor.snapshot()["frames"] == 0, "empty monitor reports no invented FPS")
 	for i in range(120):
 		monitor.record(1.0 / 60.0)

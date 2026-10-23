@@ -22,6 +22,14 @@ static func mood(mode: int, aim_valid: bool, aim_perfect: bool, dangerous: bool)
 		return 2
 	return 1
 
+# A shrinking landing halo makes flight progress readable on small screens.
+# These numbers affect illustration only, never the landing solver.
+static func landing_halo_radius(pad_radius: float, progress: float) -> float:
+	return maxf(18.0, pad_radius * lerpf(0.92, 0.69, clampf(progress, 0.0, 1.0)))
+
+static func landing_halo_alpha(progress: float) -> float:
+	return lerpf(0.28, 0.72, clampf(progress, 0.0, 1.0))
+
 static func bank_prop_count(quality: int) -> int:
 	# Total across both banks. Still some foreground silhouette at tier zero.
 	return 10 if quality >= 2 else (6 if quality == 1 else 2)

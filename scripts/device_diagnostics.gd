@@ -3,6 +3,13 @@ extends RefCounted
 ## No GPU readback, filesystem access, native calls, or per-frame sorting.
 const MAX_SAMPLES := 240
 const STALL_THRESHOLD_MS := 33.34
+# A suspended Android app can resume without delivering a focus notification.
+# Treat only an exceptionally large *single frame* as an interruption, not
+# normal 30 FPS operation. Gameplay must pause before touching the simulation.
+const INTERRUPTION_SECONDS := 0.55
+
+static func is_interruption_frame(delta: float) -> bool:
+	return delta >= INTERRUPTION_SECONDS
 var samples: PackedFloat32Array = PackedFloat32Array()
 var next_index := 0
 var observed_frames := 0
