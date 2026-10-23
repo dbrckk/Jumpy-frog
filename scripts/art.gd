@@ -103,6 +103,9 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 		if bool(pad.get("biome_fork", false)):
 			_biome_fork_lily(c, screen, float(pad["r"]), time,
 				int(pad.get("fork_biome", 0)), graphics_quality)
+		if int(pad.get("crossroad_choice", 0)) > 0:
+			_crossroad_lily(c, screen, float(pad["r"]), time,
+				int(pad["crossroad_choice"]), int(pad.get("crossroad_biome", 0)), graphics_quality)
 		if bool(pad.get("moving", false)):
 			_moving_lily_cue(c, screen, float(pad["r"]), time, graphics_quality)
 		if bool(pad.get("danger", false)):
@@ -598,6 +601,28 @@ static func _biome_fork_lily(c: CanvasItem, pos: Vector2, radius: float, time: f
 			var angle: float = time * 0.5 + float(i) * TAU / 4.0
 			c.draw_circle(pos + Vector2(cos(angle), sin(angle)) * (radius + 15),
 				2.0, Color(accent.r, accent.g, accent.b, 0.55))
+
+
+# Rare decision with two visibly different options. Center "REST" = safety;
+# alternate "SURGE" = skill/tempo. No interaction or collision changes.
+static func _crossroad_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, choice: int, biome: int, quality: int) -> void:
+	var safe: bool = choice == 1
+	var ink: Color = Color("#a0efcd") if safe else TRIAL_INKS[clampi(biome, 0, 5)]
+	var pulse := sin(time * (2.2 if safe else 4.5)) * 1.7
+	c.draw_arc(pos, radius + 8.0 + pulse, 0.0, TAU,
+		28 if quality == 0 else (38 if quality == 1 else 48), ink,
+		2.6 if safe else 3.5, true)
+	c.draw_circle(pos + Vector2(0, -10), 18.0, Color("#334c57"))
+	c.draw_circle(pos + Vector2(0, -10), 14.0, ink)
+	text(c, "REST" if safe else "SURGE",
+		pos + Vector2(0, -11), 10, Color("#25434a"), true, 38.0)
+	text(c, "SAFE" if safe else "FLOW",
+		pos + Vector2(0, radius * 0.42), 12, Color("#fff9e1"), true, 70.0)
+	if quality >= 2:
+		for i in range(3):
+			var angle: float = time * (0.3 if safe else -0.6) + float(i) * TAU / 3.0
+			c.draw_circle(pos + Vector2(cos(angle), sin(angle)) * (radius + 16.0),
+				2.4, Color(ink.r, ink.g, ink.b, 0.55))
 
 
 static func _danger_lily(c: CanvasItem, pos: Vector2, radius: float, time: float, active: bool, quality: int) -> void:
