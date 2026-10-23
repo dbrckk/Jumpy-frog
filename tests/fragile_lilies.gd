@@ -20,7 +20,7 @@ func _run() -> void:
 
 	var brittle: Dictionary = {}
 	for pad in game.pads:
-		if bool(pad.get("fragile", false)):
+		if bool(pad.get("fragile", false)) and not bool(pad.get("biome_fork", false)):
 			brittle = pad
 			break
 	_expect(not brittle.is_empty(), "golden reeds generates a fragile lily")
