@@ -450,6 +450,13 @@ func _generate_pads() -> void:
 
 func _process(delta: float) -> void:
 	performance_sampler.record(delta, mode in [MODE_PLAY, MODE_AIM, MODE_FLY])
+	# Some Android 15/HyperOS app switches do not emit focus-out promptly.
+	# Freeze an interrupted run before wave, flight or time-trial time moves;
+	# only explicit Resume continues it. This does not touch native audio.
+	if mode in [MODE_PLAY, MODE_AIM, MODE_FLY] and DEVICE_DIAGNOSTICS.is_interruption_frame(delta):
+		_pause_game()
+		queue_redraw()
+		return
 	_update_graphics_quality(delta)
 	# Raw frame delta preserves an honest time trial even when physics caps stalls.
 	if campaign_stage >= 0 and mode in [MODE_PLAY, MODE_AIM, MODE_FLY]:
@@ -629,7 +636,10 @@ func _draw() -> void:
 	var shake := Vector2(sin(clock * 89.0) * shake_strength, sin(clock * 113.0 + 1.1) * shake_strength * 0.6)
 	ART.scene(self, clock, cam_m, pads, at, jump_z, pets, wave_m, mode == MODE_AIM, preview, aim_valid, mode, score, best_score, combo, particles, int(highest_m), muted, selected_skin, leaves, unlocked_skins, SKIN_COSTS, run_leaves, daily, monetization, rewarded_this_run, wardrobe_page, body_tilt, body_squash + JUMP_FEEDBACK.windup(aim_m, player_m) * 0.16 if mode == MODE_AIM else body_squash, stack_sway, blink_amount, landing_impact, pad_impacts, celebration, float_texts, ripples, shake, impact_flash, chapters, campaign_stage, biome_banner, clear_medal, clear_reward, haptics_enabled, android_tones_enabled, graphics_quality, guardian_charge, flight_trail, flow_seconds, fragile_pad_id, fragile_seconds, precision_pulse, run_hops, run_perfects, run_peak_combo, run_friends, run_new_record, RUN_REPORT.grade(run_hops, run_perfects, run_friends, flow_triggers) if mode == MODE_LOST else "", RUN_REPORT.next_weekly_goal(daily) if mode == MODE_LOST else {}, performance_sampler.snapshot() if mode == MODE_DIAGNOSTICS else {}, aim_danger_seconds, festival.progress, festival_banner_seconds, perfect_streak, best_endless_m, distance_banner_mark, distance_banner_seconds, aim_perfect,
 		precision_sprint.snapshot(run_hops + 1), challenge_banner, challenge_banner_seconds, lifetime_challenge_wins, lifetime_best_challenge_streak,
-		chapter_elapsed, clear_new_time_record, chapter_split_seconds, chapter_split_banner_seconds)
+		chapter_elapsed, clear_new_time_record, chapter_split_seconds, chapter_split_banner_seconds,
+		jump_pad_id if mode == MODE_FLY else -1,
+		clampf(jump_elapsed / maxf(jump_duration, 0.01), 0.0, 1.0) if mode == MODE_FLY else 0.0,
+		jump_is_perfect)
 
 func _player_screen() -> Vector2:
 	return Vector2(player_x, PLAYER_ANCHOR - (player_m - cam_m) * PX_PER_M)

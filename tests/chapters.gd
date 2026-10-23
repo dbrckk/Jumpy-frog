@@ -113,6 +113,11 @@ func _run() -> void:
 	game._process(3.0)
 	_test(is_equal_approx(game.chapter_elapsed, frozen_time), "pause freezes race timer")
 	game._resume_game()
+	# A large resume delta must not spoil a PB or kill a real chapter run.
+	game._process(1.2)
+	_test(game.mode == game.MODE_PAUSED, "Android resume stall forces chapter into safe pause")
+	_test(is_equal_approx(game.chapter_elapsed, frozen_time), "background stall excluded from best-time records")
+	game._resume_game()
 	var total_hops := 0
 	while game.mode in [1, 2, 3] and total_hops < 20:
 		var next: Dictionary = {}

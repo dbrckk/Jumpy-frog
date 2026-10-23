@@ -24,6 +24,15 @@ func _exercise() -> void:
 	_check(MOTION.mood(2, false, false, true) == -1, "timed crab warns with a worried face")
 	_check(MOTION.mood(2, true, true, true) == -1, "danger always outranks false celebratory mood")
 	_check(MOTION.mood(1, true, true, true) == 0, "not aiming returns to idle facial pose")
+	_check(is_equal_approx(MOTION.landing_halo_radius(50.0, 0.0), 46.0),
+		"landing halo begins outside the frog target")
+	_check(MOTION.landing_halo_radius(50.0, 1.0) < MOTION.landing_halo_radius(50.0, 0.0),
+		"landing halo contracts smoothly into the approaching lily")
+	_check(is_equal_approx(MOTION.landing_halo_radius(50.0, -1.0), MOTION.landing_halo_radius(50.0, 0.0)),
+		"unusual elapsed time cannot expand beyond opening radius")
+	_check(MOTION.landing_halo_alpha(1.0) > MOTION.landing_halo_alpha(0.0),
+		"approaching landing increases legibility")
+	_check(MOTION.landing_halo_alpha(5.0) <= 0.72, "halo alpha is capped for slow phones")
 	_check(MOTION.bank_prop_count(0) == 2 and MOTION.bank_prop_count(1) == 6 and MOTION.bank_prop_count(2) == 10,
 		"tier zero has just two bank silhouettes; high quality remains bounded")
 	for biome in range(6):

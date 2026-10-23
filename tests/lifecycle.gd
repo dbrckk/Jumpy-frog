@@ -49,6 +49,18 @@ func _test() -> void:
 	_check(game.mode == 5 and game.resume_mode == 1, "grounded game pauses on app focus loss")
 	game._resume_game()
 	_check(game.mode == 1, "grounded game resumes normally")
+	# HyperOS may omit FOCUS_OUT entirely. An exceptional process delta
+	# should produce a resumable pause instead of advancing a lethal wave.
+	var protected_m: float = game.player_m
+	var protected_wave: float = game.wave_m
+	var protected_clock: float = game.clock
+	game._process(2.5)
+	_check(game.mode == game.MODE_PAUSED and game.resume_mode == game.MODE_PLAY,
+		"unannounced 2.5s Android interruption safely pauses the run")
+	_check(game.player_m == protected_m and game.wave_m == protected_wave and game.clock == protected_clock,
+		"interruption never advances physics, river or pursuer")
+	game._resume_game()
+	_check(game.mode == game.MODE_PLAY, "manual resume restores grounded game after huge frame")
 	game._notification(NOTIFICATION_APPLICATION_PAUSED)
 	_check(game.mode == 5, "second pause remains safe")
 	game._reset_game()

@@ -55,7 +55,7 @@ static func text(c: CanvasItem, value: String, center: Vector2, size: int, color
 	c.draw_string(font, origin, value, HORIZONTAL_ALIGNMENT_LEFT, -1, actual_size, color)
 
 
-static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0, perfect_streak: int = 0, best_endless_m: int = 0, distance_banner_mark: int = 0, distance_banner_seconds: float = 0.0, aim_perfect: bool = false, sprint_state: Dictionary = {}, challenge_banner: Dictionary = {}, challenge_banner_seconds: float = 0.0, lifetime_challenge_wins: Array = [], lifetime_best_challenge_streak: int = 0, chapter_elapsed: float = 0.0, chapter_new_time_record: bool = false, chapter_split_seconds: float = 0.0, chapter_split_banner_seconds: float = 0.0) -> void:
+static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at: Vector2, jump_z: float, pets: int, wave_m: float, aiming: bool, aim_at: Vector2, aim_valid: bool, mode: int, score: int, best: int, combo: int, particles: Array, distance: int, muted: bool, skin: int, leaves: int, unlocked: int, prices: Array, run_leaves: int, daily: RefCounted, monetization: Node, rewarded_this_run: bool, wardrobe_page: int, tilt: float, squash: float, sway: float, blink: float, impact: float, pad_impacts: Dictionary, celebration: float, float_texts: Array, ripples: Array, shake: Vector2, flash: float, chapters: RefCounted, campaign_stage: int, biome_banner: float, clear_medal: int, clear_reward: int, haptics_enabled: bool, android_tones_enabled: bool, graphics_quality: int = 2, guardian_charge: bool = false, flight_trail: Array = [], flow_seconds: float = 0.0, fragile_pad_id: int = -1, fragile_seconds: float = 0.0, precision_pulse: float = 0.0, run_hops: int = 0, run_perfects: int = 0, run_peak_combo: int = 0, run_friends: int = 0, run_new_record: bool = false, run_grade: String = "", next_weekly: Dictionary = {}, performance_stats: Dictionary = {}, aim_danger_seconds: float = 0.0, festival_progress: int = 0, festival_banner_seconds: float = 0.0, perfect_streak: int = 0, best_endless_m: int = 0, distance_banner_mark: int = 0, distance_banner_seconds: float = 0.0, aim_perfect: bool = false, sprint_state: Dictionary = {}, challenge_banner: Dictionary = {}, challenge_banner_seconds: float = 0.0, lifetime_challenge_wins: Array = [], lifetime_best_challenge_streak: int = 0, chapter_elapsed: float = 0.0, chapter_new_time_record: bool = false, chapter_split_seconds: float = 0.0, chapter_split_banner_seconds: float = 0.0, flight_target_id: int = -1, flight_phase: float = 0.0, flight_perfect: bool = false) -> void:
 	var biome: int = chapters.biome_at(cam, campaign_stage)
 	# Shake is applied only to the illustrated world; HUD remains legible.
 	c.draw_set_transform(shake)
@@ -99,6 +99,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 			_coin(c, screen + Vector2(11, -25 + sin(time * 3.0 + float(pad["id"])) * 3), time)
 		if bool(pad["pet"]):
 			_friend(c, screen + Vector2(0, -18), int(pad["id"]) % 4, 0.82, time)
+		if mode == 3 and int(pad["id"]) == flight_target_id:
+			_flight_landing_halo(c, screen, float(pad["r"]), flight_phase, flight_perfect, graphics_quality)
 	for ripple in ripples:
 		var age: float = float(ripple["age"])
 		var pos: Vector2 = Vector2(ripple["pos"]) + shake
@@ -167,7 +169,8 @@ static func scene(c: CanvasItem, time: float, cam: float, pads: Array, player_at
 	if mode in [1, 2, 3]:
 		_streak_progress(c, perfect_streak, flow_seconds)
 	if campaign_stage >= 0 and chapter_split_banner_seconds > 0.0 and mode in [1, 2, 3]:
-		_chapter_split_banner(c, chapter_split_seconds, int(chapters.best_splits_ms[campaign_stage]))
+		_chapter_split_banner(c, chapter_split_seconds, int(chapters.best_splits_ms[campaign_stage]),
+			310.0 if fragile_pad_id >= 0 else 245.0)
 	if mode == 0:
 		_start_overlay(c, time, leaves, skin, daily, monetization, chapters, best_endless_m)
 	if mode == 4:
@@ -1025,16 +1028,29 @@ static func _aim_guide(c: CanvasItem, from: Vector2, target: Vector2, t: float, 
 		rr(c, Rect2(target.x - 50, target.y - 70, 100, 28), 11, CREAM, accent, 1.5)
 		text(c, "SPLASH!", target + Vector2(0, -56), 14, accent)
 
-static func _chapter_split_banner(c: CanvasItem, elapsed: float, best_ms: int) -> void:
+static func _flight_landing_halo(c: CanvasItem, at: Vector2, pad_radius: float, phase: float, perfect: bool, quality: int) -> void:
+	# The ring follows the *actual* moving platform, not a stale takeoff X.
+	# It stays thin enough to leave Guardian/fragile/danger icons visible.
+	var progress := clampf(phase, 0.0, 1.0)
+	var radius := VISUAL_MOTION.landing_halo_radius(pad_radius, progress)
+	var ink := Color("#ffe5a2") if perfect else Color("#d7fff0")
+	ink.a = VISUAL_MOTION.landing_halo_alpha(progress)
+	c.draw_arc(at, radius, 0.0, TAU, 22 if quality == 0 else (34 if quality == 1 else 46), ink, 2.2 + progress * 1.1, true)
+	if quality > 0:
+		for quadrant in range(4):
+			var angle := float(quadrant) * TAU / 4.0 - 0.20
+			c.draw_arc(at, radius + 7.0, angle, angle + 0.40, 8, ink, 2.3, true)
+
+static func _chapter_split_banner(c: CanvasItem, elapsed: float, best_ms: int, y: float = 245.0) -> void:
 	# A checkpoint is informational only: no currency or forced time pressure.
-	rr(c, Rect2(106, 245, 328, 66), 22, Color("#f8f0d9"), Color("#78a89b"), 2.1)
-	text(c, "HALFWAY  " + ("%s" % [int(round(elapsed * 10.0)) / 10.0]) + " s", Vector2(270, 264), 18, Color("#4a716b"))
+	rr(c, Rect2(106, y, 328, 66), 22, Color("#f8f0d9"), Color("#78a89b"), 2.1)
+	text(c, "HALFWAY  %.1f s" % elapsed, Vector2(270, y + 19.0), 18, Color("#4a716b"))
 	var subtitle: String = "FINISH TO SET A SPLIT RECORD"
 	if best_ms > 0:
 		var pace: float = elapsed * 1000.0 - float(best_ms)
 		var signed: String = "-" if pace < 0.0 else "+"
 		subtitle = "SPLIT %s%.1f s VS BEST" % [signed, absf(pace) / 1000.0]
-	text(c, subtitle, Vector2(270, 289), 14, Color("#52655b"), true, 296.0)
+	text(c, subtitle, Vector2(270, y + 44.0), 14, Color("#52655b"), true, 296.0)
 
 static func _hud(c: CanvasItem, score: int, best: int, pets: int, distance: int, wave_m: float, cam: float, combo: int, mode: int, chapters: RefCounted, campaign_stage: int, biome: int, biome_banner: float, chapter_elapsed: float = 0.0) -> void:
 	rr(c, Rect2(14, 17, 101, 35), 17, CREAM, Color("#8c806e"), 1.6)
