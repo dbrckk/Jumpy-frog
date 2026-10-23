@@ -161,9 +161,14 @@ func _check_all() -> void:
 	game._die()
 	_expect(game.mode == 4, "run ends at visible score screen")
 	_expect(test_ads.shown == ads_before, "no automatic interruption when score appears")
+	var previous_attempts: int = game.total_runs
+	game._down(Vector2(270, 639)) # Between RESTART and rewarded ad controls.
+	_expect(game.mode == game.MODE_LOST and game.total_runs == previous_attempts,
+		"tapping results summary never restarts an endless run")
 	game._down(Vector2(175, 593))
 	_expect(test_ads.shown == ads_before + 1, "ad only requested on voluntary retry")
-	_expect(game.mode == 2, "retry preserves existing touch-to-aim behavior")
+	_expect(game.mode == game.MODE_PLAY,
+		"retry starts controllable gameplay without consuming its press as an aim gesture")
 	# Emulate ONLY the trusted monetization->game signal handler. A delayed
 	# native reward callback must survive a navigation away from the score.
 	var wallet_before: int = game.leaves

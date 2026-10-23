@@ -147,12 +147,34 @@ func _run() -> void:
 	_test(int(game.chapters.best_times_ms[0]) == roundi(game.chapter_elapsed * 1000.0), "PB uses the actual finish duration")
 	_test(game.best_score >= game.score, "chapter victories update personal best")
 	var hard_earned: int = game.leaves
-	game._down(Vector2(375, 667))
-	_test(game.mode == 0, "victory HOME button exits to title")
-	_test(game.leaves == hard_earned, "leaves survive returning home")
+	var first_pb: int = int(game.chapters.best_times_ms[0])
+	game._down(Vector2(270, 608))
+	_test(game.mode == game.MODE_CLEAR, "victory timing stats are not hidden interactive buttons")
+	game._down(Vector2(124, 663))
+	_test(game.mode == game.MODE_PLAY and game.campaign_stage == 0,
+		"REPLAY restarts same chapter in one tap")
+	_test(game.chapter_elapsed == 0.0 and game.chapters.attempts[0] == 2,
+		"rematch resets timer and counts legitimate new attempt")
+	_test(game.leaves == hard_earned and int(game.chapters.best_times_ms[0]) == first_pb,
+		"replaying cannot erase records or duplicate medal prizes")
+	game.mode = game.MODE_CLEAR # Navigation-only simulation; medals were earned above.
+	game._down(Vector2(270, 663))
+	_test(game.campaign_stage == 1 and game.mode == game.MODE_PLAY,
+		"NEXT chapter action is independent of REPLAY")
+	_test(game.sound.biome_id == 1, "NEXT changes chapter sound palette")
+	game.mode = game.MODE_CLEAR
+	game._down(Vector2(416, 663))
+	_test(game.mode == game.MODE_TITLE and game.leaves == hard_earned,
+		"victory HOME button preserves progress")
 	game._down(Vector2(270, 581))
 	game._down(Vector2(360, 375))
 	_test(game.campaign_stage == 1 and game.mode == 1, "second chapter opens after unlock")
+	game.chapters.unlocked_count = 6
+	game._start_chapter(5)
+	game.mode = game.MODE_CLEAR
+	game._down(Vector2(270, 663))
+	_test(game.mode == game.MODE_CHAPTERS,
+		"final chapter offers CHAPTERS gallery instead of duplicate HOME")
 	_test(game.sound.biome_id == 1, "chapter switches sound palette")
 	var cfg := ConfigFile.new()
 	_test(cfg.load("user://jumpy_frog.cfg") == OK, "chapter progress stored locally")
