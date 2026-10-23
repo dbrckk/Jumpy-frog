@@ -114,26 +114,12 @@ func _check_all() -> void:
 	_expect(monet._reward_pending, "accepted rewarded ad marks reward pending")
 	monet._on_reward_failed()
 	_expect(not monet._reward_pending, "dismissed rewarded ad clears pending flag")
-	monet.elapsed = 100.0
-	monet.completed_runs = 3
-	monet.runs_since_ad = 3
-	_expect(not monet.request_break_interstitial(), "no interstitial in first three runs")
-	monet.completed_runs = 4
-	monet.runs_since_ad = 4
-	_expect(not monet.request_break_interstitial(), "no interstitial before 6 minutes")
-	monet.elapsed = 361.0
-	_expect(monet.request_break_interstitial(), "natural break eligible after four runs and 6 minutes")
-	_expect(test_ads.shown == 1, "one interstitial requested from real-provider abstraction")
-	_expect(not monet.request_break_interstitial(), "cooldown prevents consecutive interstitials")
-	# If the provider refuses an impression, the cadence must not be consumed.
-	monet.last_interstitial = 0.0
-	monet.runs_since_ad = 4
-	monet.elapsed = 1300.0
-	test_ads.allow_show = false
-	_expect(not monet.request_break_interstitial(), "provider refusal cannot count as a shown ad")
-	_expect(monet.runs_since_ad == 4 and monet.last_interstitial == 0.0, "provider refusal preserves ad cadence")
-	test_ads.allow_show = true
-	_expect(monet.request_break_interstitial(), "later eligible ad can be shown normally")
+	# No unsolicited ads, regardless of elapsed time or completed runs.
+	monet.elapsed = 999999.0
+	monet.completed_runs = 999
+	monet.runs_since_ad = 999
+	_expect(not monet.request_break_interstitial(), "free tier never runs automatic interstitial ads")
+	_expect(test_ads.shown == 0, "even an available provider cannot display a forced ad")
 
 	var earned := [0]
 	monet.rewarded_leaves_granted.connect(func(amount: int) -> void: earned[0] += amount)
@@ -166,7 +152,7 @@ func _check_all() -> void:
 	_expect(game.mode == game.MODE_LOST and game.total_runs == previous_attempts,
 		"tapping results summary never restarts an endless run")
 	game._down(Vector2(175, 593))
-	_expect(test_ads.shown == ads_before + 1, "ad only requested on voluntary retry")
+	_expect(test_ads.shown == ads_before, "retry must never request an automatic ad")
 	_expect(game.mode == game.MODE_PLAY,
 		"retry starts controllable gameplay without consuming its press as an aim gesture")
 	# Emulate ONLY the trusted monetization->game signal handler. A delayed
@@ -174,6 +160,7 @@ func _check_all() -> void:
 	var wallet_before: int = game.leaves
 	game._on_rewarded_leaves(5)
 	_expect(game.leaves == wallet_before + 5, "verified reward survives result-screen navigation")
+	_expect(game.rewarded_shield_queued, "verified rewarded video queues a next-run shield")
 	var wallet_saved := ConfigFile.new()
 	_expect(wallet_saved.load("user://jumpy_frog.cfg") == OK, "delayed reward saved immediately")
 	_expect(int(wallet_saved.get_value("progress", "leaves", -1)) == game.leaves, "wallet persistence after late reward")
@@ -182,6 +169,7 @@ func _check_all() -> void:
 	game._on_rewarded_leaves(5)
 	_expect(game.rewarded_this_run, "result-screen native reward is marked claimed")
 	_expect(game.leaves == wallet_before + 10, "result-screen callback grants one reward")
+	_expect(game.rewarded_shield_queued, "earned shield survives result-screen callback")
 	game._on_rewarded_leaves(5)
 	_expect(game.leaves == wallet_before + 10, "duplicate result-screen callback cannot grant twice")
 	game.monetization.ads = null

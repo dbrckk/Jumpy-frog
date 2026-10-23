@@ -104,3 +104,15 @@ See [final 1.3.0 checklist](final-1.3.md) and [monetization manual](monetization
 - [ ] Verify the pause-screen haptic toggle works, and Android VIBRATE permission is present.
 - [ ] Compare framerate across all six themed river environments.
 - [ ] Confirm music is correctly available on desktop only; Android sound is not advertised as restored.
+
+
+## v1.4 River Pass release gates (23 October 2026)
+
+- In Play Console keep the **existing** non-consumable `remove_ads` rather than publishing a second product; use a River Pass title and description matching the lifetime Guardian + 12m wave head start + ad-free status.
+- Set the France one-time product price **€2.00** through the Play Console price editor. Do not promise €2 worldwide: local prices/currencies and taxes are controlled by Google Play.
+- All Android installable test packages and real-money flows must be tested with Play license testers/internal track and **test ad units** until an approved live configuration exists.
+- A single voluntary rewarded video gives **5 leaves + one Guardian on the next actual run**, on the native earned callback only; never claim a guaranteed ad duration. No interstitial auto-inventory or forced popups are used.
+- Import/install `org.dbrckk.jumpyfrog` from Play internal testing and verify purchase, restore after reinstall, refund/revoke behavior, and ad consent denied; none of these can be certified by desktop CI alone.
+- Upload signed RELEASE AAB using `.github/workflows/play-release.yml` after adding all publisher and keystore secrets, and verify Google Play's API 36 / 16-KiB/ signing checks. **Do not use disposable CI QA signing credentials for production.**
+- Update the French/English store listing and public privacy policy to describe optional Google rewarded advertising, ads/device data from its SDK, the lifetime IAP and no login. Verify developer contact/website, content rating, data safety, advertising declaration and age targeting in Play Console.
+- Conduct a real Redmi Android 15 soak test (including a rewarded full-screen video, Billing, switching apps, screen-off/resume and ≥20 jumps). CI is not a substitute for this sign-off.

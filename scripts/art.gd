@@ -1311,11 +1311,13 @@ static func _start_overlay(c: CanvasItem, time: float, leaves: int, skin: int, d
 	if best_endless_m > 0:
 		text(c, "BEST ENDLESS   %d m" % best_endless_m, Vector2(270, 382), 16, Color("#f8f1ce"), true, 360.0)
 	if monetization.premium:
-		text(c, "AD-FREE FOREVER", Vector2(270, 416), 20, Color("#5a9462"))
+		text(c, "RIVER PASS ACTIVE", Vector2(270, 415), 20, Color("#5a9462"))
+		text(c, "SHIELD EVERY RUN • WAVE +12m", Vector2(270, 450), 14, Color("#f7f0d3"), true, 270.0)
 	elif monetization.purchase_ready:
 		rr(c, Rect2(139, 403, 262, 58), 23, Color("#f3dfba"), Color("#a88e68"), 2)
-		var label: String = "REMOVE ADS " + (monetization.price_label if not monetization.price_label.is_empty() else "• PLAY STORE")
-		text(c, label, Vector2(270, 429), 18, Color("#755d4f"))
+		var label: String = "RIVER PASS " + (monetization.price_label if not monetization.price_label.is_empty() else "• PLAY STORE")
+		text(c, label, Vector2(270, 422), 17, Color("#755d4f"), false, 242.0)
+		text(c, "LIFETIME SHIELD + WAVE +12m", Vector2(270, 445), 12, Color("#755d4f"), false, 242.0)
 	rr(c, Rect2(139, 549, 262, 67), 23, Color("#f2d79d"), Color("#92734d"), 2.1)
 	text(c, "CHAPTERS  %d / 6" % chapters.completed_count(), Vector2(270, 579), 22, Color("#60533f"), false, 238.0)
 	rr(c, Rect2(62, 470, 197, 62), 22, Color("#8fbc94"), Color("#658b75"), 2)
@@ -1379,9 +1381,10 @@ static func _lost_overlay(c: CanvasItem, score: int, best: int, run_leaves: int,
 	text(c, "HOME", Vector2(382, 593), 24, INK)
 	if not rewarded_this_run and monetization.can_watch_rewarded():
 		rr(c, Rect2(80, 651, 390, 62), 23, Color("#d9e6ad"), Color("#7f9a64"), 2)
-		text(c, "WATCH AD  •  +5 LEAVES", Vector2(275, 680), 21, Color("#56634c"))
+		text(c, "WATCH OPTIONAL VIDEO", Vector2(275, 669), 19, Color("#56634c"))
+		text(c, "+5 LEAVES + NEXT-RUN SHIELD", Vector2(275, 696), 15, Color("#56634c"))
 	elif rewarded_this_run:
-		text(c, "BONUS CLAIMED", Vector2(270, 664), 17, Color("#548463"))
+		text(c, "VIDEO REWARD CLAIMED", Vector2(270, 680), 17, Color("#548463"))
 
 
 static func _pause_overlay(c: CanvasItem, muted: bool, monetization: Node, haptics_enabled: bool, android_tones_enabled: bool) -> void:
@@ -1402,10 +1405,13 @@ static func _pause_overlay(c: CanvasItem, muted: bool, monetization: Node, hapti
 	else:
 		rr(c, Rect2(108, 544, 324, 66), 27, Color("#eee0c2"), Color("#92836d"), 2)
 		text(c, "SOUND: OFF" if muted else "SOUND: ON", Vector2(270, 577), 22, INK)
-	if monetization.purchase_ready and not monetization.premium:
+	if monetization.premium:
+		text(c, "RIVER PASS: LIFETIME SHIELD +12m", Vector2(270, 670), 15, Color("#5a9462"), false, 313.0)
+	elif monetization.purchase_ready:
 		rr(c, Rect2(108, 633, 324, 62), 22, Color("#eed8ad"), Color("#a48a68"), 2)
-		var label: String = "NO ADS " + (monetization.price_label if not monetization.price_label.is_empty() else "• PLAY")
-		text(c, label, Vector2(270, 662), 21, INK)
+		var label: String = "RIVER PASS " + (monetization.price_label if not monetization.price_label.is_empty() else "• PLAY")
+		text(c, label, Vector2(270, 649), 18, INK)
+		text(c, "SHIELD EVERY RUN +12m • LIFETIME", Vector2(270, 678), 13, INK)
 	if monetization.ads != null:
 		rr(c, Rect2(108, 704, 324, 56), 22, Color("#e8e1d7"), Color("#968b80"), 1.5)
 		text(c, "PRIVACY OPTIONS", Vector2(270, 731), 18, INK)

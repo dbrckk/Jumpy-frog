@@ -23,8 +23,9 @@ In Jumpy Frog, every leap counts. Pull back, aim, and release to hop between lil
 - Precision-landing streaks and water-current boost pads
 - Animated lily pads, ripples, splashes and colorful scenery
 - Daily goals, a same-route 180-meter Daily River challenge, earned leaf rewards, persistent streaks and local best scores
-- Optional rewarded ads and occasional ads between games
-- One-time Google Play purchase to remove ads permanently
+- Fully optional rewarded videos: earn leaves and a next-run safety shield
+- No forced videos or disruptive interstitials
+- Optional River Pass: a one-time purchase for a Guardian every run and 12m extra distance from the wave
 - No accounts required
 
 How far can you hop before the river catches you?
@@ -48,8 +49,8 @@ Dans Jumpy Frog, chaque bond compte : fais glisser ton doigt pour viser, relâch
 - Bonus pour les sauts précis et nénuphars qui repoussent la vague
 - Décors illustrés, nénuphars animés, remous et éclaboussures
 - Objectifs quotidiens, défi Rivière du jour de 180 mètres, récompenses et séries de jours
-- Publicités occasionnelles entre deux parties et vidéos récompensées facultatives
-- Achat unique de 2 € via Google Play pour supprimer définitivement les publicités
+- Aucune publicité imposée. Vidéo récompensée uniquement sur demande : 5 feuilles et une protection pour la prochaine partie
+- River Pass (achat unique) : une protection à chaque partie et 12 m d'avance sur la vague
 - Progression locale et aucun compte nécessaire
 
 Jusqu'où réussiras-tu à sauter ?

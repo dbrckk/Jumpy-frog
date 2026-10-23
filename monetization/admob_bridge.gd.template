@@ -89,7 +89,7 @@ func _initialize_ads() -> void:
 	if not _sdk_initialized:
 		MobileAds.initialize()
 		_sdk_initialized = true
-	_load_interstitial()
+	# No interstitial preload: all advertisements are rewarded, opt-in only.
 	_load_rewarded()
 
 func _load_interstitial() -> void:

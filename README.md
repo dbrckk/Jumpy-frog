@@ -1,4 +1,4 @@
-# Jumpy Frog 1.3 — River Hop
+# Jumpy Frog 1.4 — River Hop
 
 A portrait arcade game for Android, built with Godot 4.5.1. Inspired by the genre of one-finger river-hopping games; all characters and illustrations are original. No third-party assets are redistributed.
 
@@ -8,7 +8,15 @@ Hold and drag **down** to aim a forward jump; drag left/right to steer, then rel
 
 A persistent progression system lets you earn leaves and unlock eight character color styles in the **Customize** screen. **Daily missions** refresh each UTC day, awarding bonus leaves for eight hops, four leaves, or reaching 80 meters. A play streak and lifetime statistics persist across sessions. Scores, unlocked styles, currency and preferences are saved locally.
 
-The default/debug build runs entirely offline with no ads. The **optional monetized Google Play build** integrates real Google AdMob/UMP advertising plus Google Play Billing for a permanent one-time remove-ads purchase; it requires real publisher credentials, consent configuration and a signed Gradle AAB.
+The default/debug build runs entirely offline with no ads. The **optional monetized Google Play build** integrates explicit voluntary Google AdMob/UMP rewarded videos and Google Play Billing for the lifetime **River Pass** (Guardian every run, 12m wave head start, no forced ads). It requires real publisher credentials, consent configuration and a signed Gradle AAB.
+
+## Play Store v1.4 freemium (opt-in only)
+
+Free: full Endless, six campaigns, daily missions and collectible cosmetics. **No automatic interstitials**, including retries or game-over screens. On a result screen, an explicitly tapped AdMob rewarded video, if inventory and consent allow, grants **5 leaves** and queues **one Guardian shield for the next started run**; credits occur only on Google's earned-reward callback. The ad network decides the actual video length.
+
+**River Pass**: one non-consumable Google Play product, existing ID `remove_ads`, intended **€2.00 in France** and priced through Play Console. All existing `remove_ads` owners receive the upgrade automatically. Verified ownership grants **one Guardian shield at the start of every run** and a **12-metre head start against the pursuing wave**, permanently while the purchase is owned; no advertisements are required. Free gameplay remains fully available. Google Play price, currency and tax display are authoritative.
+
+The pending one-run reward persists across app restarts; title resets cannot spend it. Android release builds must use API 36 and Google Play upload signing. See [docs/monetization.md](docs/monetization.md).
 
 ## 15-pillar game-feel and performance pass
 

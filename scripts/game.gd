@@ -113,6 +113,8 @@ var last_biome := 0
 var biome_banner := 0.0
 var monetization: Node
 var rewarded_this_run := false
+# One earned rewarded video equips one Guardian on the next legitimately started run.
+var rewarded_shield_queued := false
 var run_hops := 0
 var run_perfects := 0
 var run_peak_combo := 0
@@ -185,6 +187,7 @@ func _ready() -> void:
 	monetization = MONETIZATION.new()
 	add_child(monetization)
 	monetization.rewarded_leaves_granted.connect(_on_rewarded_leaves)
+	monetization.premium_changed.connect(func(_enabled: bool) -> void: queue_redraw())
 	var save := ConfigFile.new()
 	if SAVE_STORE.read_into(save) == OK:
 		best_score = int(save.get_value("progress", "best_score", 0))
@@ -197,6 +200,7 @@ func _ready() -> void:
 		if not _is_unlocked(selected_skin):
 			selected_skin = 0
 		total_runs = maxi(0, int(save.get_value("progress", "total_runs", 0)))
+		rewarded_shield_queued = bool(save.get_value("progress", "rewarded_shield_queued", false))
 		best_run_perfects = maxi(0, int(save.get_value("records", "perfects", 0)))
 		best_run_combo = maxi(0, int(save.get_value("records", "combo", 0)))
 		best_run_friends = maxi(0, int(save.get_value("records", "friends", 0)))
@@ -351,6 +355,18 @@ func _reset_game() -> void:
 	previous_x = player_x
 	pads.append({"id":0, "x":270.0, "m":0.0, "r":55.0, "kind":0, "coin":false, "pet":false})
 	_generate_pads()
+
+# Only a real launch consumes an earned one-run Guardian. Title/menu resets
+# cannot erase the rewarded entitlement before the next actual game begins.
+# A Play-owned River Pass gives one Guardian EVERY run and a 12-metre wave
+# head start. Both are gameplay perks, not score multipliers or paid currency.
+func _activate_run_benefits() -> void:
+	guardian_charge = monetization.premium or rewarded_shield_queued
+	if monetization.premium:
+		wave_m = minf(wave_m, -44.0)
+	if rewarded_shield_queued:
+		rewarded_shield_queued = false
+
 
 func _generate_pads() -> void:
 	# Dedicated PRNG for campaign: drawing/restarts cannot shift unrevealed pads.
@@ -862,15 +878,11 @@ func _down(pos: Vector2) -> void:
 			monetization.request_rewarded_leaves()
 			return
 		if Rect2(293, 565, 182, 65).has_point(pos):
-			if not rewarded_this_run:
-				monetization.request_break_interstitial()
 			_reset_game()
 			return
 		if not Rect2(70, 565, 213, 65).has_point(pos):
 			return
-		# Retry is a deliberate button tap, never an accidental drag release.
-		if not rewarded_this_run:
-			monetization.request_break_interstitial()
+		# Retry never calls an advertisement: only the reward button does.
 		var retry_chapter := campaign_stage
 		if retry_chapter == -2:
 			_start_daily_river()
@@ -880,6 +892,7 @@ func _down(pos: Vector2) -> void:
 			return
 		_reset_game()
 		mode = MODE_PLAY
+		_activate_run_benefits()
 		total_runs += 1
 		daily.begin_run()
 		_save_progress()
@@ -901,6 +914,7 @@ func _down(pos: Vector2) -> void:
 			mode = MODE_WARDROBE
 			return
 		mode = MODE_PLAY
+		_activate_run_benefits()
 		total_runs += 1
 		daily.begin_run()
 		_save_progress()
@@ -927,6 +941,7 @@ func _start_daily_river() -> void:
 	next_pad_id = 1
 	_generate_pads()
 	mode = MODE_PLAY
+	_activate_run_benefits()
 	total_runs += 1
 	daily.begin_run()
 	biome_banner = 2.2
@@ -973,6 +988,7 @@ func _start_chapter(index: int) -> void:
 	last_pad_x = 270.0
 	next_pad_id = 1
 	_generate_pads()
+	_activate_run_benefits()
 	_save_progress()
 	queue_redraw()
 
@@ -1436,6 +1452,9 @@ func _on_rewarded_leaves(amount: int) -> void:
 	if mode == MODE_LOST and rewarded_this_run:
 		return
 	leaves += amount
+	# A native, verified rewarded callback also queues a single-use shield.
+	# If the player navigated away during the ad, it still survives restart.
+	rewarded_shield_queued = true
 	if mode == MODE_LOST:
 		rewarded_this_run = true
 		run_leaves += amount
@@ -1453,6 +1472,7 @@ func _save_progress() -> void:
 	save.set_value("progress", "android_system_tones", android_tones_enabled)
 	save.set_value("progress", "haptics", haptics_enabled)
 	save.set_value("progress", "leaves", leaves)
+	save.set_value("progress", "rewarded_shield_queued", rewarded_shield_queued)
 	save.set_value("progress", "unlocked_skins", unlocked_skins)
 	save.set_value("progress", "selected_skin", selected_skin)
 	save.set_value("progress", "total_runs", total_runs)

@@ -2,13 +2,14 @@
 
 This is a production implementation, not a local ad simulator. The ordinary offline/debug build remains ad-free without ad SDKs. **Revenue requires a monetized Gradle Android build, registered Google services and actual app-store distribution.**
 
-## Business model
+## Business model (Play v1.4)
 
-- The game remains fully playable for free.
-- Optional rewarded video: **+5 leaves**, available only after the Google SDK confirms the ad's earned-reward event. The offer is shown only after a game ends.
-- Interstitial advertisements: **never mid-jump, never on first launch, never on pause**. Eligible only after the score screen has appeared, at least **4 completed runs**, **4 runs since the previous interstitial** and **6 minutes since the session started / last ad**. Missing ads and no consent never delay gameplay.
-- Non-consumable Google Play purchase **`remove_ads`**: intended price **€2.00** in France, configured in Play Console, not hardcoded. Removes all ads forever for that Google Play account; restore is automatic on connection and available manually.
-- One single premium SKU; no consumable currency IAPs, subscriptions, gambling, pay-to-win or energy timer.
+- The game remains playable for free: all chapters, Endless and Daily River are available without payments or ads.
+- **No automatic advertisements.** Interstitial display/preload is disabled. Retry, Home, pause, and losing never open an ad.
+- **Explicit voluntary rewarded video:** at the results screen, only a deliberate tap on `WATCH OPTIONAL VIDEO` invokes the native AdMob rewarded unit. The `OnUserEarnedRewardListener` confirms completion; only then does the game grant **+5 leaves** and **one Guardian protection on the next actual run**. Closing the ad prematurely or lacking inventory/consent pays nothing; earned boosts persist in the save if the player leaves the results screen.
+- **Lifetime River Pass (existing Google Play non-consumable SKU `remove_ads`):** intended price **€2.00 in France**, configured in Play Console; the displayed price must come from Play Billing, never a hardcoded promise. Existing owners get the additional benefits automatically: **one Guardian rescue on every new run** and **12 metres extra lead over the wave** every run. It also removes any ads. Product ownership is restored via Billing, acknowledged, and revoked on an authoritative refund query; the premium perk is not fabricated from a click.
+- Google/AdMob determines video length, creative type, and whether reward inventory is available. Do not advertise a guaranteed video duration.
+- **No subscription, paywall for mandatory progression, purchase of leaves, or real-world gambling.** Records remain playable for all, though paid runs have a disclosed survival advantage.
 
 ## Pinned and verified components
 
@@ -20,13 +21,13 @@ This is a production implementation, not a local ad simulator. The ordinary offl
 ## Required actions outside GitHub
 
 1. Register Jumpy Frog in **Google Play Console** with package `org.dbrckk.jumpyfrog`, complete developer identity and set up Play App Signing.
-2. Under **Monetize → Products → In-app products**, create and activate product ID **`remove_ads`**, **one-time purchase, non-consumable**, priced at **€2.00 for France**. Local pricing and taxes are decided/displayed by Google Play; a purchase in another territory may have another currency/price.
+2. Under **Monetize → Products → In-app products**, create and activate the existing product ID **`remove_ads`**, **one-time purchase, non-consumable**, priced at **€2.00 for France**, with a title/description reflecting the **lifetime River Pass (Guardian on every run + 12m wave head start + ad-free)**; retain the same SKU to honor former purchasers. Local pricing and taxes are decided/displayed by Google Play; a purchase in another territory may have another currency/price.
 3. Register the app in [Google AdMob](https://admob.google.com/), create one **Interstitial** ad unit and one **Rewarded** ad unit, complete the **Privacy & messaging / GDPR UMP** configuration, and configure the required consent message and ad technology partners. Do not run live ads before completing privacy disclosure/consent setup.
 4. For advertising EU users, confirm CMP/Google policy compatibility and the public [privacy policy](privacy-policy.md); populate the Play Console **Data safety** declarations for Google Mobile Ads and Play Billing. The old 'no data collected' declaration is **not valid for the monetized version**.
 5. Maintain an **app-ads.txt** file at a verified website domain according to AdMob instructions. Use your real publisher ID; do not copy another publisher's record.
 6. In GitHub **Settings → Secrets and variables → Actions**, add:
     - `ADMOB_APP_ID` = `ca-app-pub-<publisher>~<app>`
-    - `ADMOB_INTERSTITIAL_UNIT_ID` = `ca-app-pub-<publisher>/<interstitial-unit>`
+    - `ADMOB_INTERSTITIAL_UNIT_ID` = `ca-app-pub-<publisher>/<interstitial-unit>` (legacy build-setting, not loaded or displayed; retained for compatibility)
     - `ADMOB_REWARDED_UNIT_ID` = `ca-app-pub-<publisher>/<rewarded-unit>`
     - `PLAY_KEYSTORE_BASE64`, `PLAY_KEY_ALIAS`, `PLAY_KEY_PASSWORD` from the secure signing guide in [release-readiness](release-readiness.md)
 7. Use GitHub Actions **Monetized Android SDK QA** to verify the native Gradle integration with Google's **official test ad unit IDs**. This build is **not a publicly usable paid app**.
@@ -52,9 +53,9 @@ The affected Redmi crashed in the **native Godot OpenSL ES audio callback**. And
 - [ ] AdMob app ID/ad units linked to the right package, UMP consent message active
 - [ ] Data safety declaration and privacy policy linked correctly
 - [ ] Test ads load on an approved device; real ads never used in development
-- [ ] Reward callback grants exactly 5 leaves once and only after a video completion
-- [ ] Four runs/six-minute pacing respected, no ads during gameplay
-- [ ] An internal test purchase unlocks ad-free mode; survives restart and reinstall; refunds/revocations investigated
+- [ ] Reward callback grants exactly 5 leaves and one persisted next-run Guardian, only after the earned callback
+- [ ] No unsolicited advertisements on retries, game-over screens, pause or gameplay
+- [ ] A real Play test purchase restores a per-run Guardian and 12m wave relief, even after reinstall; refunds/revocations investigated
 - [ ] Consent denied/offline: no ads, still fully playable
 - [ ] Signed release AAB targets Android API 36, compatible with 16 KB pages, verified through Play Console
 - [ ] Redmi Android 15 extended soak test after adding the native SDKs
