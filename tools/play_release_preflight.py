@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -66,16 +67,17 @@ encoded_key = os.environ.get("PLAY_KEYSTORE_BASE64", "").strip()
 alias = os.environ.get("PLAY_KEY_ALIAS", "").strip()
 password = os.environ.get("PLAY_KEY_PASSWORD", "")
 
-check("AdMob application ID", bool(re.fullmatch(r"ca-app-pub-(\d{16})~\d+", app)) and
+if "--configuration-only" not in sys.argv:
+    check("AdMob application ID", bool(re.fullmatch(r"ca-app-pub-(\d{16})~\d+", app)) and
       not app.startswith("ca-app-pub-3940256099942544"),
       "Add a REAL ADMOB_APP_ID under GitHub Actions repository secrets.")
-check("Rewarded ad unit", bool(re.fullmatch(r"ca-app-pub-(\d{16})/\d+", rewarded)) and
+    check("Rewarded ad unit", bool(re.fullmatch(r"ca-app-pub-(\d{16})/\d+", rewarded)) and
       not rewarded.startswith("ca-app-pub-3940256099942544") and
       app.split("~", 1)[0] == rewarded.split("/", 1)[0],
       "Add ADMOB_REWARDED_UNIT_ID from the same publisher (not a Google test ID).")
 
 key_ok = False
-if encoded_key and alias and password:
+if "--configuration-only" not in sys.argv and encoded_key and alias and password:
     try:
         key_bytes = base64.b64decode(encoded_key, validate=True)
         if 1000 <= len(key_bytes) <= 32768:
@@ -92,8 +94,9 @@ if encoded_key and alias and password:
                 key_ok = finished.returncode == 0
     except (ValueError, OSError, subprocess.TimeoutExpired):
         key_ok = False
-check("Google Play upload signature", key_ok,
-      "Set PLAY_KEYSTORE_BASE64, PLAY_KEY_ALIAS and PLAY_KEY_PASSWORD for your EXISTING Play upload key.")
+if "--configuration-only" not in sys.argv:
+    check("Google Play upload signature", key_ok,
+          "Set PLAY_KEYSTORE_BASE64, PLAY_KEY_ALIAS and PLAY_KEY_PASSWORD for your EXISTING Play upload key.")
 
 summary = ["# Jumpy Frog 1.4 · Google Play preflight", "",
            "This audits GitHub configuration only. It does not access Play Console or AdMob.",
