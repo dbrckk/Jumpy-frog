@@ -42,6 +42,9 @@ check("Version code", export.count("version/code=6") == 2 and
 check("Google Play target", 'gradle_build/target_sdk="36"' in export and
       'gradle_build/export_format=1' in export,
       "AAB must target API 36 via Gradle.")
+check("Google Play Billing permission", "permissions/custom_permissions=PackedStringArray(\"com.android.vending.BILLING\")" in export.split("[preset.1.options]", 1)[1] and
+      (ROOT / "tools/verify_play_billing_permission.py").is_file(),
+      "Play AAB must explicitly declare com.android.vending.BILLING for one-time products.")
 check("Android 15 crash workaround", 'driver/driver.android="Dummy"' in settings,
       "Do not re-enable Android native audio until the Redmi is stable.")
 check("Rewarded-only advertising", "_load_interstitial()" not in

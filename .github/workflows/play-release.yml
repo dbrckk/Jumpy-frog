@@ -118,6 +118,7 @@ jobs:
           grep -q "PAGE_ALIGNMENT_16K" /tmp/jumpy-bundle-config.txt || { echo "::error::Bundle does not request 16KiB native zip alignment"; exit 1; }
           java -jar /tmp/bundletool.jar dump manifest --bundle=build/JumpyFrog-Play.aab --module=base --xpath=/manifest/uses-sdk/@android:targetSdkVersion | tee /tmp/play-target-sdk.txt
           grep -qx '36' /tmp/play-target-sdk.txt || { echo "::error::The generated AAB does not target Android API 36"; exit 1; }
+          python3 tools/verify_play_billing_permission.py build/JumpyFrog-Play.aab /tmp/bundletool.jar
           sha256sum build/JumpyFrog-Play.aab
           {
             echo "release_version=$(sed -n 's/^version\\/name=\\\"\\(.*\\)\\\"/\\1/p' export_presets.cfg | head -1)"
