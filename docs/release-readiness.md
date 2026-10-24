@@ -126,3 +126,13 @@ See [final 1.3.0 checklist](final-1.3.md) and [monetization manual](monetization
 Use [Google Play readiness preflight](https://github.com/dbrckk/Jumpy-frog/actions/workflows/play-preflight.yml) → **Run workflow** on `main`. The job verifies local Play metadata, active code version and configuration, and the **presence and basic validity** of the five required Actions secrets. It does not read Play Console and never prints private values. Inspect its job summary for outstanding manual setup.
 
 The `remove_ads` product must have an activated permanent **Buy** purchase option; the game selects its `purchase_option_id` from the actual Play Billing 3.3.0 response, not a hardcoded value. Product price is the formatted amount from Google Play. Older buyers continue to own the same product.
+
+## Google Play Console shows “No one-time products / Add BILLING permission”
+
+Play Console will not allow creating the `remove_ads` one-time product until it has processed an uploaded Android app **bundle** or APK that declares `com.android.vending.BILLING`. The **Google Play AAB** export preset explicitly declares the permission; both monetized QA bundles and the signed commercial release fail automated validation unless it is present in the *compiled* manifest. The ordinary offline debug APK deliberately has no Play Billing SDK and cannot unlock the product setup.
+
+1. First, set the two real AdMob IDs and the three production upload-key secrets in GitHub. Reuse the existing upload key if the package already has one registered in Play Console.
+2. Run [Google Play signed monetized AAB](https://github.com/dbrckk/Jumpy-frog/actions/workflows/play-release.yml) on `main`, download artifact `JumpyFrog-GooglePlay-Monetized-signed-AAB` and extract `JumpyFrog-Play.aab`.
+3. In Play Console for the **same package** `org.dbrckk.jumpyfrog`, create a **new internal testing release** and upload the signed `.aab`; complete the track's save/review steps. Do **not** submit a test-only or differently signed APK.
+4. After Play Console processes the app bundle, return to **Monetize → Products → One-time products**, create or activate `remove_ads`, with a **Buy** option and intended French price 2.00 €.
+5. If Play keeps showing the blocker, verify the correct application/package was selected and Play Console accepted the new bundle. Do not add a second app with a different package to work around it.

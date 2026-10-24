@@ -65,3 +65,7 @@ Never claim purchase success, show made-up ad revenue or unlock a paid feature w
 ## Account preflight
 
 Use [Google Play readiness preflight](https://github.com/dbrckk/Jumpy-frog/actions/workflows/play-preflight.yml) on `main` after setting the five secrets. It checks formats, validates a copy of the upload key in ephemeral CI memory and reports a redacted summary. It does **not** access your real Play Console or AdMob accounts, activate products, or publish a release.
+
+## First-time Google Play product setup
+
+If Play Console says “No one-time products — add BILLING permission and upload an APK”, the publisher first needs to submit a **signed production AAB** declaring `com.android.vending.BILLING` in an **internal testing** release. The Gradle merge and resulting AndroidManifest are checked by `tools/verify_play_billing_permission.py`. After the AAB is processed, return to one-time products and activate the existing `remove_ads` ID as a permanent Buy option. **Do not upload the disposable QA/test APK** as an app signing identity.

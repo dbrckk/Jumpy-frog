@@ -135,6 +135,7 @@ jobs:
           grep -q "PAGE_ALIGNMENT_16K" /tmp/jumpy-bundle-config.txt || { echo "::error::Bundle does not request 16KiB native zip alignment"; exit 1; }
           java -jar /tmp/bundletool.jar dump manifest --bundle=build/JumpyFrog-Monetized-QA.aab --module=base --xpath=/manifest/uses-sdk/@android:targetSdkVersion | tee /tmp/target.txt
           grep -qx '36' /tmp/target.txt
+          python3 tools/verify_play_billing_permission.py build/JumpyFrog-Monetized-QA.aab /tmp/bundletool.jar
           test -s addons/GodotGooglePlayBilling/bin/release/GodotGooglePlayBilling-release.aar
           test -s addons/admob/android/bin/ads/libs/poing-godot-admob-ads-release.aar
           sha256sum build/JumpyFrog-Monetized-QA.aab
@@ -159,6 +160,7 @@ jobs:
           java -jar /tmp/bundletool.jar validate --bundle=build/JumpyFrog-RELEASE-TEST-ONLY.aab
           java -jar /tmp/bundletool.jar dump config --bundle=build/JumpyFrog-RELEASE-TEST-ONLY.aab | grep -q 'PAGE_ALIGNMENT_16K'
           java -jar /tmp/bundletool.jar dump manifest --bundle=build/JumpyFrog-RELEASE-TEST-ONLY.aab --module=base --xpath=/manifest/uses-sdk/@android:targetSdkVersion | grep -qx '36'
+          python3 tools/verify_play_billing_permission.py build/JumpyFrog-RELEASE-TEST-ONLY.aab /tmp/bundletool.jar
           echo "PASS: signed release-mode AAB with disposable CI key, API 36 and 16KiB ELF/zip alignment"
       - name: Export installable monetized TEST APK for real Redmi crash testing
         shell: bash
